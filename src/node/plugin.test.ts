@@ -30,9 +30,9 @@ describe('entryCode', () => {
   it('globs the three kinds of file under the folder, from the root', () => {
     const code = entryCode({ root: '/project', prototypesDir: '/project/design/prototypes', css: [] })
 
-    expect(code).toContain("import.meta.glob('/design/prototypes/*/prototype.md', { query: '?raw'")
-    expect(code).toContain("import.meta.glob('/design/prototypes/*/annotations.json'")
-    expect(code).toContain("import.meta.glob('/design/prototypes/*/screens/*.tsx', { eager: true })")
+    expect(code).toContain("import.meta.glob('/design/prototypes/**/prototype.md', { query: '?raw'")
+    expect(code).toContain("import.meta.glob('/design/prototypes/**/annotations.json'")
+    expect(code).toContain("import.meta.glob('/design/prototypes/**/screens/*.tsx', { eager: true })")
     expect(code).toContain('mountViewer({ docs, annotations, screens }, {})')
   })
 
@@ -153,5 +153,14 @@ describe('the dev server', () => {
     ]) {
       expect(code).toContain(`/example/prototypes/patient-booking/${file}`)
     }
+  })
+
+  it('expands the entry to prototypes inside group folders', async () => {
+    const result = await server.transformRequest(ENTRY_URL)
+    const code = result?.code ?? ''
+
+    expect(code).toContain('/example/prototypes/billing/invoice-list/screens/10-invoices.tsx')
+    expect(code).toContain('/example/prototypes/billing/refunds/partial-refund/prototype.md')
+    expect(code).toContain('/example/prototypes/billing/refunds/partial-refund/annotations.json')
   })
 })

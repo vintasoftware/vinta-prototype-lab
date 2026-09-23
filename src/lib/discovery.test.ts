@@ -89,6 +89,66 @@ describe('buildPrototypes', () => {
     expect(prototype?.issues).toEqual(['prototype.md: entry "checkout" is not one of the screens.'])
   })
 
+  it('reads a prototype inside group folders, with the path as its slug', () => {
+    const prototypes = buildPrototypes({
+      docs: {
+        '../../prototypes/booking/prototype.md': '---\ntitle: Booking\n---\n',
+        '../../prototypes/billing/refunds/partial-refund/prototype.md': '---\ntitle: Partial refund\n---\n',
+      },
+      annotations: {
+        '../../prototypes/billing/refunds/partial-refund/annotations.json': {
+          notes: [{ id: 'n1', target: 'amount', title: 'Two decimals', screen: 'review' }],
+        },
+      },
+      screens: {
+        '../../prototypes/booking/screens/10-home.tsx': { default: Screen },
+        '../../prototypes/billing/refunds/partial-refund/screens/10-review.tsx': { default: Screen },
+        '../../prototypes/billing/invoice-list/screens/10-list.tsx': { default: Screen },
+      },
+    })
+
+    expect(prototypes.map(prototype => [prototype.slug, prototype.group, prototype.doc.title])).toEqual([
+      ['billing/invoice-list', ['billing'], 'Invoice List'],
+      ['billing/refunds/partial-refund', ['billing', 'refunds'], 'Partial refund'],
+      ['booking', [], 'Booking'],
+    ])
+    expect(prototypes[1]?.screens.map(screen => screen.id)).toEqual(['review'])
+    expect(prototypes[1]?.annotations).toHaveLength(1)
+    expect(prototypes[1]?.issues).toEqual([])
+  })
+
+  it('reports a prototype inside another prototype and keeps both', () => {
+    const prototypes = buildPrototypes({
+      docs: {
+        '../../prototypes/booking/prototype.md': '---\ntitle: Booking\n---\n',
+        '../../prototypes/booking/reschedule/prototype.md': '---\ntitle: Reschedule\n---\n',
+      },
+      annotations: {},
+      screens: {
+        '../../prototypes/booking/screens/10-home.tsx': { default: Screen },
+        '../../prototypes/booking/reschedule/screens/10-pick.tsx': { default: Screen },
+      },
+    })
+
+    expect(prototypes.map(prototype => prototype.slug)).toEqual(['booking', 'booking/reschedule'])
+    expect(prototypes[0]?.screens.map(screen => screen.id)).toEqual(['home'])
+    expect(prototypes[0]?.issues).toEqual([])
+    expect(prototypes[1]?.issues[0]).toContain('sits inside the prototype "booking"')
+  })
+
+  it('does not read a folder inside screens/ as a prototype', () => {
+    const prototypes = buildPrototypes({
+      docs: {},
+      annotations: {},
+      screens: {
+        '../../prototypes/booking/screens/10-home.tsx': { default: Screen },
+        '../../prototypes/booking/screens/parts/screens/card.tsx': { default: Screen },
+      },
+    })
+
+    expect(prototypes.map(prototype => prototype.slug)).toEqual(['booking'])
+  })
+
   it('reports a folder with no doc and no screens instead of dropping it', () => {
     const [prototype] = buildPrototypes({
       docs: {},

@@ -1,0 +1,21 @@
+{
+  "notes": [
+    {
+      "id": "refund-lines-unticked",
+      "screen": "choose-lines",
+      "target": "refund-lines",
+      "kind": "spec",
+      "title": "Every line starts unticked",
+      "body": "Refunding is the exception, so staff opt each line in.",
+      "author": "Ana"
+    },
+    {
+      "id": "send-refund-disabled",
+      "screen": "choose-lines",
+      "target": "send-refund",
+      "kind": "flow",
+      "title": "Disabled until a line is ticked",
+      "author": "Ana"
+    }
+  ]
+}

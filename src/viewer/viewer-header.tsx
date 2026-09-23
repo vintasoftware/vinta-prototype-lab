@@ -13,7 +13,8 @@ import {
 } from 'lucide-react'
 import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
 import type { Prototype, ScreenViewport } from '../types'
-import { Badge, Button, NativeSelect, NativeSelectOption, SegmentedToggle } from '../ui'
+import { Badge, Button, SegmentedToggle } from '../ui'
+import { PrototypePicker } from './prototype-picker'
 
 const VIEWPORT_OPTIONS = [
   { value: 'mobile' as const, label: 'Mobile' },
@@ -69,18 +70,7 @@ export function ViewerHeader({
         ClosedIcon={PanelLeft}
       />
 
-      <NativeSelect
-        size='sm'
-        aria-label='Prototype'
-        value={slug}
-        onChange={event => onOpenPrototype(event.target.value)}
-      >
-        {prototypes.map(prototype => (
-          <NativeSelectOption key={prototype.slug} value={prototype.slug}>
-            {prototype.doc.title}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
+      <PrototypePicker prototypes={prototypes} slug={slug} onOpenPrototype={onOpenPrototype} />
 
       <div className='flex items-center gap-1'>
         <Button variant='outline' size='sm' onClick={onBack} disabled={!canGoBack}>

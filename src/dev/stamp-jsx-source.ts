@@ -6,7 +6,8 @@ import { ANCHOR_ATTRIBUTE, SOURCE_ATTRIBUTE } from '../lib/source-ref'
 /** Only a screen of a prototype is ever stamped, and only a screen is ever rewritten. */
 export function isScreenFile(file: string): boolean {
   const parts = file.split(path.sep).join('/')
-  return /\/prototypes\/[^/]+\/screens\/[^/]+\.tsx$/.test(parts)
+  // One folder or more between the two: a prototype may sit inside group folders.
+  return /\/prototypes\/(?:[^/]+\/)+screens\/[^/]+\.tsx$/.test(parts)
 }
 
 /** `prototypes/patient-booking/screens/10-home.tsx:34:8:Button` — where it sits, and what it is. */
