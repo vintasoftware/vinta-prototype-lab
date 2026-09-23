@@ -33,6 +33,7 @@ function control(label: string, ...path: number[]): FlowControl {
 
 const prototype: Prototype = {
   slug: 'booking',
+  group: [],
   doc: { title: 'Booking', entry: 'home', body: '' },
   screens: [
     screen('home', 'default', 10),

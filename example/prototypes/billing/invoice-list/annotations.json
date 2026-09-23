@@ -1,0 +1,29 @@
+{
+  "notes": [
+    {
+      "id": "invoices-balance",
+      "screen": "invoices",
+      "target": "balance-owed",
+      "kind": "spec",
+      "title": "Open plus overdue, never paid",
+      "body": "The total counts every invoice that is not paid. It does not change with the date range of the table.",
+      "author": "Ana"
+    },
+    {
+      "id": "invoices-row-click",
+      "screen": "invoices",
+      "target": "invoice-table",
+      "kind": "flow",
+      "title": "The whole row opens the invoice",
+      "author": "Ana"
+    },
+    {
+      "id": "invoice-balance-rounding",
+      "screen": "invoice",
+      "target": "invoice-balance",
+      "kind": "question",
+      "title": "Show cents when the balance is whole dollars?",
+      "author": "Ana"
+    }
+  ]
+}

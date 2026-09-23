@@ -67,8 +67,10 @@ export interface PrototypeDoc {
 }
 
 export interface Prototype {
-  /** Folder name under `prototypes/`. Identifies the prototype in the URL. */
+  /** Folder path under `prototypes/`, e.g. `billing/refunds`. Identifies the prototype in the URL. */
   slug: string
+  /** Group folders the prototype sits in, outermost first. Empty for one directly under `prototypes/`. */
+  group: string[]
   doc: PrototypeDoc
   screens: PrototypeScreen[]
   annotations: Annotation[]

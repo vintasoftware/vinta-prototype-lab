@@ -37,6 +37,17 @@ export function stateFromRoute(prototypes: readonly Prototype[], route: HashRout
   return startSession(prototype.slug, { screenId, variant }, honoured ? route.component : undefined)
 }
 
+/** Reads the page's hash into a session. The slugs tell the parser where a grouped slug ends. */
+function stateFromHash(prototypes: readonly Prototype[], hash: string): SessionState {
+  return stateFromRoute(
+    prototypes,
+    parseHash(
+      hash,
+      prototypes.map(prototype => prototype.slug)
+    )
+  )
+}
+
 /** The URL this session stands for. Written by the effect below, and recognised by the one after it. */
 function routeFor(state: SessionState): ScreenRoute {
   return {
@@ -70,7 +81,7 @@ export interface PrototypeSession {
  */
 export function usePrototypeSession(prototypes: readonly Prototype[]): PrototypeSession {
   const [state, setState] = useState<SessionState>(() =>
-    stateFromRoute(prototypes, parseHash(typeof window === 'undefined' ? '' : window.location.hash))
+    stateFromHash(prototypes, typeof window === 'undefined' ? '' : window.location.hash)
   )
 
   const prototype = useMemo(() => prototypes.find(candidate => candidate.slug === state.slug), [prototypes, state.slug])
@@ -98,7 +109,7 @@ export function usePrototypeSession(prototypes: readonly Prototype[]): Prototype
         if (window.location.hash === written) {
           return current
         }
-        return stateFromRoute(prototypes, parseHash(window.location.hash))
+        return stateFromHash(prototypes, window.location.hash)
       })
     }
     window.addEventListener('hashchange', onHashChange)

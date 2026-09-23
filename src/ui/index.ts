@@ -4,7 +4,17 @@
 export { Badge, badgeVariants } from './badge'
 export { Button, buttonVariants } from './button'
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card'
+export {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from './command'
 export { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from './native-select'
+export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from './popover'
 export { RenderBoundary, type RenderBoundaryProps } from './render-boundary'
 export { SegmentedToggle, type SegmentedToggleOption, type SegmentedToggleProps } from './segmented-toggle'
 export { Separator } from './separator'

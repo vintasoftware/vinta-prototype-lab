@@ -102,7 +102,31 @@ prototypes/patient-booking/
     40-confirmed.tsx
 ```
 
-Add the folder and the viewer picks it up — there is no registry to edit. Copy
+Add the folder and the viewer picks it up — there is no registry to edit.
+
+### Grouping prototypes in folders
+
+Put prototypes in folders to group them. A folder with no `prototype.md`, `annotations.json` or
+`screens/` of its own is a group, and groups can hold other groups:
+
+```
+prototypes/
+  patient-booking/            a prototype, at #/p/patient-booking
+  billing/                    a group
+    invoice-list/             a prototype, at #/p/billing/invoice-list
+    refunds/                  a group inside a group
+      partial-refund/         a prototype, at #/p/billing/refunds/partial-refund
+```
+
+The prototype picker in the header shows each group under its own heading ("Billing / Refunds"),
+and its search matches titles, summaries and folder names. A prototype's folder path is its slug,
+so it appears in the prototype's links. Moving a prototype into a group changes its links, and
+links already shared stop reaching it. Keep one prototype out of another prototype's folder: the
+viewer lists both, and reports the inner one as a problem. A screen that imports by relative path
+needs one more `../` for each group folder it moves into.
+[example/prototypes/billing](example/prototypes/billing) shows a group with a group inside it.
+
+Copy
 [example/prototypes/patient-booking](example/prototypes/patient-booking) to start from a worked
 example, or ask your coding agent with the [build-prototype](#the-build-prototype-agent-skill) skill.
 

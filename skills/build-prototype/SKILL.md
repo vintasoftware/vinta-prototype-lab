@@ -57,6 +57,13 @@ prototypes/<slug>/
 
 `<slug>` is kebab-case and names the flow, not the app: `patient-booking`, `provider-intake-review`.
 
+If `prototypes/` already groups prototypes into folders (a folder holding other prototype folders
+rather than a `prototype.md` or `screens/` of its own), put the new one in the group it belongs to,
+e.g. `prototypes/billing/refunds/partial-refund/`, and ask the designer when no group fits. The
+slug is then the whole path under `prototypes/`, and the path is part of every link. Never put a
+prototype inside another prototype's folder. Each group folder adds one `../` to a relative import
+in a screen.
+
 ## 3. Write `prototype.md` first
 
 Front matter (`title`, `summary`, `entry`, `status`, `owner`, `updated`), then the body. Write the

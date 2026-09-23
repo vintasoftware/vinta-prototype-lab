@@ -102,9 +102,10 @@ export function entryCode({ root, prototypesDir, css, storybook }: EntryOptions)
     ...stylesheets.map(file => `import ${JSON.stringify(file)}`),
     `import { mountViewer } from '${PACKAGE_NAME}'`,
     '',
-    `const docs = import.meta.glob('${base}/*/prototype.md', { query: '?raw', import: 'default', eager: true })`,
-    `const annotations = import.meta.glob('${base}/*/annotations.json', { import: 'default', eager: true })`,
-    `const screens = import.meta.glob('${base}/*/screens/*.tsx', { eager: true })`,
+    // `**` reaches prototypes inside group folders, e.g. `billing/refunds/prototype.md`.
+    `const docs = import.meta.glob('${base}/**/prototype.md', { query: '?raw', import: 'default', eager: true })`,
+    `const annotations = import.meta.glob('${base}/**/annotations.json', { import: 'default', eager: true })`,
+    `const screens = import.meta.glob('${base}/**/screens/*.tsx', { eager: true })`,
     '',
     `mountViewer({ docs, annotations, screens }, ${JSON.stringify(options)})`,
     '',
@@ -140,7 +141,7 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
   const htmlPath = path.join(root, 'index.html')
   const css = options.css === undefined ? [] : [options.css].flat()
   const title = options.title ?? 'Prototype Lab'
-  const screensGlob = `${toPosix(path.relative(root, prototypesDir))}/*/screens/*.tsx`
+  const screensGlob = `${toPosix(path.relative(root, prototypesDir))}/**/screens/*.tsx`
   const notesIgnored = annotationsIgnorePattern(prototypesDir)
 
   return {

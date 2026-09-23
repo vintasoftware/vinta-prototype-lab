@@ -34,8 +34,12 @@ describe('annotationsPathFor', () => {
     expect(annotationsPathFor('/p', 'patient-booking')).toBe('/p/patient-booking/annotations.json')
   })
 
+  it('takes a prototype inside group folders', () => {
+    expect(annotationsPathFor('/p', 'billing/refunds')).toBe('/p/billing/refunds/annotations.json')
+  })
+
   it('refuses anything that could climb out of the prototypes folder', () => {
-    for (const slug of ['../secrets', 'a/b', '/etc', '..', 'Booking', '']) {
+    for (const slug of ['../secrets', 'a/../../b', 'a/./b', 'a//b', 'a/', '/etc', '..', 'Booking', '']) {
       expect(annotationsPathFor('/p', slug)).toBeUndefined()
     }
   })

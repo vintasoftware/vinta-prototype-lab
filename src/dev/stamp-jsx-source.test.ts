@@ -9,6 +9,8 @@ const FILE = `${ROOT}/prototypes/booking/screens/10-home.tsx`
 describe('isScreenFile', () => {
   it('takes a screen of a prototype and nothing else', () => {
     expect(isScreenFile(FILE)).toBe(true)
+    expect(isScreenFile(`${ROOT}/prototypes/billing/refunds/screens/10-home.tsx`)).toBe(true)
+    expect(isScreenFile(`${ROOT}/prototypes/screens/10-home.tsx`)).toBe(false)
     expect(isScreenFile(`${ROOT}/prototypes/booking/prototype.md`)).toBe(false)
     expect(isScreenFile(`${ROOT}/src/viewer/side-panel.tsx`)).toBe(false)
     expect(isScreenFile('/elsewhere/screens/10-home.tsx')).toBe(false)

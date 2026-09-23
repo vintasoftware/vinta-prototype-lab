@@ -12,10 +12,24 @@ export interface PrototypeSources {
   screens: Record<string, ScreenModule>
 }
 
-const SLUG = /prototypes\/([^/]+)\//
+/** Where a path enters the prototypes folder. */
+const PROTOTYPES_ROOT = /(?:^|\/)prototypes\//
 
+/** What sits directly in a prototype folder: its doc, its notes, or a screen under `screens/`. */
+const PROTOTYPE_FILE = /^(.+?)\/(?:prototype\.md|annotations\.json|screens\/[^/]+)$/
+
+/**
+ * The folder a file belongs to, as a path under `prototypes/` such as `billing/refunds`. That path
+ * is the prototype's slug; the folders above the last one are its groups.
+ */
 function slugOf(path: string): string | undefined {
-  return SLUG.exec(path)?.[1]
+  const match = PROTOTYPES_ROOT.exec(path)
+  if (match === null) {
+    return undefined
+  }
+  const folder = PROTOTYPE_FILE.exec(path.slice(match.index + match[0].length))?.[1]
+  // A screen's own `screens/` folder never names a prototype, however deep a glob reached into it.
+  return folder === undefined || folder.split('/').includes('screens') ? undefined : folder
 }
 
 function fileNameOf(path: string): string {
@@ -23,14 +37,15 @@ function fileNameOf(path: string): string {
 }
 
 function buildDoc(slug: string, raw: string | undefined): PrototypeDoc {
+  const fallbackTitle = titleize(fileNameOf(slug))
   if (raw === undefined) {
-    return { title: titleize(slug), body: '' }
+    return { title: fallbackTitle, body: '' }
   }
 
   const { data, body } = parseFrontmatter(raw)
 
   return {
-    title: data.title ?? titleize(slug),
+    title: data.title ?? fallbackTitle,
     summary: data.summary,
     entry: data.entry,
     status: data.status,
@@ -75,6 +90,10 @@ function buildScreens(slug: string, sources: PrototypeSources, issues: string[])
 /**
  * Turns the raw file maps into the prototypes the viewer renders.
  *
+ * A prototype is any folder under `prototypes/` holding `prototype.md`, `annotations.json` or
+ * `screens/`. A folder holding none of them is a group, so `prototypes/billing/refunds/` is the
+ * prototype `billing/refunds` in the group `billing`.
+ *
  * Every problem lands in `issues` rather than throwing: a designer with a half-written prototype
  * still gets a running viewer, with the list of what is wrong next to it.
  */
@@ -95,6 +114,14 @@ export function buildPrototypes(sources: PrototypeSources): Prototype[] {
 
   for (const slug of [...slugs].sort()) {
     const issues: string[] = []
+
+    // The two never share files, so both still run; the folders just no longer say which is a group.
+    const outer = [...slugs].find(other => slug.startsWith(`${other}/`))
+    if (outer !== undefined) {
+      issues.push(
+        `this folder sits inside the prototype "${outer}". Move it out, or put both in a group folder that holds no prototype.md, annotations.json or screens/.`
+      )
+    }
 
     const docEntry = Object.entries(sources.docs).find(([path]) => slugOf(path) === slug)
     if (docEntry === undefined) {
@@ -125,7 +152,8 @@ export function buildPrototypes(sources: PrototypeSources): Prototype[] {
       issues.push(`prototype.md: entry "${doc.entry}" is not one of the screens.`)
     }
 
-    prototypes.push({ slug, doc, screens, annotations: parsed.annotations, issues })
+    const group = slug.split('/').slice(0, -1)
+    prototypes.push({ slug, group, doc, screens, annotations: parsed.annotations, issues })
   }
 
   return prototypes
