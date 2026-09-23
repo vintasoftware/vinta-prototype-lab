@@ -2,7 +2,12 @@ import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { type Connect, normalizePath, type Plugin, type ViteDevServer } from 'vite'
 import { z } from 'zod'
-import { type AnnotationEdit, applyAnnotationEdit, serializeAnnotations } from '../lib/annotation-edit'
+import {
+  type AnnotationEdit,
+  applyAnnotationEdit,
+  serializeAnnotationEdit,
+  type WrittenNote,
+} from '../lib/annotation-edit'
 import { annotationSchema, parseAnnotationsFile } from '../lib/annotations'
 import { ANNOTATIONS_ENDPOINT, NAME_ELEMENT_ENDPOINT, parseSourceRef } from '../lib/source-ref'
 import type { Annotation } from '../types'
@@ -57,8 +62,11 @@ export function annotationsPathFor(prototypesDir: string, slug: string): string 
   return inside.startsWith('..') || path.isAbsolute(inside) ? undefined : file
 }
 
-/** The notes already in the file, or why they could not be read. */
-type NotesOnDisk = { notes: Annotation[] } | { error: string }
+/**
+ * The notes already in the file, or why they could not be read. `notes` are as the viewer sees them,
+ * with the schema's defaults; `file` and `written` are as the file has them, to be written back.
+ */
+type NotesOnDisk = { notes: Annotation[]; file: Record<string, unknown>; written: WrittenNote[] } | { error: string }
 
 /**
  * Reads the notes a prototype already has.
@@ -75,7 +83,7 @@ async function readNotes(file: string): Promise<NotesOnDisk> {
     raw = await readFile(file, 'utf8')
   } catch (thrown) {
     if ((thrown as NodeJS.ErrnoException).code === 'ENOENT') {
-      return { notes: [] }
+      return { notes: [], file: {}, written: [] }
     }
     return { error: `${name} could not be read, so nothing was written.` }
   }
@@ -91,7 +99,9 @@ async function readNotes(file: string): Promise<NotesOnDisk> {
   if (issues.length > 0) {
     return { error: `${issues.join(' ')} Fix the file and try again; nothing was written.` }
   }
-  return { notes: annotations }
+  // The schema passed, so the file is an object and its `notes`, when there, a list of notes.
+  const asWritten = parsed as { notes?: WrittenNote[] } & Record<string, unknown>
+  return { notes: annotations, file: asWritten, written: asWritten.notes ?? [] }
 }
 
 /**
@@ -119,7 +129,7 @@ export async function editAnnotations(
   }
 
   const notes = applyAnnotationEdit(onDisk.notes, request.edit)
-  const content = serializeAnnotations(notes)
+  const content = serializeAnnotationEdit(onDisk.file, onDisk.written, request.edit)
   beforeWrite?.(file, content)
   await writeFile(file, content, 'utf8')
 

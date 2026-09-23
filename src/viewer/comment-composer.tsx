@@ -12,6 +12,15 @@ export interface CommentDraft {
   name?: string
 }
 
+/**
+ * The name the element is to be given, or undefined when it is to get none: the element carries a
+ * name already, or the person cleared the field to pin the comment by position.
+ */
+export function chosenName(draft: Pick<CommentDraft, 'name'>): string | undefined {
+  const name = draft.name?.trim() ?? ''
+  return name === '' ? undefined : name
+}
+
 export interface CommentComposerProps {
   /** The element the comment will point at, shown so it is clear what is being commented on. */
   target: string
@@ -62,7 +71,7 @@ export function CommentComposer({
     <form onSubmit={submit} className='flex flex-col gap-2 rounded-md border border-primary-border bg-card p-3'>
       <p className='text-muted-foreground text-xs'>
         {editing === undefined ? 'New comment on' : 'Editing the comment on'}{' '}
-        <span className='font-mono text-foreground'>{draft.name ?? target}</span>
+        <span className='font-mono text-foreground'>{chosenName(draft) ?? target}</span>
       </p>
 
       {draft.name !== undefined && (

@@ -3,6 +3,20 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## [0.1.2] - Unreleased
+
+### Fixed
+
+- A comment on a component with no name of its own saves when the name field is cleared, as the
+  README says it should: it is pinned to the component by position and the screen file is left
+  alone. It used to fail with "That request is not one this endpoint takes." and save nothing. A
+  name of only spaces counts as cleared too, and the composer's heading shows what the comment will
+  point at.
+- Saving or deleting a comment changes only that note in `annotations.json`. Every other note is
+  written back as the file had it, so one new comment no longer shows in review as a change to
+  every note: notes that left `status` or `kind` out no longer gain them, and their fields keep
+  their order.
+
 ## [0.1.1] - 2026-09-23
 
 ### Added

@@ -446,6 +446,75 @@ describe('PrototypeLabApp', () => {
     })
   })
 
+  describe('a comment on a component with no name of its own', () => {
+    /** Every request the viewer makes of the dev server, in order. */
+    let sent: { endpoint: string; body: { source?: string; id?: string; edit?: { note: { target: string } } } }[]
+
+    beforeEach(() => {
+      sent = []
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init: { body: string }) => {
+          const endpoint = ['__annotations', '__name-element'].find(name => url.includes(name))
+          if (endpoint === undefined) {
+            return Promise.reject(new Error('Storybook is not running'))
+          }
+          const body = JSON.parse(init.body) as (typeof sent)[number]['body']
+          sent.push({ endpoint, body })
+          const notes = body.edit === undefined ? [] : [body.edit.note]
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ notes }) })
+        })
+      )
+    })
+
+    const openComposer = async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+      const tree = screen.getByRole('list', { name: 'Components' })
+      await userEvent.click(within(tree).getByRole('button', { name: 'CardTitle' }))
+      await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
+      await userEvent.click(screen.getByRole('button', { name: 'Comment on /CardTitle' }))
+    }
+
+    it('names the component first, then points the comment at the name', async () => {
+      await openComposer()
+      expect(screen.getByLabelText('Name this element')).toHaveValue('unnamed')
+
+      await userEvent.type(screen.getByLabelText('Title'), 'Say what the total counts')
+      await userEvent.click(screen.getByRole('button', { name: 'Save comment' }))
+
+      await waitFor(() => expect(sent).toHaveLength(2))
+      expect(sent[0]).toEqual({
+        endpoint: '__name-element',
+        body: { source: 'prototypes/booking/screens/10-home.tsx:4:6', id: 'unnamed' },
+      })
+      expect(sent[1]?.endpoint).toBe('__annotations')
+      expect(sent[1]?.body.edit?.note.target).toBe('unnamed')
+    })
+
+    it.each([
+      ['cleared', ''],
+      ['left blank', '   '],
+    ])('pins the comment by position when the name is %s, leaving the screen alone', async (_, name) => {
+      await openComposer()
+
+      await userEvent.clear(screen.getByLabelText('Name this element'))
+      if (name !== '') {
+        await userEvent.type(screen.getByLabelText('Name this element'), name)
+      }
+      // The heading says what the comment will point at, which is now the component's place.
+      expect(screen.getByText('New comment on', { exact: false })).toHaveTextContent('New comment on /CardTitle')
+
+      await userEvent.type(screen.getByLabelText('Title'), 'Say what the total counts')
+      await userEvent.click(screen.getByRole('button', { name: 'Save comment' }))
+
+      await waitFor(() => expect(sent).toHaveLength(1))
+      expect(sent[0]?.endpoint).toBe('__annotations')
+      expect(sent[0]?.body.edit?.note.target).toBe('/CardTitle')
+      expect(await screen.findByText('Say what the total counts')).toBeInTheDocument()
+      expect(screen.queryByText('That request is not one this endpoint takes.')).not.toBeInTheDocument()
+    })
+  })
+
   it('edits, resolves and deletes a comment through the dev server', async () => {
     const sent: { op: string; note?: { title?: string; status?: string }; id?: string }[] = []
     let notes = prototypes[0]?.annotations ?? []

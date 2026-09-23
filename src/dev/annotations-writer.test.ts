@@ -94,6 +94,58 @@ describe('editAnnotations', () => {
     expect(told).toEqual([])
   })
 
+  describe('in a file whose notes leave defaults out', () => {
+    // The example's notes, most of which set no `status`, and not in the writer's field order.
+    const example = path.resolve(import.meta.dirname, '../../example/prototypes/patient-booking/annotations.json')
+    const notesFile = () => path.join(prototypesDir, 'booking', 'annotations.json')
+    /** A note's lines as the file has them. */
+    const linesOf = (note: unknown) => JSON.stringify(note, null, 2).replace(/^/gm, '    ')
+
+    let before: string
+    let notes: { id: string; status?: string }[]
+
+    beforeEach(async () => {
+      before = await readFile(example, 'utf8')
+      notes = JSON.parse(before).notes
+      await writeFile(notesFile(), before, 'utf8')
+    })
+
+    it('saves a new note without touching any other, byte for byte', async () => {
+      expect(notes.filter(note => note.status === undefined).length).toBeGreaterThan(0)
+
+      await editAnnotations(prototypesDir, { slug: 'booking', edit: { op: 'save', note: { ...NOTE, id: 'new' } } })
+      const after = await readFile(notesFile(), 'utf8')
+
+      // Everything up to the end of the last note already there is as it was.
+      const lastNoteEnds = before.lastIndexOf('\n    }') + '\n    }'.length
+      expect(after.slice(0, lastNoteEnds)).toBe(before.slice(0, lastNoteEnds))
+      expect(JSON.parse(after).notes.map((note: Annotation) => note.id)).toEqual([...notes.map(note => note.id), 'new'])
+    })
+
+    it('deletes a note without touching the others', async () => {
+      const [first, gone, ...rest] = notes
+
+      await editAnnotations(prototypesDir, { slug: 'booking', edit: { op: 'delete', id: gone?.id ?? '' } })
+      const after = await readFile(notesFile(), 'utf8')
+
+      expect(JSON.parse(after).notes).toEqual([first, ...rest])
+      for (const note of [first, ...rest]) {
+        expect(before).toContain(linesOf(note))
+        expect(after).toContain(linesOf(note))
+      }
+      expect(after).not.toContain(`"id": "${gone?.id}"`)
+    })
+
+    it('still answers the viewer with every note as it reads them', async () => {
+      const result = await editAnnotations(prototypesDir, {
+        slug: 'booking',
+        edit: { op: 'save', note: { ...NOTE, id: 'new' } },
+      })
+
+      expect('notes' in result.body && result.body.notes.every(note => note.status !== undefined)).toBe(true)
+    })
+  })
+
   it('removes the note a delete names', async () => {
     await editAnnotations(prototypesDir, { slug: 'booking', edit: { op: 'save', note: NOTE } })
 

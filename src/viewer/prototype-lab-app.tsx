@@ -21,7 +21,7 @@ import { SOURCE_ATTRIBUTE, suggestAnchorId } from '../lib/source-ref'
 import type { StorybookOptions } from '../lib/storybook-links'
 import type { Annotation, Prototype, ScreenViewport } from '../types'
 import { cn } from '../ui'
-import type { CommentDraft } from './comment-composer'
+import { type CommentDraft, chosenName } from './comment-composer'
 import { EmptyLab } from './empty-lab'
 import { FlowMap } from './flow-map'
 import { SidePanel } from './side-panel'
@@ -230,9 +230,10 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
       if (target === undefined) {
         return
       }
-      // A new comment on an element with no id of its own names it as it saves.
+      // A new comment on an element with no id of its own names it as it saves, unless the name
+      // was cleared: then the comment is pinned by position and the screen is left alone.
       const source = composing === 'new' ? picked?.source : undefined
-      const newName = source === undefined ? undefined : draft.name
+      const newName = source === undefined ? undefined : chosenName(draft)
 
       try {
         window.localStorage.setItem(AUTHOR_KEY, draft.author)

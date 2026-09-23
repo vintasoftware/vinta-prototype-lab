@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import type { Annotation } from '../types'
-import { annotationId, applyAnnotationEdit, serializeAnnotations } from './annotation-edit'
+import { annotationId, applyAnnotationEdit, serializeAnnotationEdit } from './annotation-edit'
 
 function note(id: string, title = id): Annotation {
   return { id, target: 'book-follow-up', kind: 'spec', title, status: 'open' }
@@ -38,11 +38,15 @@ describe('applyAnnotationEdit', () => {
   })
 })
 
-describe('serializeAnnotations', () => {
-  it('writes the fields in one order and leaves out the ones a note does not set', () => {
-    const written = serializeAnnotations([
-      { id: 'n1', target: 'book', kind: 'flow', title: 'Why', screen: 'home', status: 'open' },
-    ])
+describe('serializeAnnotationEdit', () => {
+  const save = (saved: Annotation) => ({ op: 'save' as const, note: saved })
+
+  it('writes the saved note with its fields in one order, leaving out the ones it does not set', () => {
+    const written = serializeAnnotationEdit(
+      {},
+      [],
+      save({ id: 'n1', target: 'book', kind: 'flow', title: 'Why', screen: 'home', status: 'open' })
+    )
 
     expect(written).toBe(`{
   "notes": [
@@ -59,8 +63,38 @@ describe('serializeAnnotations', () => {
 `)
   })
 
+  it('writes every other note as the file had it: its fields, their order and nothing filled in', () => {
+    const byHand = { title: 'Written first', target: 'x', id: 'by-hand', reviewer: 'Bo' }
+
+    const written = JSON.parse(serializeAnnotationEdit({ notes: [byHand] }, [byHand], save(note('two'))))
+
+    expect(JSON.stringify(written.notes[0])).toBe(JSON.stringify(byHand))
+    expect(written.notes.map((item: Annotation) => item.id)).toEqual(['by-hand', 'two'])
+  })
+
+  it('replaces the note it saves where it stood, and drops the one it deletes', () => {
+    const file = {
+      notes: [
+        { id: 'one', target: 'x', title: 'One' },
+        { id: 'two', target: 'x', title: 'Two' },
+      ],
+    }
+
+    const saved = JSON.parse(serializeAnnotationEdit(file, file.notes, save(note('one', 'Changed'))))
+    const deleted = JSON.parse(serializeAnnotationEdit(file, file.notes, { op: 'delete', id: 'one' }))
+
+    expect(saved.notes.map((item: Annotation) => item.title)).toEqual(['Changed', 'Two'])
+    expect(deleted.notes).toEqual([{ id: 'two', target: 'x', title: 'Two' }])
+  })
+
+  it('keeps what the file holds beside the notes', () => {
+    const file = { $schema: './annotations.schema.json', notes: [] }
+
+    expect(Object.keys(JSON.parse(serializeAnnotationEdit(file, [], save(note('one')))))).toEqual(['$schema', 'notes'])
+  })
+
   it('ends on a newline, the way a hand-written file does', () => {
-    expect(serializeAnnotations([]).endsWith('}\n')).toBe(true)
+    expect(serializeAnnotationEdit({}, [], { op: 'delete', id: 'none' }).endsWith('}\n')).toBe(true)
   })
 })
 
