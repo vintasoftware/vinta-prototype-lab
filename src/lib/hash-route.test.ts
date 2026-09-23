@@ -36,6 +36,22 @@ describe('parseHash', () => {
     })
   })
 
+  it('reads a prototype inside a group by the slugs that exist', () => {
+    const slugs = ['billing', 'billing/refunds', 'patient-booking']
+
+    expect(parseHash('#/p/billing/refunds/review/partial', slugs)).toEqual({
+      slug: 'billing/refunds',
+      screenId: 'review',
+      variant: 'partial',
+    })
+    expect(parseHash('#/p/billing/refunds', slugs)).toEqual({ slug: 'billing/refunds' })
+    expect(parseHash('#/p/billing/home', slugs)).toEqual({ slug: 'billing', screenId: 'home' })
+  })
+
+  it('takes the first segment as the slug when no prototype matches', () => {
+    expect(parseHash('#/p/gone/home', ['billing/refunds'])).toEqual({ slug: 'gone', screenId: 'home' })
+  })
+
   it('returns nothing for a URL it does not own', () => {
     expect(parseHash('#/something-else')).toEqual({})
     expect(parseHash('')).toEqual({})
@@ -71,6 +87,13 @@ describe('formatHash', () => {
     expect(formatHash({ slug: 'patient-booking', screenId: 'choose-time', variant: 'no-slots' })).toBe(
       '#/p/patient-booking/choose-time/no-slots'
     )
+  })
+
+  it('round-trips a prototype inside a group', () => {
+    const route = { slug: 'billing/refunds', screenId: 'review', variant: 'partial' }
+
+    expect(formatHash(route)).toBe('#/p/billing/refunds/review/partial')
+    expect(parseHash(formatHash(route), ['billing/refunds'])).toEqual(route)
   })
 
   it('round-trips through parseHash', () => {

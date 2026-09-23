@@ -9,8 +9,11 @@ import type { Annotation } from '../types'
 import { addAnchor } from './add-anchor'
 import { isScreenFile } from './stamp-jsx-source'
 
-/** A folder name and nothing else, so a slug can never climb out of `prototypes/`. */
-const SLUG = /^[a-z0-9][a-z0-9-]*$/
+/**
+ * Folder names joined by `/`, as `billing/refunds` names a prototype inside a group. No segment can
+ * be `.` or `..`, so a slug can never climb out of `prototypes/`.
+ */
+const SLUG = /^[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*$/
 
 const annotationEditSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('save'), note: annotationSchema }),
@@ -44,7 +47,7 @@ export interface NameResult {
   body: { named: string } | { error: string }
 }
 
-/** The file a slug names, or undefined when the slug is not a plain folder name. */
+/** The file a slug names, or undefined when the slug is not a path of plain folder names. */
 export function annotationsPathFor(prototypesDir: string, slug: string): string | undefined {
   if (!SLUG.test(slug)) {
     return undefined

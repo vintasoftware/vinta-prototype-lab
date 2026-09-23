@@ -17,14 +17,36 @@ export interface ScreenRoute {
   component?: string
 }
 
-/** Reads `#/p/[slug]/[screen]/[variant]?component=[id]`. Anything else reads as an empty route. */
-export function parseHash(hash: string): HashRoute {
-  const [pathPart = '', queryPart = ''] = hash.replace(/^#/, '').replace(/^\//, '').split('?')
-  const [prefix, slug, screenId, variant] = pathPart.split('/')
+/** How many leading segments of the path make up the slug: the longest known slug they spell. */
+function slugLength(segments: readonly string[], slugs: readonly string[]): number {
+  let longest = 1
+  for (const slug of slugs) {
+    const parts = slug.split('/')
+    if (parts.length > longest && parts.every((part, index) => segments[index] === part)) {
+      longest = parts.length
+    }
+  }
+  return longest
+}
 
-  if (prefix !== 'p' || slug === undefined || slug === '') {
+/**
+ * Reads `#/p/[slug]/[screen]/[variant]?component=[id]`. Anything else reads as an empty route.
+ *
+ * A prototype inside a group folder has `/` in its slug (`billing/refunds`), so the path alone
+ * cannot say where the slug ends. `slugs` are the prototypes that exist; the longest one the path
+ * starts with is taken, and without a match the slug is the first segment.
+ */
+export function parseHash(hash: string, slugs: readonly string[] = []): HashRoute {
+  const [pathPart = '', queryPart = ''] = hash.replace(/^#/, '').replace(/^\//, '').split('?')
+  const [prefix, ...segments] = pathPart.split('/')
+
+  if (prefix !== 'p' || segments[0] === undefined || segments[0] === '') {
     return {}
   }
+
+  const length = slugLength(segments, slugs)
+  const slug = segments.slice(0, length).join('/')
+  const [screenId, variant] = segments.slice(length)
 
   const component = new URLSearchParams(queryPart).get('component')
 

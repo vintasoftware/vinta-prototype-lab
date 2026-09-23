@@ -18,6 +18,9 @@ history.
   `npx skills add vintasoftware/vinta-prototype-lab`.
 - `vinta-prototype-lab/theme.css` and `vinta-prototype-lab/default.css`: the shadcn/ui theme, and the
   Tailwind stylesheet screens get when the project names none.
+- Group folders under `prototypes/`: a prototype can sit in `prototypes/billing/refunds/`, and its
+  slug and links take the whole path. The header's prototype picker is now a searchable list with
+  a heading for each group.
 
 ### Changed
 
