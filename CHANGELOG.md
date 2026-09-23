@@ -8,10 +8,11 @@ All notable changes to this package are recorded here. Versions follow
 ### Fixed
 
 - Saving a comment in the viewer no longer reloads the page, so the open comment, the picked
-  component and the scroll position stay put. `prototypeLab()` now keeps the prototypes folder's
-  `annotations.json` files out of Vite's watcher itself, alongside anything the project's own
-  `server.watch.ignored` lists; a project config no longer needs to set this. Screen files stay
-  watched.
+  component and the scroll position stay put. This holds for a prototype's first comment and for
+  prototypes inside group folders. Editing an `annotations.json` by hand still reloads the page and
+  shows the edit. A project config needs no `server.watch.ignored` entry for these files, and one
+  copied from this repo's config should be removed: it keeps hand edits from showing until the dev
+  server restarts.
 
 ## [0.1.0] - Unreleased
 

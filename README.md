@@ -243,8 +243,8 @@ own addresses.
 Two things worth knowing:
 
 - **Naming an element edits its screen file**, which reloads the page. The URL carries the screen
-  and the picked component, so you land back where you were. Saving a comment only writes
-  `annotations.json`, which the dev server does not watch, so the page stays as it is.
+  and the picked component, so you land back where you were. Saving a comment doesn't reload:
+  the viewer already shows it. Editing `annotations.json` by hand does, and shows the edit.
 - **Deleting a comment leaves the `anchor()` in place.** The element keeps its name; only the
   comment goes. Remove the `anchor()` by hand if you want the name gone too.
 

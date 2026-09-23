@@ -46,21 +46,6 @@ function toPosix(file: string): string {
   return file.split(path.sep).join('/')
 }
 
-/** A path as a glob that matches only itself, whatever characters its folders are named with. */
-function escapeGlob(file: string): string {
-  return file.replace(/[()[\]{}*?!+@]/g, '\\$&')
-}
-
-/**
- * The notes files of a prototypes folder, as a watcher ignore pattern.
- *
- * The viewer writes these itself and shows the result, so letting the watcher see the write would
- * only reload the page and throw away what is on screen. The screens beside them stay watched.
- */
-export function annotationsIgnorePattern(prototypesDir: string): string {
-  return `${escapeGlob(toPosix(prototypesDir))}/*/annotations.json`
-}
-
 /** The prototypes folder as an absolute path, or an error saying what is wrong with it. */
 export function resolvePrototypesDir(root: string, dir = PROTOTYPES_FOLDER): string {
   const resolved = path.resolve(root, dir)
@@ -142,7 +127,6 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
   const css = options.css === undefined ? [] : [options.css].flat()
   const title = options.title ?? 'Prototype Lab'
   const screensGlob = `${toPosix(path.relative(root, prototypesDir))}/**/screens/*.tsx`
-  const notesIgnored = annotationsIgnorePattern(prototypesDir)
 
   return {
     name: VIEWER_PLUGIN_NAME,
@@ -152,10 +136,6 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
         // A built copy opens from any folder; the viewer routes by hash, so no path depends on where.
         ...(env.command === 'build' && config.base === undefined ? { base: './' } : {}),
         resolve: { dedupe: ['react', 'react-dom'] },
-        // An array, so Vite adds it to whatever the project ignores, be that a list, a glob, a
-        // RegExp or a function. `watch: null` turns the watcher off, and giving it options would
-        // turn it back on.
-        ...(config.server?.watch === null ? {} : { server: { watch: { ignored: [notesIgnored] } } }),
         optimizeDeps: {
           // The page is not on disk, so Vite cannot scan it for dependencies. The screens are.
           entries: [screensGlob],
