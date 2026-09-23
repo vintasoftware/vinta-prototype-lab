@@ -1,9 +1,20 @@
 // @vitest-environment node
+import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createServer, type ViteDevServer } from 'vite'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { ENTRY_URL, entryCode, indexHtml, prototypeLab, resolvePrototypesDir } from './plugin'
+import picomatch from 'picomatch'
+import { createServer, type Plugin, resolveConfig, type UserConfig, type ViteDevServer } from 'vite'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { ANNOTATIONS_ENDPOINT } from '../lib/source-ref'
+import {
+  annotationsIgnorePattern,
+  ENTRY_URL,
+  entryCode,
+  indexHtml,
+  prototypeLab,
+  resolvePrototypesDir,
+  VIEWER_PLUGIN_NAME,
+} from './plugin'
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SERVER_TIMEOUT = 60_000
@@ -96,6 +107,66 @@ describe('prototypeLab', () => {
   })
 })
 
+describe('the notes files and the watcher', () => {
+  const root = '/project'
+  const viewer = () =>
+    prototypeLab({ root, dir: 'design/prototypes', react: false, tailwind: false })
+      .flat()
+      .find(plugin => (plugin as Plugin).name === VIEWER_PLUGIN_NAME) as Plugin
+
+  /** What the viewer's `config` hook adds to a project config, the way Vite calls it. */
+  const configFor = (config: UserConfig) => {
+    const hook = viewer().config as (config: UserConfig, env: { command: 'serve'; mode: string }) => UserConfig
+    return hook(config, { command: 'serve', mode: 'development' })
+  }
+
+  const ignoredBy = (config: Pick<UserConfig, 'server'>) => [config.server?.watch?.ignored ?? []].flat()
+  // The matcher Vite's watcher tests ignore patterns with, through chokidar.
+  const matches = (pattern: unknown, file: string) => picomatch(pattern as string)(file)
+
+  it('ignores the notes files of the folder it serves, and not the screens beside them', () => {
+    const [pattern] = ignoredBy(configFor({}))
+
+    expect(pattern).toBe(annotationsIgnorePattern('/project/design/prototypes'))
+    expect(typeof pattern).toBe('string')
+    expect(matches(pattern, '/project/design/prototypes/booking/annotations.json')).toBe(true)
+    expect(matches(pattern, '/project/design/prototypes/booking/screens/10-home.tsx')).toBe(false)
+    expect(matches(pattern, '/project/other/prototypes/booking/annotations.json')).toBe(false)
+  })
+
+  it('matches only its own folder when the folder has glob characters in its name', () => {
+    const pattern = annotationsIgnorePattern('/work/app (old)/prototypes')
+
+    expect(matches(pattern, '/work/app (old)/prototypes/booking/annotations.json')).toBe(true)
+    expect(matches(pattern, '/work/app old/prototypes/booking/annotations.json')).toBe(false)
+  })
+
+  const matcher = (file: string) => file.endsWith('.log')
+  it.each([
+    ['a list', ['**/tmp/**']],
+    ['a glob', '**/tmp/**'],
+    ['a RegExp', /\.cache/],
+    ['a function', matcher],
+  ])('keeps what the project already ignores when it is %s', async (_, ignored) => {
+    const resolved = await resolveConfig(
+      {
+        root,
+        configFile: false,
+        logLevel: 'silent',
+        server: { watch: { ignored } },
+        plugins: [viewer()],
+      },
+      'serve'
+    )
+
+    expect(ignoredBy(resolved)).toEqual([...[ignored].flat(), annotationsIgnorePattern('/project/design/prototypes')])
+  })
+
+  it('leaves the watcher off when the project turned it off', () => {
+    expect(configFor({ server: { watch: null } }).server).toBeUndefined()
+  })
+})
+
 /**
  * The globs are all that stands between a prototype folder and the viewer. A typo in one gives no
  * error and no prototypes, so this runs a dev server over the example folder and reads what the
@@ -104,6 +175,9 @@ describe('prototypeLab', () => {
 describe('the dev server', () => {
   let server: ViteDevServer
   let origin: string
+
+  const notesFile = path.join(repo, 'example/prototypes/patient-booking/annotations.json')
+  const notesUrl = '/example/prototypes/patient-booking/annotations.json'
 
   beforeAll(async () => {
     server = await createServer({
@@ -154,4 +228,44 @@ describe('the dev server', () => {
       expect(code).toContain(`/example/prototypes/patient-booking/${file}`)
     }
   })
+
+  it('ignores the notes files of the example prototypes', () => {
+    expect(server.config.server.watch?.ignored).toContain(
+      annotationsIgnorePattern(path.join(repo, 'example/prototypes'))
+    )
+  })
+
+  it(
+    'saves a comment without reloading the page, and serves the saved notes afterwards',
+    async () => {
+      const before = await readFile(notesFile, 'utf8')
+      // Load the page's modules first, so a change the watcher saw would have somewhere to go.
+      await server.transformRequest(ENTRY_URL)
+      await server.transformRequest(notesUrl)
+
+      const sent = vi.spyOn(server.environments.client.hot, 'send')
+      const note = { id: 'reload-check', target: 'book-follow-up', screen: 'home', title: 'Saved without a reload' }
+
+      try {
+        const response = await fetch(`${origin}${ANNOTATIONS_ENDPOINT}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: 'patient-booking', edit: { op: 'save', note } }),
+        })
+        expect(response.status).toBe(200)
+
+        // Long enough for the watcher to have reported the write, had it seen it.
+        await new Promise(resolve => setTimeout(resolve, 1_000))
+        const reloads = sent.mock.calls.filter(([payload]) => (payload as { type?: string }).type === 'full-reload')
+        expect(reloads).toEqual([])
+
+        const served = await server.transformRequest(notesUrl)
+        expect(served?.code).toContain('Saved without a reload')
+      } finally {
+        sent.mockRestore()
+        await writeFile(notesFile, before, 'utf8')
+      }
+    },
+    SERVER_TIMEOUT
+  )
 })

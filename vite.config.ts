@@ -19,12 +19,7 @@ export default defineConfig({
       { find: /^vinta-prototype-lab\/viewer\.css$/, replacement: path.join(here, 'src/viewer.css') },
     ],
   },
-  server: {
-    port: 6007,
-    // The viewer writes the notes files itself and shows the result, so reloading the page on every
-    // comment would only throw away what is on screen. The screens stay watched.
-    watch: { ignored: ['**/prototypes/*/annotations.json'] },
-  },
+  server: { port: 6007 },
   preview: { port: 6007 },
   build: { outDir: 'example-dist' },
 })

@@ -3,6 +3,16 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## [0.1.1] - Unreleased
+
+### Fixed
+
+- Saving a comment in the viewer no longer reloads the page, so the open comment, the picked
+  component and the scroll position stay put. `prototypeLab()` now keeps the prototypes folder's
+  `annotations.json` files out of Vite's watcher itself, alongside anything the project's own
+  `server.watch.ignored` lists; a project config no longer needs to set this. Screen files stay
+  watched.
+
 ## [0.1.0] - Unreleased
 
 First release as a standalone package, moved out of Vinta's Building Blocks monorepo with its
