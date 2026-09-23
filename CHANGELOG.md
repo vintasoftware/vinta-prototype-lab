@@ -3,7 +3,13 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
-## [0.1.1] - Unreleased
+## [0.1.1] - 2026-09-23
+
+### Added
+
+- Group folders under `prototypes/`: a prototype can sit in `prototypes/billing/refunds/`, and its
+  slug and links take the whole path. The header's prototype picker is now a searchable list with
+  a heading for each group.
 
 ### Fixed
 
@@ -14,7 +20,7 @@ All notable changes to this package are recorded here. Versions follow
   copied from this repo's config should be removed: it keeps hand edits from showing until the dev
   server restarts.
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-09-23
 
 First release as a standalone package, moved out of Vinta's Building Blocks monorepo with its
 history.
@@ -29,9 +35,6 @@ history.
   `npx skills add vintasoftware/vinta-prototype-lab`.
 - `vinta-prototype-lab/theme.css` and `vinta-prototype-lab/default.css`: the shadcn/ui theme, and the
   Tailwind stylesheet screens get when the project names none.
-- Group folders under `prototypes/`: a prototype can sit in `prototypes/billing/refunds/`, and its
-  slug and links take the whole path. The header's prototype picker is now a searchable list with
-  a heading for each group.
 
 ### Changed
 
