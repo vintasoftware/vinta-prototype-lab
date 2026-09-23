@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -64,6 +65,33 @@ describe('editAnnotations', () => {
     await editAnnotations(prototypesDir, { slug: 'booking', edit: { op: 'save', note: NOTE } })
 
     expect((await notesOnDisk()).notes.map(note => note.id)).toEqual(['written-by-hand', 'home-primary-action'])
+  })
+
+  it('says what it will write before the file changes, so the watcher can tell the write apart', async () => {
+    const file = path.join(prototypesDir, 'booking', 'annotations.json')
+    await writeFile(file, JSON.stringify({ notes: [] }), 'utf8')
+    const told: { file: string; content: string; onDiskThen: string }[] = []
+
+    await editAnnotations(prototypesDir, { slug: 'booking', edit: { op: 'save', note: NOTE } }, (at, content) => {
+      told.push({ file: at, content, onDiskThen: readFileSync(at, 'utf8') })
+    })
+
+    expect(told).toHaveLength(1)
+    expect(told[0]?.file).toBe(file)
+    expect(told[0]?.onDiskThen).toBe(JSON.stringify({ notes: [] }))
+    expect(told[0]?.content).toBe(await readFile(file, 'utf8'))
+  })
+
+  it('does not say it will write when it writes nothing', async () => {
+    await writeFile(path.join(prototypesDir, 'booking', 'annotations.json'), '{ not json', 'utf8')
+    const told: string[] = []
+
+    const result = await editAnnotations(prototypesDir, { slug: 'booking', edit: { op: 'save', note: NOTE } }, file => {
+      told.push(file)
+    })
+
+    expect(result.status).toBe(409)
+    expect(told).toEqual([])
   })
 
   it('removes the note a delete names', async () => {

@@ -1,8 +1,10 @@
 // @vitest-environment node
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer, type ViteDevServer } from 'vite'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { ANNOTATIONS_ENDPOINT } from '../lib/source-ref'
 import { ENTRY_URL, entryCode, indexHtml, prototypeLab, resolvePrototypesDir } from './plugin'
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -162,5 +164,118 @@ describe('the dev server', () => {
     expect(code).toContain('/example/prototypes/billing/invoice-list/screens/10-invoices.tsx')
     expect(code).toContain('/example/prototypes/billing/refunds/partial-refund/prototype.md')
     expect(code).toContain('/example/prototypes/billing/refunds/partial-refund/annotations.json')
+  })
+
+  describe('and the notes files', () => {
+    const notesFile = (slug: string) => path.join(repo, 'example/prototypes', slug, 'annotations.json')
+    const notesUrl = (slug: string) => `/example/prototypes/${slug}/annotations.json`
+    // Long enough for the watcher to have reported a write and the server to have acted on it.
+    const settle = () => new Promise(resolve => setTimeout(resolve, 1_000))
+
+    /** Runs `act` and returns the type of every message the server sent the page because of it. */
+    const sentBy = async (act: () => Promise<void>) => {
+      const send = vi.spyOn(server.environments.client.hot, 'send')
+      try {
+        await act()
+        await settle()
+        return send.mock.calls.map(([payload]) => (payload as { type?: string }).type)
+      } finally {
+        send.mockRestore()
+      }
+    }
+
+    /** Puts a prototype's notes file back as it was, and waits out the reload that causes. */
+    const restoring = async (slug: string, run: () => Promise<void>) => {
+      const before = await readFile(notesFile(slug), 'utf8')
+      try {
+        // Load the page's modules first, so a change the watcher sees has somewhere to go.
+        await server.transformRequest(ENTRY_URL)
+        await server.transformRequest(notesUrl(slug))
+        await run()
+      } finally {
+        await writeFile(notesFile(slug), before, 'utf8')
+        await settle()
+      }
+    }
+
+    const save = async (slug: string, title: string) => {
+      const note = { id: 'reload-check', target: 'reload-check', title }
+      const response = await fetch(`${origin}${ANNOTATIONS_ENDPOINT}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, edit: { op: 'save', note } }),
+      })
+      expect(response.status).toBe(200)
+    }
+
+    it(
+      'saves a comment without reloading the page, and serves the saved notes afterwards',
+      () =>
+        restoring('patient-booking', async () => {
+          expect(await sentBy(() => save('patient-booking', 'Saved without a reload'))).not.toContain('full-reload')
+
+          const served = await server.transformRequest(notesUrl('patient-booking'))
+          expect(served?.code).toContain('Saved without a reload')
+        }),
+      SERVER_TIMEOUT
+    )
+
+    it(
+      'saves a comment on a prototype inside a group folder without reloading the page',
+      () =>
+        restoring('billing/refunds/partial-refund', async () => {
+          const sent = await sentBy(() => save('billing/refunds/partial-refund', 'Saved in a group'))
+          expect(sent).not.toContain('full-reload')
+        }),
+      SERVER_TIMEOUT
+    )
+
+    it(
+      "saves a prototype's first comment without reloading the page, and the entry lists the new file",
+      () =>
+        restoring('billing/invoice-list', async () => {
+          await rm(notesFile('billing/invoice-list'))
+          await settle()
+          expect((await server.transformRequest(ENTRY_URL))?.code).not.toContain(notesUrl('billing/invoice-list'))
+
+          expect(await sentBy(() => save('billing/invoice-list', 'The first one'))).not.toContain('full-reload')
+
+          expect((await server.transformRequest(ENTRY_URL))?.code).toContain(notesUrl('billing/invoice-list'))
+          const served = await server.transformRequest(notesUrl('billing/invoice-list'))
+          expect(served?.code).toContain('The first one')
+        }),
+      SERVER_TIMEOUT
+    )
+
+    it(
+      'reloads the page when a notes file is edited by hand, and serves the edit',
+      () =>
+        restoring('patient-booking', async () => {
+          const file = notesFile('patient-booking')
+          const before = await readFile(file, 'utf8')
+          const edit = () => writeFile(file, before.replace('One filled button per screen', 'Edited by hand'), 'utf8')
+
+          expect(await sentBy(edit)).toContain('full-reload')
+
+          const served = await server.transformRequest(notesUrl('patient-booking'))
+          expect(served?.code).toContain('Edited by hand')
+        }),
+      SERVER_TIMEOUT
+    )
+
+    it(
+      'reloads the page for a hand edit made after the viewer wrote the file',
+      () =>
+        restoring('patient-booking', async () => {
+          await save('patient-booking', 'Saved first')
+          await settle()
+          const file = notesFile('patient-booking')
+          const saved = await readFile(file, 'utf8')
+          const edit = () => writeFile(file, saved.replace('Saved first', 'Then edited by hand'), 'utf8')
+
+          expect(await sentBy(edit)).toContain('full-reload')
+        }),
+      SERVER_TIMEOUT
+    )
   })
 })

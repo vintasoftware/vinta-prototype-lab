@@ -3,6 +3,17 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## [0.1.1] - Unreleased
+
+### Fixed
+
+- Saving a comment in the viewer no longer reloads the page, so the open comment, the picked
+  component and the scroll position stay put. This holds for a prototype's first comment and for
+  prototypes inside group folders. Editing an `annotations.json` by hand still reloads the page and
+  shows the edit. A project config needs no `server.watch.ignored` entry for these files, and one
+  copied from this repo's config should be removed: it keeps hand edits from showing until the dev
+  server restarts.
+
 ## [0.1.0] - Unreleased
 
 First release as a standalone package, moved out of Vinta's Building Blocks monorepo with its

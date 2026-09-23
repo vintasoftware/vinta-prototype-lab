@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { Connect, Plugin, ViteDevServer } from 'vite'
+import { type Connect, normalizePath, type Plugin, type ViteDevServer } from 'vite'
 import { z } from 'zod'
 import { type AnnotationEdit, applyAnnotationEdit, serializeAnnotations } from '../lib/annotation-edit'
 import { annotationSchema, parseAnnotationsFile } from '../lib/annotations'
@@ -99,8 +99,15 @@ async function readNotes(file: string): Promise<NotesOnDisk> {
  *
  * The file on disk is read again here rather than taken from the viewer, so a note the viewer never
  * saw — hand-written, or added by someone else since the page loaded — is kept.
+ *
+ * `beforeWrite` is told what is about to be written, before the file changes: the watcher can
+ * report a write before the promise for it settles.
  */
-export async function editAnnotations(prototypesDir: string, request: AnnotationsRequest): Promise<EditResult> {
+export async function editAnnotations(
+  prototypesDir: string,
+  request: AnnotationsRequest,
+  beforeWrite?: (file: string, content: string) => void
+): Promise<EditResult> {
   const file = annotationsPathFor(prototypesDir, request.slug)
   if (file === undefined) {
     return { status: 400, body: { error: `"${request.slug}" is not a prototype folder name.` } }
@@ -112,7 +119,9 @@ export async function editAnnotations(prototypesDir: string, request: Annotation
   }
 
   const notes = applyAnnotationEdit(onDisk.notes, request.edit)
-  await writeFile(file, serializeAnnotations(notes), 'utf8')
+  const content = serializeAnnotations(notes)
+  beforeWrite?.(file, content)
+  await writeFile(file, content, 'utf8')
 
   return { status: 200, body: { notes } }
 }
@@ -120,9 +129,8 @@ export async function editAnnotations(prototypesDir: string, request: Annotation
 /**
  * Drops a written file from the server's cache.
  *
- * The notes files are out of the watcher, so nothing else tells the server they changed. Without
- * this the next full page load — the one a screen edit causes — would be served the notes as they
- * were when the page first opened.
+ * The watcher reports the write too, but only once it notices it. Until then a full page load — the
+ * one a screen edit causes — would be served the notes as they were before the write.
  */
 function forget(server: ViteDevServer, file: string): void {
   for (const mod of server.moduleGraph.getModulesByFile(file) ?? []) {
@@ -170,11 +178,36 @@ async function readBody(request: Connect.IncomingMessage): Promise<unknown> {
  * Comments stay in `annotations.json`, in the same shape a designer hand-writes, so they are
  * reviewed in the pull request with everything else. A built copy of the viewer has no server
  * behind it and stays read-only.
+ *
+ * The notes files stay watched, so a hand edit reloads the page as a screen edit does. A write the
+ * viewer asked for does not: the viewer already shows the result, and a reload would only throw away
+ * what is on screen.
  */
 export function annotationsWriter(options: { prototypesDir: string; root: string }): Plugin {
+  /** What this server last wrote to each notes file, by the path the watcher reports it under. */
+  const written = new Map<string, string>()
+
   return {
     name: 'prototype-lab:annotations-writer',
     apply: 'serve',
+    hotUpdate: {
+      // After Vite's own import.meta.glob plugin, which adds the entry to the update when a notes
+      // file is new. Anything returned before that would be added to again.
+      order: 'post',
+      async handler({ type, file, modules, read }) {
+        const ours = written.get(file)
+        // Compared by content, so a hand edit made after the viewer's write still reloads the page.
+        if (type === 'delete' || ours === undefined || (await read()) !== ours) {
+          return
+        }
+        // The file is dropped from the cache before this runs. A new file also brings the entry
+        // that globs it, which has to be built again to list it, but nothing needs to reach the page.
+        for (const mod of modules) {
+          this.environment.moduleGraph.invalidateModule(mod)
+        }
+        return []
+      },
+    },
     configureServer(server) {
       const serve = <T>(
         endpoint: string,
@@ -218,7 +251,9 @@ export function annotationsWriter(options: { prototypesDir: string; root: string
       }
 
       serve(ANNOTATIONS_ENDPOINT, annotationsRequestSchema, async payload => {
-        const result = await editAnnotations(options.prototypesDir, payload)
+        const result = await editAnnotations(options.prototypesDir, payload, (file, content) => {
+          written.set(normalizePath(file), content)
+        })
         const file = annotationsPathFor(options.prototypesDir, payload.slug)
         if (result.status === 200 && file !== undefined) {
           forget(server, file)
