@@ -1,0 +1,4 @@
+/* The example project's stylesheet: Tailwind plus the same theme the viewer uses. A real project
+   points `css` at its own. */
+@import 'tailwindcss';
+@import '../src/theme.css';

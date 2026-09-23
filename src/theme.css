@@ -1,0 +1,573 @@
+/* =============================================================================
+   Prototype Lab theme — shadcn/ui tokens for Tailwind v4.
+
+   Vendored from Vinta's design system. The viewer's chrome is compiled against it, and a project
+   that brings no stylesheet of its own gets it for its screens too. A project stylesheet loaded
+   after it overrides any token it redefines (`--primary`, `--radius`, …), so the viewer takes on
+   the project's colours.
+
+   It holds no `@import "tailwindcss"`: import that first, then this file.
+============================================================================= */
+
+@custom-variant dark (&:is(.dark *));
+
+/* The data-attribute variants shadcn/ui components are written with. */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
+
+@theme inline {
+    --color-transparent: transparent;
+    --color-current: currentColor;
+    --color-inherit: inherit;
+    --color-white: var(--white);
+    --color-black: var(--black);
+
+    /* Typography */
+    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-heading: var(--font-sans);
+
+    /* Surfaces */
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+
+    /* Neutral text/surface roles */
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-placeholder: var(--text-placeholder);
+
+    /* Primary (indigo) */
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary-hover: var(--background-primary-filled-hover);
+    --color-primary-subtle: var(--background-primary-light);
+    --color-primary-subtle-hover: var(--background-primary-light-hover);
+    --color-primary-border: var(--border-primary-default);
+
+    /* Secondary (brand blue — DS, not shadcn neutral) */
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary-hover: var(--background-secondary-filled-hover);
+    --color-secondary-subtle: var(--background-secondary-light);
+    --color-secondary-subtle-hover: var(--background-secondary-light-hover);
+    --color-secondary-border: var(--border-secondary-default);
+
+    /* Success */
+    --color-success: var(--background-success-filled);
+    --color-success-foreground: var(--white);
+    --color-success-hover: var(--background-success-filled-hover);
+    --color-success-subtle: var(--background-success-light);
+    --color-success-subtle-hover: var(--background-success-light-hover);
+    --color-success-border: var(--border-success-default);
+
+    /* Warning (dark amber filled, pale amber light — per Figma "inverted" yellow scale) */
+    --color-warning: var(--background-warning-filled);
+    --color-warning-foreground: var(--white);
+    --color-warning-hover: var(--background-warning-filled-hover);
+    --color-warning-subtle: var(--background-warning-light);
+    --color-warning-subtle-hover: var(--background-warning-light-hover);
+    --color-warning-border: var(--border-warning-default);
+
+    /* Severe (orange) — between warning and destructive */
+    --color-severe: var(--background-severe-filled);
+    --color-severe-foreground: var(--white);
+    --color-severe-hover: var(--background-severe-filled-hover);
+    --color-severe-subtle: var(--background-severe-light);
+    --color-severe-subtle-hover: var(--background-severe-light-hover);
+    --color-severe-border: var(--border-severe-default);
+
+    /* Destructive / error */
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-destructive-hover: var(--background-error-filled-hover);
+    --color-destructive-subtle: var(--background-error-light);
+    --color-destructive-subtle-hover: var(--background-error-light-hover);
+    --color-destructive-border: var(--border-error-default);
+
+    /* Info / link (blue) */
+    --color-info: var(--info);
+    --color-info-foreground: var(--white);
+    --color-info-subtle: var(--info-bg);
+    --color-link: var(--text-link);
+
+    /* Lines & focus */
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
+    /* Charts (kept) */
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+
+    /* Sidebar (kept) */
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+
+    /* App-specific brand tokens (kept; consumed by landing/provider gradients) */
+    --color-brand-blue: var(--brand-blue);
+    --color-brand-blue-mid: var(--brand-blue-mid);
+    --color-brand-blue-end: var(--brand-blue-end);
+    --color-brand-blue-light: var(--brand-blue-light);
+    --color-brand-gray: var(--brand-gray);
+    --color-border-card: var(--border-card);
+    --color-info-bg: var(--info-bg);
+
+    /* Primitive scales as Tailwind color utilities — overrides Tailwind's default
+       palette with the DS values so `bg-indigo-500`, `text-red-700`, … resolve to the
+       design system, not Tailwind's stock colors. Components should still prefer the
+       semantic roles above; reach for a raw scale only for decorative accents. */
+    --color-blue-50: var(--blue-50);     --color-blue-100: var(--blue-100);   --color-blue-200: var(--blue-200);
+    --color-blue-300: var(--blue-300);   --color-blue-400: var(--blue-400);   --color-blue-500: var(--blue-500);
+    --color-blue-600: var(--blue-600);   --color-blue-700: var(--blue-700);   --color-blue-800: var(--blue-800);
+    --color-blue-900: var(--blue-900);
+    --color-indigo-50: var(--indigo-50);     --color-indigo-100: var(--indigo-100);   --color-indigo-200: var(--indigo-200);
+    --color-indigo-300: var(--indigo-300);   --color-indigo-400: var(--indigo-400);   --color-indigo-500: var(--indigo-500);
+    --color-indigo-600: var(--indigo-600);   --color-indigo-700: var(--indigo-700);   --color-indigo-800: var(--indigo-800);
+    --color-indigo-900: var(--indigo-900);
+    --color-red-50: var(--red-50);       --color-red-100: var(--red-100);     --color-red-200: var(--red-200);
+    --color-red-300: var(--red-300);     --color-red-400: var(--red-400);     --color-red-500: var(--red-500);
+    --color-red-600: var(--red-600);     --color-red-700: var(--red-700);     --color-red-800: var(--red-800);
+    --color-red-900: var(--red-900);
+    --color-green-50: var(--green-50);   --color-green-100: var(--green-100); --color-green-200: var(--green-200);
+    --color-green-300: var(--green-300); --color-green-400: var(--green-400); --color-green-500: var(--green-500);
+    --color-green-600: var(--green-600); --color-green-700: var(--green-700); --color-green-800: var(--green-800);
+    --color-green-900: var(--green-900);
+    --color-yellow-50: var(--yellow-50);     --color-yellow-100: var(--yellow-100);   --color-yellow-200: var(--yellow-200);
+    --color-yellow-300: var(--yellow-300);   --color-yellow-400: var(--yellow-400);   --color-yellow-500: var(--yellow-500);
+    --color-yellow-600: var(--yellow-600);   --color-yellow-700: var(--yellow-700);   --color-yellow-800: var(--yellow-800);
+    --color-yellow-900: var(--yellow-900);
+    --color-gray-50: var(--gray-50);     --color-gray-100: var(--gray-100);   --color-gray-200: var(--gray-200);
+    --color-gray-300: var(--gray-300);   --color-gray-400: var(--gray-400);   --color-gray-500: var(--gray-500);
+    --color-gray-600: var(--gray-600);   --color-gray-700: var(--gray-700);   --color-gray-800: var(--gray-800);
+    --color-gray-900: var(--gray-900);
+    --color-neutral-50: var(--neutral-50);   --color-neutral-100: var(--neutral-100); --color-neutral-200: var(--neutral-200);
+    --color-neutral-300: var(--neutral-300); --color-neutral-400: var(--neutral-400); --color-neutral-500: var(--neutral-500);
+    --color-neutral-600: var(--neutral-600); --color-neutral-700: var(--neutral-700); --color-neutral-800: var(--neutral-800);
+    --color-neutral-900: var(--neutral-900);
+    --color-teal-50: var(--teal-50);     --color-teal-100: var(--teal-100);   --color-teal-200: var(--teal-200);
+    --color-teal-300: var(--teal-300);   --color-teal-400: var(--teal-400);   --color-teal-500: var(--teal-500);
+    --color-teal-600: var(--teal-600);   --color-teal-700: var(--teal-700);   --color-teal-800: var(--teal-800);
+    --color-teal-900: var(--teal-900);
+    --color-cyan-50: var(--cyan-50);     --color-cyan-100: var(--cyan-100);   --color-cyan-200: var(--cyan-200);
+    --color-cyan-300: var(--cyan-300);   --color-cyan-400: var(--cyan-400);   --color-cyan-500: var(--cyan-500);
+    --color-cyan-600: var(--cyan-600);   --color-cyan-700: var(--cyan-700);   --color-cyan-800: var(--cyan-800);
+    --color-cyan-900: var(--cyan-900);
+    --color-violet-50: var(--violet-50);     --color-violet-100: var(--violet-100);   --color-violet-200: var(--violet-200);
+    --color-violet-300: var(--violet-300);   --color-violet-400: var(--violet-400);   --color-violet-500: var(--violet-500);
+    --color-violet-600: var(--violet-600);   --color-violet-700: var(--violet-700);   --color-violet-800: var(--violet-800);
+    --color-violet-900: var(--violet-900);
+    --color-fuchsia-50: var(--fuchsia-50);   --color-fuchsia-100: var(--fuchsia-100); --color-fuchsia-200: var(--fuchsia-200);
+    --color-fuchsia-300: var(--fuchsia-300); --color-fuchsia-400: var(--fuchsia-400); --color-fuchsia-500: var(--fuchsia-500);
+    --color-fuchsia-600: var(--fuchsia-600); --color-fuchsia-700: var(--fuchsia-700); --color-fuchsia-800: var(--fuchsia-800);
+    --color-fuchsia-900: var(--fuchsia-900);
+    --color-orange-50: var(--orange-50);     --color-orange-100: var(--orange-100);   --color-orange-200: var(--orange-200);
+    --color-orange-300: var(--orange-300);   --color-orange-400: var(--orange-400);   --color-orange-500: var(--orange-500);
+    --color-orange-600: var(--orange-600);   --color-orange-700: var(--orange-700);   --color-orange-800: var(--orange-800);
+    --color-orange-900: var(--orange-900);
+
+    /* Radius roles — concrete values (button sm, input md, card xl) */
+    --radius-xs: 0.125rem;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
+    --radius-2xl: 2rem;
+
+    /* Spacing: use Tailwind's default numeric scale (gap-3, px-4, …) directly;
+       no custom DS spacing tokens. */
+
+    /* Ultra-wide viewports (use `3xl:` / `4xl:`) */
+    --breakpoint-3xl: 120rem;
+    --breakpoint-4xl: 160rem;
+
+    /* Container width at which a 6-column dashboard grid expands from one
+       column to six. Backs the `@dashboard-6col:` container-query variant used
+       by `Grid cols={6}` / `GridItem`. */
+    --container-dashboard-6col: 800px;
+}
+
+/* Static shadow token. `@theme static` generates the `shadow-surface-sm` utility
+   AND force-emits `--shadow-surface-sm` to :root (plain `@theme` tree-shakes it out,
+   since the utility inlines the value) — kept so consumers that reference
+   `var(--shadow-surface-sm)` directly (e.g. intake-form) still resolve the token.
+
+   `--shadow-panel` lifts a translucent page panel off the gradient behind it. Its
+   second layer is indigo-700 at 10%, so the edge reads as brand colour rather than
+   grey. The value is a literal because `@theme` cannot reference `--indigo-700`,
+   which layer 1 declares after this block. */
+@theme static {
+    --shadow-surface-sm: 0px 1px 3px 0px #0000000d, 0px 1px 2px 0px #0000001a;
+    --shadow-surface-md: 2px 1px 8px 0px #0000002b;
+    --shadow-panel: 0px 2px 8px 0px #0000000f, 0px 8px 32px 0px #4263eb1a;
+}
+
+/* =============================================================================
+   LAYER 1 — PRIMITIVES (mode-independent)
+============================================================================= */
+:root {
+  --blue-50: #e7f5ff;  --blue-100: #d0ebff; --blue-200: #a5d8ff; --blue-300: #74c0fc;
+  --blue-400: #4dabf7; --blue-500: #339af0; --blue-600: #228be6; --blue-700: #1c7ed6;
+  --blue-800: #1971c2; --blue-900: #1864ab;
+
+  --indigo-50: #edf2ff;  --indigo-100: #dbe4ff; --indigo-200: #bac8ff; --indigo-300: #91a7ff;
+  --indigo-400: #748ffc; --indigo-500: #5c7cfa; --indigo-600: #4c6ef5; --indigo-700: #4263eb;
+  --indigo-800: #3b5bdb; --indigo-900: #364fc7;
+
+  --red-50: #fff5f5;  --red-100: #ffe3e3; --red-200: #ffc9c9; --red-300: #ffa8a8;
+  --red-400: #ff8787; --red-500: #ff6b6b; --red-600: #fa5252; --red-700: #f03e3e;
+  --red-800: #e03131; --red-900: #c92a2a;
+
+  --green-50: #ebfbee;  --green-100: #d3f9d8; --green-200: #b2f2bb; --green-300: #8ce99a;
+  --green-400: #69db7c; --green-500: #51cf66; --green-600: #40c057; --green-700: #37b24d;
+  --green-800: #2f9e44; --green-900: #2b8a3e;
+
+  /* Yellow scale is intentionally inverted (bright low -> dark amber high) per Figma */
+  --yellow-50: #fbf3e0;  --yellow-100: #f9e3b6; --yellow-200: #fcc003; --yellow-300: #e4a201;
+  --yellow-400: #ca8501; --yellow-500: #a86403; --yellow-600: #8c4b02; --yellow-700: #6f3400;
+  --yellow-800: #4f2100; --yellow-900: #281202;
+
+  --gray-50: #f8f9fa;  --gray-100: #f1f3f5; --gray-200: #e9ecef; --gray-300: #dee2e6;
+  --gray-400: #ced4da; --gray-500: #adb5bd; --gray-600: #868e96; --gray-700: #495057;
+  --gray-800: #343a40; --gray-900: #212529;
+
+  --neutral-50: #c9c9c9;  --neutral-100: #b8b8b8; --neutral-200: #828282; --neutral-300: #696969;
+  --neutral-400: #424242; --neutral-500: #3b3b3b; --neutral-600: #2e2e2e; --neutral-700: #242424;
+  --neutral-800: #1f1f1f; --neutral-900: #141414;
+
+  --teal-50: #e6fcf5;  --teal-100: #c3fae8; --teal-200: #96f2d7; --teal-300: #63e6be;
+  --teal-400: #38d9a9; --teal-500: #20c997; --teal-600: #12b886; --teal-700: #0ca678;
+  --teal-800: #099268; --teal-900: #087f5b;
+
+  --cyan-50: #e3fafc;  --cyan-100: #c5f6fa; --cyan-200: #99e9f2; --cyan-300: #66d9e8;
+  --cyan-400: #3bc9db; --cyan-500: #22b8cf; --cyan-600: #15aabf; --cyan-700: #1098ad;
+  --cyan-800: #0c8599; --cyan-900: #0b7285;
+
+  --violet-50: #f3f0ff;  --violet-100: #e5dbff; --violet-200: #d0bfff; --violet-300: #b197fc;
+  --violet-400: #9775fa; --violet-500: #845ef7; --violet-600: #7950f2; --violet-700: #7048e8;
+  --violet-800: #6741d9; --violet-900: #5f3dc4;
+
+  --fuchsia-50: #f8f0fc;  --fuchsia-100: #f3d9fa; --fuchsia-200: #eebefa; --fuchsia-300: #e599f7;
+  --fuchsia-400: #da77f2; --fuchsia-500: #cc5de8; --fuchsia-600: #be4bdb; --fuchsia-700: #ae3ec9;
+  --fuchsia-800: #9c36b5; --fuchsia-900: #862e9c;
+
+  --orange-50: #fff4e6;  --orange-100: #ffe8cc; --orange-200: #ffd8a8; --orange-300: #ffc078;
+  --orange-400: #ffa94d; --orange-500: #ff922b; --orange-600: #fd7e14; --orange-700: #f76707;
+  --orange-800: #e8590c; --orange-900: #d9480f;
+
+  --white: #ffffff;
+  --black: #000000;
+
+}
+
+/* =============================================================================
+   LAYER 2 — SEMANTIC TOKENS — LIGHT
+   `*-light` surfaces are the hue's 600 step as an 8-digit-hex alpha tint
+   (10%/12% in light, 15%/20% in dark; warning uses real amber #fab005).
+============================================================================= */
+:root {
+  --text-title: var(--black);
+  --text-default: var(--gray-900);
+  --text-placeholder: var(--gray-700);
+  --text-link: var(--blue-600);
+  --text-disabled-default: var(--gray-500);
+  --text-gray-default: var(--gray-600);
+  --text-primary-default: var(--indigo-700);
+  --text-secondary-default: var(--blue-700);
+  --text-success-default: var(--green-800);
+  --text-warning-default: var(--yellow-500);
+  --text-severe-default: var(--orange-700);
+  --text-error-default: var(--red-800);
+  --text-error-disabled: var(--red-400);
+
+  --background-default: var(--white);
+  --background-default-hover: var(--gray-50);
+  --background-body: var(--white);
+  --background-transparent: transparent;
+  --background-disabled-default: var(--gray-200);
+  --background-disabled-input: var(--gray-100);
+
+  --background-primary-filled: var(--indigo-700);
+  --background-primary-filled-hover: var(--indigo-800);
+  --background-primary-light: #4c6ef51a;
+  --background-primary-light-hover: #4c6ef51f;
+
+  --background-secondary-filled: var(--blue-700);
+  --background-secondary-filled-hover: var(--blue-800);
+  --background-secondary-light: #228be61a;
+  --background-secondary-light-hover: #228be61f;
+
+  --background-success-filled: var(--green-800);
+  --background-success-filled-hover: var(--green-900);
+  --background-success-light: #40c0571a;
+  --background-success-light-hover: #40c0571f;
+
+  --background-warning-filled: var(--yellow-600);
+  --background-warning-filled-hover: var(--yellow-700);
+  --background-warning-light: #fab0051a;
+  --background-warning-light-hover: #fab0051f;
+
+  --background-severe-filled: var(--orange-700);
+  --background-severe-filled-hover: var(--orange-800);
+  --background-severe-light: #fd7e141a;
+  --background-severe-light-hover: #fd7e141f;
+
+  --background-error-filled: var(--red-800);
+  --background-error-filled-hover: var(--red-900);
+  --background-error-light: #fa52521a;
+  --background-error-light-hover: #fa52521f;
+
+  --background-gray-filled: var(--gray-600);
+  --background-gray-filled-hover: var(--gray-700);
+  --background-gray-light: #868e961a;
+  --background-gray-light-hover: #868e961f;
+
+  --border-default: var(--gray-300);
+  --border-input: var(--gray-400);
+  --border-disabled-default: var(--gray-200);
+  --border-primary-default: var(--indigo-700);
+  --border-secondary-default: var(--blue-700);
+  --border-success-default: var(--green-600);
+  --border-warning-default: var(--yellow-600);
+  --border-severe-default: var(--orange-700);
+  --border-error-default: var(--red-800);
+  --border-error-disabled: var(--red-400);
+  --border-gray-default: var(--gray-600);
+}
+
+/* =============================================================================
+   LAYER 2 — SEMANTIC TOKENS — DARK
+============================================================================= */
+.dark {
+  --text-title: var(--neutral-50);
+  --text-default: var(--white);
+  --text-placeholder: var(--neutral-300);
+  --text-link: var(--blue-400);
+  --text-disabled-default: var(--gray-800);
+  --text-gray-default: var(--gray-300);
+  --text-primary-default: var(--indigo-300);
+  --text-secondary-default: var(--blue-300);
+  --text-success-default: var(--green-300);
+  --text-warning-default: var(--yellow-200);
+  --text-severe-default: var(--orange-300);
+  --text-error-default: var(--red-300);
+  --text-error-disabled: var(--red-300);
+
+  --background-default: var(--neutral-600);
+  --background-default-hover: var(--neutral-500);
+  --background-body: var(--neutral-700);
+  --background-transparent: transparent;
+  --background-disabled-default: var(--neutral-700);
+  --background-disabled-input: var(--neutral-700);
+
+  --background-primary-filled: var(--indigo-800);
+  --background-primary-filled-hover: var(--indigo-900);
+  --background-primary-light: #4c6ef526;
+  --background-primary-light-hover: #4c6ef533;
+
+  --background-secondary-filled: var(--blue-800);
+  --background-secondary-filled-hover: var(--blue-900);
+  --background-secondary-light: #228be626;
+  --background-secondary-light-hover: #228be633;
+
+  --background-success-filled: var(--green-800);
+  --background-success-filled-hover: var(--green-900);
+  --background-success-light: #40c05726;
+  --background-success-light-hover: #40c05733;
+
+  --background-warning-filled: var(--yellow-800);
+  --background-warning-filled-hover: var(--yellow-900);
+  --background-warning-light: #fab00526;
+  --background-warning-light-hover: #fab00533;
+
+  --background-severe-filled: var(--orange-800);
+  --background-severe-filled-hover: var(--orange-900);
+  --background-severe-light: #fd7e1426;
+  --background-severe-light-hover: #fd7e1433;
+
+  --background-error-filled: var(--red-800);
+  --background-error-filled-hover: var(--red-900);
+  --background-error-light: #fa525226;
+  --background-error-light-hover: #fa525233;
+
+  --background-gray-filled: var(--gray-800);
+  --background-gray-filled-hover: var(--gray-900);
+  --background-gray-light: #868e9626;
+  --background-gray-light-hover: #868e9633;
+
+  --border-default: var(--neutral-400);
+  --border-input: var(--neutral-400);
+  --border-disabled-default: var(--gray-800);
+  --border-primary-default: var(--indigo-300);
+  --border-secondary-default: var(--blue-300);
+  --border-success-default: var(--green-300);
+  --border-warning-default: var(--yellow-300);
+  --border-severe-default: var(--orange-300);
+  --border-error-default: var(--red-300);
+  --border-error-disabled: #fa52521a;
+  --border-gray-default: var(--gray-300);
+}
+
+/* =============================================================================
+   LAYER 3 — shadcn ALIASES (point shadcn's contract at the semantic layer)
+============================================================================= */
+:root {
+  --background: var(--background-body);
+  --foreground: var(--text-default);
+  --card: var(--background-default);
+  --card-foreground: var(--text-default);
+  --popover: var(--background-default);
+  --popover-foreground: var(--text-default);
+  --primary: var(--background-primary-filled);
+  --primary-foreground: var(--white);
+  --secondary: var(--background-secondary-filled); /* brand blue (DS), not shadcn's neutral */
+  --secondary-foreground: var(--white);
+  --muted: var(--gray-100);
+  --muted-foreground: var(--gray-700);
+  --accent: var(--gray-100);
+  --accent-foreground: var(--text-default);
+  --destructive: var(--background-error-filled);
+  --destructive-foreground: var(--white);
+  --border: var(--border-default);
+  --input: var(--border-input);
+  --ring: var(--indigo-700);
+  --radius: var(--radius-md);
+
+  /* Charts (kept) */
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+
+  /* Sidebar (kept) */
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* Form primary buttons: full width up to this cap (Figma); override the var to resize. Consumed by Button width="form". */
+  --form-button-max-width: 335px;
+
+  /* App-specific brand tokens (kept; consumed by landing/provider gradients) */
+  --brand-blue: #00407f;
+  --brand-blue-mid: rgb(0 64 127 / 0.8);
+  --brand-blue-end: rgb(0 64 127 / 0);
+  --brand-blue-light: #b5cfff;
+  --brand-gray: var(--gray-600);
+  --border-card: #0b73da0d;
+  --info: var(--blue-600);
+  --info-bg: #228be61a;
+
+  /* Brand "3D" gradient — Figma "Building Blocks Gradient". Drives the glossy
+     raised look on filled icon badges and completed stepper circles (gradient
+     fill, no drop shadow). Reference via `bg-[image:var(--gradient-brand)]`. */
+  --gradient-brand: linear-gradient(157.59deg, #407cf3 14.6%, #4411ba 115%);
+}
+
+.dark {
+  --background: var(--background-body);
+  --foreground: var(--text-default);
+  --card: var(--background-default);
+  --card-foreground: var(--text-default);
+  --popover: var(--background-default);
+  --popover-foreground: var(--text-default);
+  --primary: var(--background-primary-filled);
+  --primary-foreground: var(--white);
+  --secondary: var(--background-secondary-filled);
+  --secondary-foreground: var(--white);
+  --muted: var(--neutral-500);
+  --muted-foreground: var(--neutral-200);
+  --accent: var(--neutral-500);
+  --accent-foreground: var(--text-default);
+  --destructive: var(--background-error-filled);
+  --destructive-foreground: var(--white);
+  --border: var(--border-default);
+  --input: var(--border-input);
+  --ring: var(--indigo-300);
+
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  --brand-gray: var(--gray-500);
+}
+
+@layer base {
+  /* shadcn baseline reset (omitted when this token file replaced shadcn's
+     generated globals): give every element the DS border + focus-ring color by
+     default. Tailwind v4 preflight sets `border: 0 solid`, so a bare `border` /
+     `border-t` (CardFooter, TableRow, Dialog/AlertDialog footers, …) would
+     otherwise fall back to `currentColor` (the text color) instead of `--border`. */
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    @apply font-sans;
+  }
+}

@@ -1,0 +1,153 @@
+name: Publish
+
+# Publishes the package to npm when a GitHub release is published.
+#
+# There is no NPM_TOKEN secret: GitHub gives this run a short-lived OIDC token, and npm accepts it
+# because this repository is registered as a trusted publisher for the package on npmjs.com. The
+# trusted publisher settings on npm must match this file exactly:
+#   Organization or user:  vintasoftware
+#   Repository:            vinta-prototype-lab
+#   Workflow filename:     publish.yml
+#   Environment name:      npm
+#
+# The release tag is the version: `v` followed by the semver in package.json (v0.1.0, v1.2.0-rc.1).
+# A release marked "pre-release" must carry a prerelease version and is published under its
+# prerelease id (rc, beta, …) instead of `latest`.
+
+on:
+  release:
+    # `published` fires for a release created as published and for a draft when it is published.
+    # GitHub sends no event for a draft being created, so drafts publish nothing until then.
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish to npm
+    needs: ci
+    runs-on: ubuntu-latest
+    # The environment named in the npm trusted publisher settings. Required reviewers on it turn
+    # every publish into an approval step.
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/vinta-prototype-lab
+    permissions:
+      contents: read
+      # Lets npm verify this run through OIDC.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The whole history, so the tagged commit can be checked against main.
+          fetch-depth: 0
+
+      - name: Check the release tag against package.json
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          # The semver 2.0.0 grammar, with the `v` prefix this repository's tags carry.
+          SEMVER='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$'
+          if ! printf '%s' "$TAG" | grep -Eq "$SEMVER"; then
+            echo "::error::Release tag \"$TAG\" is not a semver version with a v prefix, such as v0.1.0 or v1.0.0-rc.1."
+            exit 1
+          fi
+
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::Release tag $TAG does not match package.json version $VERSION. Tag the release v$VERSION, or bump package.json first."
+            exit 1
+          fi
+
+          case "$VERSION" in
+            *-*) IS_PRERELEASE=true ;;
+            *) IS_PRERELEASE=false ;;
+          esac
+          if [ "$PRERELEASE" != "$IS_PRERELEASE" ]; then
+            if [ "$IS_PRERELEASE" = true ]; then
+              echo "::error::$VERSION is a prerelease version, so mark the GitHub release as a pre-release."
+            else
+              echo "::error::The GitHub release is marked pre-release, but $VERSION is a stable version."
+            fi
+            exit 1
+          fi
+
+          if [ "$IS_PRERELEASE" = true ]; then
+            # 1.0.0-rc.1 -> rc, 1.0.0-beta -> beta. A numeric-only id falls back to `next`.
+            DIST_TAG="$(printf '%s' "${VERSION#*-}" | sed -E 's/[.+].*$//; s/[0-9]+$//')"
+            DIST_TAG="${DIST_TAG:-next}"
+          else
+            DIST_TAG=latest
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dist-tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
+          echo "Publishing $VERSION under dist-tag $DIST_TAG."
+
+      - name: Check the tagged commit is on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::The release tag points at a commit that is not on main. Release from main."
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or later.
+      - name: Use an npm that supports trusted publishing
+        run: npm install --global npm@^11.5.1
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Skip a version that is already on npm
+        id: published
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if npm view "vinta-prototype-lab@$VERSION" version >/dev/null 2>&1; then
+            echo "::notice::vinta-prototype-lab@$VERSION is already on npm, so there is nothing to publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish
+        if: steps.published.outputs.exists == 'false'
+        env:
+          DIST_TAG: ${{ steps.version.outputs.dist-tag }}
+        run: npm publish --access public --tag "$DIST_TAG"
+
+      - name: Summary
+        if: always()
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DIST_TAG: ${{ steps.version.outputs.dist-tag }}
+          EXISTS: ${{ steps.published.outputs.exists }}
+        run: |
+          {
+            echo "### vinta-prototype-lab@${VERSION:-unresolved}"
+            echo ""
+            echo "- dist-tag: \`${DIST_TAG:-unresolved}\`"
+            echo "- already on npm: \`${EXISTS:-unknown}\`"
+            echo "- auth: OIDC trusted publishing (no NPM_TOKEN)"
+          } >> "$GITHUB_STEP_SUMMARY"

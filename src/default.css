@@ -1,0 +1,4 @@
+/* The stylesheet prototype screens get when the project names none of its own: Tailwind with the
+   package's shadcn/ui theme. Tailwind finds the classes the screens use by scanning the project. */
+@import 'tailwindcss';
+@import './theme.css';

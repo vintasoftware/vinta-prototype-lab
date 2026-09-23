@@ -1,0 +1,9 @@
+node_modules/
+dist/
+example-dist/
+prototype-lab-dist/
+coverage/
+*.tgz
+.DS_Store
+.env
+.env.*

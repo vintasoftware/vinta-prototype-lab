@@ -1,0 +1,27 @@
+/* The viewer's own chrome. The package build compiles this into `dist/viewer.css`, so a project
+   using the viewer does not need to scan the package's files with its own Tailwind.
+
+   `source(none)` keeps the scan to the chrome: prototype screens are styled by the project's
+   stylesheet, not by this one. */
+@import 'tailwindcss' source(none);
+@import './theme.css';
+
+@source "./**/*.{ts,tsx}";
+
+@layer components {
+  /* Ring drawn around an element a designer commented on. It sits in the overlay, above the
+     screen, so it never changes the layout underneath. */
+  .prototype-anchor-ring {
+    @apply pointer-events-none absolute rounded-sm ring-2 ring-fuchsia-500 ring-offset-1;
+  }
+
+  /* Click region a designer drops on a static area to make it navigate. Invisible until the
+     viewer's hotspot toggle is on. */
+  .prototype-hotspot {
+    @apply absolute cursor-pointer rounded-sm bg-transparent;
+  }
+
+  .prototype-hotspot[data-visible='true'] {
+    @apply bg-cyan-400/25 ring-2 ring-cyan-500;
+  }
+}

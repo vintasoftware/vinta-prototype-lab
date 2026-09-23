@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "vitest/globals", "node"],
+
+    "newLine": "lf",
+    "noEmit": true,
+    "isolatedModules": true,
+
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "erasableSyntaxOnly": true,
+    "noImplicitOverride": true,
+    "noErrorTruncation": true,
+    "noUncheckedIndexedAccess": true,
+
+    "paths": {
+      "vinta-prototype-lab": ["./src/index.ts"]
+    }
+  },
+  "include": [
+    "src",
+    "example",
+    "test",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts",
+    "tsdown.config.ts",
+    "vitest-env.d.ts"
+  ],
+  "exclude": ["node_modules", "dist", "example-dist"]
+}

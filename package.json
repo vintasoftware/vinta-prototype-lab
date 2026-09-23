@@ -1,0 +1,109 @@
+{
+  "name": "vinta-prototype-lab",
+  "version": "0.1.0",
+  "description": "Clickable design prototypes: markdown docs, React screens, and designer comments anchored to the UI.",
+  "keywords": [
+    "prototype",
+    "design",
+    "react",
+    "vite",
+    "annotations",
+    "flow-map",
+    "agent-skills"
+  ],
+  "license": "MIT",
+  "author": "Vinta Software (https://www.vinta.com.br)",
+  "homepage": "https://github.com/vintasoftware/vinta-prototype-lab#readme",
+  "bugs": "https://github.com/vintasoftware/vinta-prototype-lab/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vintasoftware/vinta-prototype-lab.git"
+  },
+  "type": "module",
+  "bin": {
+    "prototype-lab": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "default": "./dist/vite.js"
+    },
+    "./viewer.css": "./dist/viewer.css",
+    "./default.css": "./dist/default.css",
+    "./theme.css": "./dist/theme.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "@parcel/watcher"
+    ]
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsdown && tailwindcss -i src/viewer.css -o dist/viewer.css --minify",
+    "build:example": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint": "biome lint .",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "publint": "publint --strict",
+    "validate": "pnpm check && pnpm typecheck && pnpm test && pnpm build && pnpm publint"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.29.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.0.5",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.31.0",
+    "radix-ui": "^1.6.7",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.0.16",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.11",
+    "@tailwindcss/cli": "^4.3.3",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitest/coverage-v8": "^4.1.10",
+    "happy-dom": "20.11.2",
+    "publint": "^0.3.24",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tsdown": "^0.23.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}

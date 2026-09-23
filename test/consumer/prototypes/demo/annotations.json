@@ -1,0 +1,11 @@
+{
+  "notes": [
+    {
+      "id": "start-action",
+      "screen": "start",
+      "target": "go",
+      "kind": "spec",
+      "title": "The one action on the screen"
+    }
+  ]
+}

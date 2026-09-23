@@ -1,0 +1,68 @@
+{
+  "notes": [
+    {
+      "id": "home-primary-action",
+      "screen": "home",
+      "target": "book-follow-up",
+      "kind": "spec",
+      "title": "One filled button per screen",
+      "body": "This is the only **filled** button on the dashboard. Every other card action is `ghost`, so the next step is unambiguous. If a second card ever needs a filled button, we change this rule together rather than per screen.",
+      "author": "Ana"
+    },
+    {
+      "id": "home-task-count",
+      "screen": "home",
+      "target": "task-count",
+      "kind": "question",
+      "title": "Do we show the count when it is zero?",
+      "body": "The badge disappears at zero today. An empty state on the card would read better — needs a product call.",
+      "author": "Ana"
+    },
+    {
+      "id": "choose-first-open-day",
+      "screen": "choose-time",
+      "target": "day-strip",
+      "kind": "flow",
+      "title": "Opens on the first day with slots",
+      "body": "Not on today. A patient landing on an empty Monday reads it as \"nothing is available\" and leaves.",
+      "author": "Ana"
+    },
+    {
+      "id": "choose-slot-size",
+      "screen": "choose-time",
+      "target": "slot-grid",
+      "kind": "spec",
+      "title": "Slots stay at least 44px tall",
+      "body": "Thumb target on mobile. Three columns on mobile, four from tablet up.",
+      "author": "Ana"
+    },
+    {
+      "id": "empty-week-call",
+      "screen": "choose-time",
+      "target": "no-slots-help",
+      "kind": "todo",
+      "title": "Waitlist or call?",
+      "body": "The empty variant offers a phone link. If we ship a waitlist this becomes a button and the copy changes.",
+      "author": "Ana",
+      "status": "open"
+    },
+    {
+      "id": "review-no-edit",
+      "screen": "review",
+      "target": "review-summary",
+      "kind": "spec",
+      "title": "Read-only on purpose",
+      "body": "No inline editing here. Changing the time means going back, so the summary and the confirmation can be the same three lines in the same order.",
+      "author": "Ana"
+    },
+    {
+      "id": "confirmed-same-three-facts",
+      "screen": "confirmed",
+      "target": "appointment-card",
+      "kind": "flow",
+      "title": "Repeats the review, line for line",
+      "body": "Provider, time, place — same order as the review screen. Anything that moves here reads as a change the patient did not make.",
+      "author": "Ana"
+    }
+  ]
+}
