@@ -3,7 +3,7 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
-## [Unreleased]
+## [0.2.0] - 2026-10-01
 
 ### Changed
 
