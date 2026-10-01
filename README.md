@@ -41,6 +41,11 @@ page is served from memory, so an `index.html` the project already has is left a
 `--no-storybook`, `--port`, `--host`, `--open` and `--out-dir`. `prototype-lab --help` lists them all.
 Add `prototype-lab-dist/` to `.gitignore`.
 
+The copy from `build` can be deployed to any static host as it is. It keeps what only makes sense
+on your own machine out: it shows comments without offering to write them, offers no element names,
+and links to Storybook only when the config names a deployed one (see
+[Storybook links](#storybook-links)).
+
 ## Configuration
 
 Flags cover a project whose screens work with the defaults. When they need more — the project's
@@ -345,6 +350,11 @@ With the project's Storybook running (the `storybook.url` option, `http://localh
 default), each component row carries a book icon that opens the page documenting it. The viewer
 reads Storybook's own index, so the links follow the stories as they change. A project without
 Storybook sets `storybook: false` (or passes `--no-storybook`), and the rows carry no links.
+
+**A built copy links only to a deployed Storybook.** The people opening it have no Storybook on
+their `localhost`, so a copy from `prototype-lab build` looks for one only when `storybook.url` (or
+`--storybook`) names an address everyone can reach, such as `https://storybook.example.com`. With the
+default, or any `localhost` URL, the rows carry no links and the panel says nothing about it.
 
 **Another project's Storybook may hold the port.** A stranger's index answers a fetch as happily as
 yours, so set `storybook.marker` to a root section your Storybook always has — `Design System`, say.

@@ -1,15 +1,16 @@
 import type { Annotation } from '../types'
 import type { AnnotationEdit } from './annotation-edit'
+import { isDevServer } from './runtime'
 import { ANNOTATIONS_ENDPOINT, NAME_ELEMENT_ENDPOINT } from './source-ref'
 
 /**
  * Whether comments can be written from here.
  *
- * Writing needs the dev server behind the viewer. A built copy handed to someone — the `dist` from
- * `build:viewer` — has no server, so it reads comments and does not offer to change them.
+ * Writing needs the dev server behind the viewer. A built copy handed to someone — the output of
+ * `prototype-lab build` — has no server, so it reads comments and does not offer to change them.
  */
 export function canEditAnnotations(): boolean {
-  return import.meta.env.DEV
+  return isDevServer()
 }
 
 /**
