@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { isDevServer } from '../lib/runtime'
 import {
   buildStorybookLinks,
   looksLikeOurStorybook,
@@ -6,6 +7,7 @@ import {
   type StorybookEntry,
   type StorybookLink,
   type StorybookOptions,
+  shouldReadStorybook,
 } from '../lib/storybook-links'
 
 export type StorybookStatus = 'loading' | 'ready' | 'unavailable' | 'mismatched' | 'disabled'
@@ -40,13 +42,13 @@ function remember(url: string): void {
  *
  * Storybook's own index is the source of truth for what pages exist, and it is served with open
  * CORS. Two answers short of a usable index are normal and reported rather than thrown: Storybook
- * not running, and another project's Storybook holding the port. With `false`, nothing is fetched
- * and the rows carry no links.
+ * not running, and another project's Storybook holding the port. With `false`, or in a built copy
+ * with no deployed Storybook configured, nothing is fetched and the rows carry no links.
  */
 export function useStorybookLinks(options: StorybookOptions | false = {}): StorybookLinks {
-  const enabled = options !== false
-  const fallback = enabled ? options.url : undefined
-  const marker = enabled ? options.marker : undefined
+  const enabled = shouldReadStorybook(options, isDevServer())
+  const fallback = options === false ? undefined : options.url
+  const marker = options === false ? undefined : options.marker
   const url = useMemo(() => resolveStorybookUrl(window.location.search, readStored(), fallback), [fallback])
   const [state, setState] = useState<StorybookLinks>({
     links: new Map(),

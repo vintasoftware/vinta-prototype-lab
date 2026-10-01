@@ -3,6 +3,15 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## [Unreleased]
+
+### Changed
+
+- A copy from `prototype-lab build` no longer looks for Storybook on `localhost`, so a deployed copy
+  shows no "Nothing is serving Storybook" note and makes no request to the visitor's machine. It
+  links to Storybook only when `storybook.url` names a deployed one. `prototype-lab dev` is
+  unchanged.
+
 ## [0.1.2] - 2026-09-23
 
 ### Fixed
