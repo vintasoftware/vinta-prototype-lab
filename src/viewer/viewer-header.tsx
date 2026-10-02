@@ -34,8 +34,9 @@ export interface ViewerHeaderProps {
   prototypes: readonly Prototype[]
   slug: string
   onOpenPrototype: (slug: string) => void
-  viewport: ScreenViewport
-  onViewportChange: (viewport: ScreenViewport) => void
+  /** The switcher shows only when both are given; a project that turns it off passes neither. */
+  viewport?: ScreenViewport
+  onViewportChange?: (viewport: ScreenViewport) => void
   toggles: ViewToggles
   onToggle: (name: ViewToggle) => void
   /** Shown on the Comments button, so the count is visible with the panel closed. */
@@ -84,7 +85,9 @@ export function ViewerHeader({
       </div>
 
       <div className='ml-auto flex items-center gap-2'>
-        <SegmentedToggle size='sm' options={VIEWPORT_OPTIONS} value={viewport} onValueChange={onViewportChange} />
+        {viewport !== undefined && onViewportChange !== undefined && (
+          <SegmentedToggle size='sm' options={VIEWPORT_OPTIONS} value={viewport} onValueChange={onViewportChange} />
+        )}
 
         {MODES.map(({ name, label, Icon }) => (
           <Button key={name} variant={toggles[name] ? 'light' : 'ghost'} size='sm' onClick={() => onToggle(name)}>

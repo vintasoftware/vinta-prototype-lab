@@ -34,6 +34,11 @@ export interface PrototypeLabOptions {
   css?: string | string[]
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
   storybook?: StorybookOptions | false
+  /**
+   * Shows the Mobile / Tablet / Desktop switcher in the header. Pass `false` for a project that
+   * targets one form factor: the switcher goes, and every screen draws in its own `viewport`.
+   */
+  viewportSwitcher?: boolean
   /** The page title. Defaults to `Prototype Lab`. */
   title?: string
   /** Adds `@vitejs/plugin-react`. Pass `false` when the project's config already has it. */
@@ -65,6 +70,7 @@ export interface EntryOptions {
   prototypesDir: string
   css: readonly string[]
   storybook?: StorybookOptions | false
+  viewportSwitcher?: boolean
 }
 
 /**
@@ -74,13 +80,16 @@ export interface EntryOptions {
  * The viewer's stylesheet goes first so the project's stylesheets, loaded after it, win wherever
  * both set the same token.
  */
-export function entryCode({ root, prototypesDir, css, storybook }: EntryOptions): string {
+export function entryCode({ root, prototypesDir, css, storybook, viewportSwitcher }: EntryOptions): string {
   const base = `/${toPosix(path.relative(root, prototypesDir))}`
   const stylesheets =
     css.length === 0
       ? [`${PACKAGE_NAME}/default.css`]
       : css.map(file => `/${toPosix(path.relative(root, path.resolve(root, file)))}`)
-  const options = storybook === undefined ? {} : { storybook }
+  const options = {
+    ...(storybook === undefined ? {} : { storybook }),
+    ...(viewportSwitcher === undefined ? {} : { viewportSwitcher }),
+  }
 
   return [
     `import '${PACKAGE_NAME}/viewer.css'`,
@@ -167,6 +176,7 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
           prototypesDir,
           css,
           ...(options.storybook === undefined ? {} : { storybook: options.storybook }),
+          ...(options.viewportSwitcher === undefined ? {} : { viewportSwitcher: options.viewportSwitcher }),
         })
       }
       if (id === htmlPath) {

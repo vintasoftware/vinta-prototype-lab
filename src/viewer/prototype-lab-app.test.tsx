@@ -266,6 +266,21 @@ describe('PrototypeLabApp', () => {
     })
   })
 
+  it('switches the frame between viewports from the header', async () => {
+    const { container } = render(<PrototypeLabApp prototypes={prototypes} />)
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Mobile' }))
+
+    expect(container.querySelector('[data-viewport]')).toHaveAttribute('data-viewport', 'mobile')
+  })
+
+  it('offers no viewport switcher when it is turned off, drawing the screen in its own viewport', () => {
+    const { container } = render(<PrototypeLabApp prototypes={prototypes} viewportSwitcher={false} />)
+
+    expect(screen.queryByRole('tab', { name: 'Mobile' })).not.toBeInTheDocument()
+    expect(container.querySelector('[data-viewport]')).toHaveAttribute('data-viewport', 'desktop')
+  })
+
   it('shows the flow map and opens a screen from one of its cards', async () => {
     render(<PrototypeLabApp prototypes={prototypes} />)
 

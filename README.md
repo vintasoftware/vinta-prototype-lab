@@ -38,7 +38,7 @@ page is served from memory, so an `index.html` the project already has is left a
 | `prototype-lab install-skill` | Copies the [build-prototype](#the-build-prototype-agent-skill) skill in.       |
 
 `dev`, `build` and `preview` take `--dir`, `--css` (repeat it for several files), `--storybook <url>`,
-`--no-storybook`, `--port`, `--host`, `--open` and `--out-dir`. `prototype-lab --help` lists them all.
+`--no-storybook`, `--no-viewport-switcher`, `--port`, `--host`, `--open` and `--out-dir`. `prototype-lab --help` lists them all.
 Add `prototype-lab-dist/` to `.gitignore`.
 
 The copy from `build` can be deployed to any static host as it is. It keeps what only makes sense
@@ -74,6 +74,7 @@ export default defineConfig({
 | `dir`       | `prototypes`     | Where the prototype folders live, from the root. The folder must be named `prototypes`.   |
 | `css`       | package default  | The project's stylesheets, loaded after the viewer's. See [Styles](#styles).              |
 | `storybook` | `{}`             | `url` of the project's Storybook and an optional `marker` section; `false` turns links off. |
+| `viewportSwitcher` | `true`    | Shows the Mobile / Tablet / Desktop switcher. `false` hides it for a single form factor, and every screen draws in its own `viewport`. |
 | `title`     | `Prototype Lab`  | The page title.                                                                           |
 | `root`      | current folder   | The project root the paths are relative to. Set it when the config sets Vite's `root`.   |
 | `react`     | `true`           | Adds `@vitejs/plugin-react`. Pass `false` when the config already adds it.                |

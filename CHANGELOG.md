@@ -3,6 +3,14 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## [Unreleased]
+
+### Added
+
+- A `viewportSwitcher` option (and a `--no-viewport-switcher` flag) hides the Mobile / Tablet /
+  Desktop switcher, for a project that targets one form factor. Every screen then draws in the
+  `viewport` its file sets, desktop by default.
+
 ## [0.2.0] - 2026-10-01
 
 ### Changed

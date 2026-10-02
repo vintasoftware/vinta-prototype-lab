@@ -28,6 +28,8 @@ Viewer options (dev, build, preview)
   --css <path>        The project's stylesheet; repeat for more than one
   --storybook <url>   Where the project's Storybook runs (default: http://localhost:6006)
   --no-storybook      Show no Storybook links
+  --no-viewport-switcher
+                      Hide the Mobile / Tablet / Desktop switcher, for a single form factor
   --config <path>     Vite config to use (default: prototype-lab.config.{ts,mts,js,mjs} when present)
   --port <number>     Port to serve on
   --host              Listen on the network too
@@ -71,6 +73,7 @@ export interface ViewerFlags {
   css?: string[] | undefined
   storybook?: string | undefined
   noStorybook?: boolean | undefined
+  noViewportSwitcher?: boolean | undefined
 }
 
 /** The plugin options the command-line flags ask for. */
@@ -86,6 +89,9 @@ export function optionsFromFlags(root: string, flags: ViewerFlags): PrototypeLab
     options.storybook = false
   } else if (flags.storybook !== undefined) {
     options.storybook = { url: flags.storybook }
+  }
+  if (flags.noViewportSwitcher === true) {
+    options.viewportSwitcher = false
   }
   return options
 }
@@ -104,6 +110,7 @@ export function viewerConfig(root: string, configFile: string | undefined, flags
     (flags.css?.length ?? 0) > 0 && '--css',
     flags.storybook !== undefined && '--storybook',
     flags.noStorybook === true && '--no-storybook',
+    flags.noViewportSwitcher === true && '--no-viewport-switcher',
   ].filter(Boolean)
   if (given.length > 0) {
     throw new Error(
@@ -141,6 +148,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
       css: { type: 'string', multiple: true },
       storybook: { type: 'string' },
       'no-storybook': { type: 'boolean' },
+      'no-viewport-switcher': { type: 'boolean' },
       config: { type: 'string' },
       port: { type: 'string' },
       host: { type: 'boolean' },
@@ -189,6 +197,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     css: values.css,
     storybook: values.storybook,
     noStorybook: values['no-storybook'],
+    noViewportSwitcher: values['no-viewport-switcher'],
   }
   const configFile = findConfigFile(cwd, values.config)
   const config = viewerConfig(cwd, configFile, flags)

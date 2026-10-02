@@ -7,6 +7,8 @@ import { PrototypeLabApp } from './prototype-lab-app'
 export interface ViewerOptions {
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
   storybook?: StorybookOptions | false
+  /** Shows the Mobile / Tablet / Desktop switcher; `false` draws every screen in its own viewport. */
+  viewportSwitcher?: boolean
 }
 
 /**
@@ -27,6 +29,7 @@ export function mountViewer(
       <PrototypeLabApp
         prototypes={buildPrototypes(sources)}
         {...(options.storybook === undefined ? {} : { storybook: options.storybook })}
+        {...(options.viewportSwitcher === undefined ? {} : { viewportSwitcher: options.viewportSwitcher })}
       />
     </StrictMode>
   )

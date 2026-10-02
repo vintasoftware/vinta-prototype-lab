@@ -72,6 +72,12 @@ describe('entryCode', () => {
 
     expect(code).toContain('{"storybook":{"url":"http://localhost:6100","marker":"Design System"}}')
   })
+
+  it('passes a turned-off viewport switcher through', () => {
+    const code = entryCode({ root: '/project', prototypesDir: '/project/prototypes', css: [], viewportSwitcher: false })
+
+    expect(code).toContain('{"viewportSwitcher":false}')
+  })
 })
 
 describe('indexHtml', () => {

@@ -32,6 +32,8 @@ export interface PrototypeLabAppProps {
   prototypes: Prototype[]
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
   storybook?: StorybookOptions | false
+  /** Shows the Mobile / Tablet / Desktop switcher; `false` draws every screen in its own viewport. */
+  viewportSwitcher?: boolean
 }
 
 const AUTHOR_KEY = 'prototype-lab.author'
@@ -50,7 +52,11 @@ function rememberedAuthor(): string {
  * closes, so the screen can have the window to itself. The stage can give way to the flow map,
  * which shows every screen and where each control leads.
  */
-export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOptions }: PrototypeLabAppProps) {
+export function PrototypeLabApp({
+  prototypes: loaded,
+  storybook: storybookOptions,
+  viewportSwitcher = true,
+}: PrototypeLabAppProps) {
   const [prototypes, setPrototypes] = useState(loaded)
   const session = usePrototypeSession(prototypes)
   const { prototype, screen, state } = session
@@ -347,8 +353,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
           setSelectedNoteId(undefined)
           session.openPrototype(slug)
         }}
-        viewport={viewport}
-        onViewportChange={setViewportOverride}
+        {...(viewportSwitcher ? { viewport, onViewportChange: setViewportOverride } : {})}
         toggles={toggles}
         onToggle={toggle}
         noteCount={notes.length}
