@@ -918,7 +918,7 @@ describe('PrototypeLabApp', () => {
       expect(within(screen.getByRole('tabpanel')).getByText('CardTitle')).toBeInTheDocument()
     })
 
-    it('opens the Dev tab when Inspect turns on, and leaves it open when Inspect turns off', async () => {
+    it('opens the Dev tab when Inspect turns on, and closes it when Inspect turns off', async () => {
       render(<PrototypeLabApp prototypes={prototypes} />)
       const inspect = within(screen.getByRole('banner')).getByRole('button', { name: 'Inspect' })
 
@@ -928,7 +928,18 @@ describe('PrototypeLabApp', () => {
 
       await userEvent.click(inspect)
 
-      expect(screen.getByRole('tab', { name: 'Dev' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.queryByRole('tab', { name: 'Dev' })).not.toBeInTheDocument()
+    })
+
+    it('leaves another tab open when Inspect turns off', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+      const inspect = within(screen.getByRole('banner')).getByRole('button', { name: 'Inspect' })
+      await userEvent.click(inspect)
+      await userEvent.click(screen.getByRole('tab', { name: 'Doc' }))
+
+      await userEvent.click(inspect)
+
+      expect(screen.getByRole('tab', { name: 'Doc' })).toHaveAttribute('aria-selected', 'true')
     })
 
     it('keeps the Comments tab when Inspect turns on while a comment is being written', async () => {

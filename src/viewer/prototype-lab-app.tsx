@@ -136,15 +136,19 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
   const [canvasOpening, setCanvasOpening] = useState<'fit' | 'selection'>('selection')
   const [panelTab, setPanelTab] = useState<PanelTab>('doc')
   // Turning Inspect on, from any button or key, opens the Dev tab, which is where a picked element
-  // is explained. A comment being written keeps its tab; turning Inspect off leaves the panel alone.
+  // is explained; a comment being written keeps its tab. Turning it off closes the panel again when
+  // the Dev tab is what it shows, and leaves any other tab open.
   const wasInspecting = useRef(toggles.inspect)
   useEffect(() => {
     if (toggles.inspect && !wasInspecting.current && composing === undefined) {
       setToggle('doc', true)
       setPanelTab('dev')
     }
+    if (!toggles.inspect && wasInspecting.current && panelTab === 'dev') {
+      setToggle('doc', false)
+    }
     wasInspecting.current = toggles.inspect
-  }, [toggles.inspect, composing, setToggle])
+  }, [toggles.inspect, composing, panelTab, setToggle])
   // A pin clicked on another frame changes the screen and picks its note in one go; the reset below
   // that drops a note when the screen changes must leave that one alone.
   const keepNote = useRef<string | undefined>(undefined)
