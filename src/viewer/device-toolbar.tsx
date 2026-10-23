@@ -54,12 +54,14 @@ export function DeviceToolbar({ frame, onFrame, defaultSize, defaultLabel, zoom,
   }
 
   return (
+    // The selects and fields are `h-8`, the height of the header's buttons; NativeSelect's own small
+    // size is `h-7`.
     <div className='flex items-center gap-1'>
       <NativeSelect
         size='sm'
         aria-label='Device'
         title={frame === undefined ? `Screen default: ${defaultLabel}` : undefined}
-        className='w-36'
+        className='w-36 [&_select]:h-8!'
         value={selected}
         onChange={event => chooseDevice(event.target.value)}
       >
@@ -76,7 +78,7 @@ export function DeviceToolbar({ frame, onFrame, defaultSize, defaultLabel, zoom,
         ))}
       </NativeSelect>
 
-      <div className='flex items-center gap-1 max-[1100px]:hidden'>
+      <div className='max-[1100px]:hidden! flex items-center gap-1'>
         {/* A typed size is no longer the device's own, so it drops the device. */}
         <SizeField label='Width' value={size.width} onCommit={width => onFrame({ width, height: size.height })} />
         <span className='text-muted-foreground text-xs'>×</span>
@@ -101,7 +103,7 @@ export function DeviceToolbar({ frame, onFrame, defaultSize, defaultLabel, zoom,
       <NativeSelect
         size='sm'
         aria-label='Zoom'
-        className='w-20'
+        className='w-20 [&_select]:h-8!'
         value={String(zoom)}
         onChange={event => onZoom(event.target.value === 'fit' ? 'fit' : Number(event.target.value))}
       >
@@ -141,7 +143,7 @@ function SizeField({ label, value, onCommit }: SizeFieldProps) {
       aria-label={label}
       inputMode='numeric'
       className={cn(
-        'h-7 w-14 rounded-md border border-input bg-card px-2 text-center text-sm tabular-nums outline-none',
+        'h-8 w-14 rounded-md border border-input bg-card px-2 text-center text-sm tabular-nums outline-none',
         'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
       )}
       value={draft}

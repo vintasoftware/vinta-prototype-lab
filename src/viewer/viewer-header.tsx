@@ -53,7 +53,7 @@ export interface ViewerHeaderProps {
 
 /** A button's text, dropped on a window too narrow for it; the icon and tooltip stay. */
 function Label({ children }: { children: string }) {
-  return <span className='max-[1460px]:hidden'>{children}</span>
+  return <span className='max-[1460px]:hidden!'>{children}</span>
 }
 
 export function ViewerHeader({
@@ -74,8 +74,8 @@ export function ViewerHeader({
   return (
     // One row always: a narrower window drops the labels first, then the title and the size fields,
     // and a window narrower still scrolls the row sideways rather than hiding a button.
-    <header className='flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-border border-b bg-card px-4 py-2 *:shrink-0 max-[1100px]:gap-1 max-[1100px]:px-2'>
-      <span className='font-semibold text-sm max-[1100px]:hidden'>Prototype Lab</span>
+    <header className='flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-border border-b bg-card px-4 py-2 *:shrink-0 max-[1100px]:gap-1! max-[1100px]:px-2!'>
+      <span className='max-[1100px]:hidden! font-semibold text-sm'>Prototype Lab</span>
 
       <PanelButton
         open={toggles.screens}
