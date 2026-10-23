@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { anchor } from '../../components/anchor'
@@ -371,10 +371,30 @@ describe('CanvasView', () => {
     expect(screen.getByRole('article', { name: 'Review' })).not.toHaveClass('opacity-40')
   })
 
-  it('draws every frame at the size the device toolbar sets', () => {
+  it('draws a frame as tall as its whole page, and a live one at its device height again', async () => {
+    const flow = ready()
+    const home = flow.linksByNode.get('home/default')
+    const links = new Map(flow.linksByNode)
+    links.set('home/default', { ...(home ?? { links: [] }), pageHeight: 1500 })
+    renderCanvas({ flow: { ...flow, linksByNode: links } })
+    const mount = () =>
+      within(screen.getByRole('article', { name: 'Home' }))
+        .getByText('Good morning')
+        .closest('[data-viewport]')
+
+    expect(mount()).toHaveStyle({ width: '1280px', height: '1500px' })
+
+    screen.getByRole('button', { name: 'Home' }).focus()
+    await userEvent.keyboard('l')
+
+    expect(mount()).toHaveStyle({ height: '820px' })
+  })
+
+  it('draws every frame at the size the device toolbar sets', async () => {
     renderCanvas({ frameSize: { width: 768, height: 1024 } })
 
-    const mount = screen.getByText('Good morning').closest('[data-viewport]')
+    // A size other than the screen's own is measured first, which takes a task per screen.
+    const mount = (await screen.findByText('Good morning')).closest('[data-viewport]')
     expect(mount).toHaveStyle({ width: '768px', height: '1024px' })
   })
 
@@ -591,7 +611,7 @@ describe('CanvasView', () => {
 
       await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Viewports' }), 'Desktop and tablet')
 
-      expect(frames()).toHaveLength(8)
+      await waitFor(() => expect(frames()).toHaveLength(8))
       expect(screen.getByRole('article', { name: 'Home (Tablet)' })).toBeInTheDocument()
       const mounts = within(screen.getByRole('article', { name: 'Home (Desktop)' })).getByText('Good morning')
       expect(mounts.closest('[data-viewport]')).toHaveStyle({ width: '1280px' })
@@ -613,10 +633,10 @@ describe('CanvasView', () => {
       await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Viewports' }), 'Tablet and mobile')
 
       expect(onArrange).not.toHaveBeenCalled()
-      expect(frames()).toHaveLength(8)
+      await waitFor(() => expect(frames()).toHaveLength(8))
     })
 
-    it('draws every frame in the one viewport canvas.json names', () => {
+    it('draws every frame in the one viewport canvas.json names', async () => {
       renderCanvas({
         prototype: {
           ...(prototype as NonNullable<typeof prototype>),
@@ -624,7 +644,7 @@ describe('CanvasView', () => {
         },
       })
 
-      expect(screen.getByText('Good morning').closest('[data-viewport]')).toHaveStyle({ width: '834px' })
+      expect((await screen.findByText('Good morning')).closest('[data-viewport]')).toHaveStyle({ width: '834px' })
       expect(frames()).toHaveLength(4)
     })
   })

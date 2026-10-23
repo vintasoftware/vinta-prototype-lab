@@ -20,6 +20,9 @@ All notable changes to this package are recorded here. Versions follow
   in Problems. A built copy draws the saved arrangement read-only.
 - **Live frames**: `L`, or a double click with **Live** on, makes one frame click through inside
   itself on its own history, with a **Back to** chip and `Esc` to stop.
+- **Full-page frames**: a frame on the canvas shows its screen's whole page, its scrolling areas let
+  out to fit what they hold, up to six device heights; a live frame is drawn at its device height
+  again and scrolls.
 - **Two viewports**: the canvas can draw every state in two sizes side by side; the choice is saved
   in `canvas.json`.
 - **Dev tab**: the picked element's component, path, id, Storybook page and source line, with

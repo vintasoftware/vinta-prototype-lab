@@ -27,6 +27,7 @@ import type { NumberedAnnotation } from '../../components/annotation-overlay'
 import type { ScreenNavigation } from '../../components/prototype-runtime'
 import { useCanvasCamera } from '../../hooks/use-canvas-camera'
 import type { FlowLinks } from '../../hooks/use-flow-links'
+import { type PageHeightRequest, usePageHeights } from '../../hooks/use-page-heights'
 import { useVisibleFrames } from '../../hooks/use-visible-frames'
 import { annotationsForScreen } from '../../lib/annotations'
 import {
@@ -201,7 +202,7 @@ export function CanvasView({
   const { visible, watch } = useVisibleFrames(viewportRef)
   // Frames that come into view during a pan draw once it stops, so the pan itself renders nothing.
   const drawn = useStaggeredSet(visible, MOUNTS_PER_FRAME, moving)
-  const ready = flow.status === 'ready'
+  const probed = flow.status === 'ready'
 
   const graph = useMemo(() => buildFlowGraph(prototype, flow.linksByNode), [prototype, flow.linksByNode])
 
@@ -216,29 +217,71 @@ export function CanvasView({
   )
   const pairedFirst = second === undefined ? undefined : first
   const nodeByKey = useMemo(() => new Map(graph.nodes.map(node => [node.key, node])), [graph])
+  // One object per frame for its size, so a render of the canvas leaves the frames alone.
+  const frameSizes = useMemo(() => {
+    const sizes = new Map<string, FrameSize>()
+    for (const node of graph.nodes) {
+      sizes.set(node.key, pairedFirst === undefined ? frameSizeOf(node, primarySize) : sizeOfViewport(pairedFirst))
+      if (second !== undefined) {
+        sizes.set(`${node.key}${VIEWPORT_SEPARATOR}${second}`, sizeOfViewport(second))
+      }
+    }
+    return sizes
+  }, [graph, primarySize, pairedFirst, second])
+
+  // A frame that is not live shows the whole page, as a full-page screenshot does. The probe measured
+  // each screen at its own size; a frame of another size is measured apart.
+  const pageRequests = useMemo(() => {
+    const requests: PageHeightRequest[] = []
+    for (const node of graph.nodes) {
+      const own = sizeOfViewport(node.screen.viewport)
+      for (const key of second === undefined ? [node.key] : [node.key, `${node.key}${VIEWPORT_SEPARATOR}${second}`]) {
+        const size = frameSizes.get(key)
+        if (size !== undefined && (size.width !== own.width || size.height !== own.height)) {
+          requests.push({ key, screen: node.screen, size })
+        }
+      }
+    }
+    return probed ? requests : []
+  }, [graph, second, frameSizes, probed])
+  const measured = usePageHeights(pageRequests)
+  // The canvas lays out once every frame's height is known, so nothing moves after it opens.
+  const ready = probed && measured.ready
+  const pageHeights = useMemo(() => {
+    const heights = new Map<string, number>()
+    for (const [key, size] of frameSizes) {
+      const node = nodeByKey.get(nodeKeyOf(key))
+      const probed = key === node?.key && !pageRequests.some(request => request.key === key)
+      heights.set(key, (probed ? flow.linksByNode.get(key)?.pageHeight : measured.heights.get(key)) ?? size.height)
+    }
+    return heights
+  }, [frameSizes, nodeByKey, pageRequests, flow.linksByNode, measured.heights])
+  const pageSize = useCallback(
+    (key: string): FrameSize => {
+      const size = frameSizes.get(key) ?? { width: 0, height: 0 }
+      return { width: size.width, height: pageHeights.get(key) ?? size.height }
+    },
+    [frameSizes, pageHeights]
+  )
+
   const cardSize = useCallback(
     (key: FlowNodeKey): Size => {
       const node = nodeByKey.get(key)
-      if (node === undefined) {
-        return MISSING_SIZE
-      }
-      const size = pairedFirst === undefined ? frameSizeOf(node, primarySize) : sizeOfViewport(pairedFirst)
-      return cardSizeAround(node, graph.edges, size)
+      return node === undefined ? MISSING_SIZE : cardSizeAround(node, graph.edges, pageSize(key))
     },
-    [nodeByKey, graph.edges, primarySize, pairedFirst]
+    [nodeByKey, graph.edges, pageSize]
   )
   const framesOf = useCallback(
-    (node: FlowNode) =>
-      second === undefined
+    (node: FlowNode) => {
+      const secondKey = `${node.key}${VIEWPORT_SEPARATOR}${second}`
+      return second === undefined
         ? [{ key: node.key, size: cardSize(node.key) }]
         : [
             { key: node.key, size: cardSize(node.key) },
-            {
-              key: `${node.key}${VIEWPORT_SEPARATOR}${second}`,
-              size: cardSizeAround(bareNode(node), [], sizeOfViewport(second)),
-            },
-          ],
-    [cardSize, second]
+            { key: secondKey, size: cardSizeAround(bareNode(node), [], pageSize(secondKey)) },
+          ]
+    },
+    [cardSize, second, pageSize]
   )
   // Where sections were put: the saved file, and any move not saved yet, so a move shows at once.
   const [moved, setMoved] = useState<ReadonlyMap<string, Point>>(() => new Map())
@@ -256,17 +299,6 @@ export function CanvasView({
       })),
     [layout]
   )
-  // One object per frame for its size, so a render of the canvas leaves the frames alone.
-  const frameSizes = useMemo(() => {
-    const sizes = new Map<string, FrameSize>()
-    for (const node of graph.nodes) {
-      sizes.set(node.key, pairedFirst === undefined ? frameSizeOf(node, primarySize) : sizeOfViewport(pairedFirst))
-      if (second !== undefined) {
-        sizes.set(`${node.key}${VIEWPORT_SEPARATOR}${second}`, sizeOfViewport(second))
-      }
-    }
-    return sizes
-  }, [graph, primarySize, pairedFirst, second])
 
   const chooseViewports = (value: string) => {
     const chosen = VIEWPORT_CHOICES.find(choice => choice.value === value)?.viewports ?? []
@@ -991,7 +1023,7 @@ export function CanvasView({
             The layout was not saved: {arrangeError}
           </p>
         )}
-        <p className='ml-auto hidden min-w-0 shrink! truncate text-muted-foreground text-xs lg:block'>
+        <p className='shrink! ml-auto hidden min-w-0 truncate text-muted-foreground text-xs lg:block'>
           Drag or scroll to pan. Ctrl or Cmd and scroll to zoom. Tab or arrows to move between frames.
         </p>
       </div>
@@ -1066,6 +1098,7 @@ export function CanvasView({
                         : {})}
                       box={box}
                       frameSize={frameSizes.get(box.key) ?? frameSizeOf(node, frameSize)}
+                      pageHeight={pageHeights.get(box.key)}
                       edges={graph.edges}
                       nodeByKey={nodeByKey}
                       selected={node.key === selectedKey}

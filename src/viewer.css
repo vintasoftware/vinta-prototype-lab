@@ -25,3 +25,17 @@
     @apply bg-cyan-400/25 ring-2 ring-cyan-500;
   }
 }
+
+/* A screen on the canvas drawn as a full page: each area that scrolls, and everything between it and
+   the frame, grows to fit what it holds. Important, since the screen's own stylesheet sets these
+   heights; the marks come off when the frame is made live and scrolls again. */
+[data-prototype-page='scroller'] {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+[data-prototype-page='grow'] {
+  height: auto !important;
+  max-height: none !important;
+}

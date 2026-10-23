@@ -384,6 +384,9 @@ real screen at its real size, built from the project's own components; the canva
   Click one to open the comment in the Comments panel.
 - **One size for every frame.** The device toolbar sets the frame size; with "Screen default" each
   screen keeps its own viewport.
+- **The whole page.** A frame is as wide as its device and as tall as its page, as a full-page
+  screenshot is, so content below the fold shows without scrolling. A page that keeps growing stops
+  at six device heights.
 - **One link everywhere.** Picking a frame opens that screen state in the viewer, so the URL names
   it, and the screen list, the Doc and Comments panels and a copied link all follow the canvas.
 
@@ -415,7 +418,8 @@ open. When it moves on, its title offers **Back to** the state it belongs to. `E
 title, or a press anywhere else on the canvas makes it inert again, back on its own state.
 
 One frame is live at a time. With **Live** off, a double click opens the frame on the stage instead.
-A live frame scrolls its own screen with the wheel; Ctrl or Cmd and the wheel still zoom the canvas.
+A live frame goes back to its device height and scrolls its own screen with the wheel, as the
+screen does on the stage; Ctrl or Cmd and the wheel still zoom the canvas.
 Dialogs, popovers and menus a live screen opens are drawn over the canvas, at the size of the page
 rather than of the frame.
 

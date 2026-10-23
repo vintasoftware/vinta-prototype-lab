@@ -30,6 +30,8 @@ export type FlowLink =
 /** Everything the probe learned about one screen state. */
 export interface ScreenLinks {
   links: FlowLink[]
+  /** The height the screen needs to show all of itself at its own frame width, as a full-page screenshot. */
+  pageHeight?: number
   /** Set when the screen could not be rendered, so its links are unknown rather than none. */
   error?: string
 }

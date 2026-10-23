@@ -1,6 +1,6 @@
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { PrototypeRuntime, type ScreenNavigation } from '../components/prototype-runtime'
+import { NO_NAVIGATION as NO_LINKS, PrototypeRuntime, type ScreenNavigation } from '../components/prototype-runtime'
 import type { Prototype, PrototypeScreen } from '../types'
 import { FRAME_HEIGHT, VIEWPORT_WIDTH } from './constants'
 import { type FlowControl, type FlowLink, type FlowNodeKey, flowNodeKey, type ScreenLinks } from './flow-graph'
@@ -75,6 +75,54 @@ export function controlLabel(element: Element): string {
   return text.length > LABEL_LENGTH ? `${text.slice(0, LABEL_LENGTH - 1)}…` : text
 }
 
+/** How tall a page can grow, in frames of its own height: a page that keeps growing stops there. */
+export const MAX_PAGE_FRAMES = 6
+
+/**
+ * Marks how a screen is laid out as a full page: `scroller` on each area that scrolls, `grow` on
+ * every element between one and the frame. The viewer's stylesheet lets those grow to fit what
+ * they hold, so the screen shows all of itself, as a full-page screenshot does.
+ */
+export const PAGE_ATTRIBUTE = 'data-prototype-page'
+
+function scrolls(element: Element): boolean {
+  const overflow = element.ownerDocument.defaultView?.getComputedStyle(element).overflowY
+  return (overflow === 'auto' || overflow === 'scroll') && element.scrollHeight > element.clientHeight + 1
+}
+
+/**
+ * Lays a rendered screen out as a full page and returns the height it takes, never below the
+ * frame's own height and at most `MAX_PAGE_FRAMES` frames.
+ *
+ * A screen built to fill its device scrolls inside it, often with heights taken from the window
+ * (`h-svh`) rather than from the frame, so making the frame taller is not enough. Each scrolling
+ * area is let out instead, with everything between it and the frame, and the page measured as it
+ * then stands. Opening one area can reveal another inside it, so it looks again, a few times.
+ */
+export function expandPage(mount: HTMLElement, frameHeight: number): number {
+  for (let pass = 0; pass < 3; pass += 1) {
+    const found = Array.from(mount.querySelectorAll('*')).filter(
+      element => element.getAttribute(PAGE_ATTRIBUTE) !== 'scroller' && scrolls(element)
+    )
+    if (found.length === 0) {
+      break
+    }
+    for (const element of found) {
+      element.setAttribute(PAGE_ATTRIBUTE, 'scroller')
+      for (let above = element.parentElement; above !== null && above !== mount; above = above.parentElement) {
+        if (!above.hasAttribute(PAGE_ATTRIBUTE)) {
+          above.setAttribute(PAGE_ATTRIBUTE, 'grow')
+        }
+      }
+    }
+  }
+  const content = Math.max(
+    mount.scrollHeight,
+    ...Array.from(mount.children).map(child => (child as HTMLElement).offsetHeight ?? 0)
+  )
+  return Math.min(frameHeight * MAX_PAGE_FRAMES, Math.max(frameHeight, Math.ceil(content)))
+}
+
 function isEnabled(element: Element): boolean {
   return !element.matches(':disabled, [aria-disabled="true"]')
 }
@@ -96,6 +144,7 @@ function describe(thrown: unknown): string {
  * during the click counts.
  */
 export function probeScreen(screen: PrototypeScreen, doc: Document = document): ScreenLinks {
+  const frameHeight = FRAME_HEIGHT[screen.viewport]
   const host = doc.createElement('div')
   host.setAttribute('aria-hidden', 'true')
   host.style.cssText = [
@@ -103,12 +152,14 @@ export function probeScreen(screen: PrototypeScreen, doc: Document = document): 
     'top:0',
     'left:-100000px',
     `width:${VIEWPORT_WIDTH[screen.viewport]}px`,
-    `height:${FRAME_HEIGHT[screen.viewport]}px`,
+    `height:${frameHeight}px`,
     'overflow:hidden',
     'visibility:hidden',
     'pointer-events:none',
   ].join(';')
   const mount = doc.createElement('div')
+  // The size the canvas draws a screen in, so a screen built to fill its frame lays out as it does there.
+  mount.style.cssText = 'height:100%;overflow:hidden'
   host.appendChild(mount)
   doc.body.appendChild(host)
 
@@ -126,6 +177,7 @@ export function probeScreen(screen: PrototypeScreen, doc: Document = document): 
   const links: FlowLink[] = []
   let clicking: FlowControl | undefined
   let error: string | undefined
+  let pageHeight: number | undefined
 
   const navigation: ScreenNavigation = {
     screenId: screen.id,
@@ -164,6 +216,13 @@ export function probeScreen(screen: PrototypeScreen, doc: Document = document): 
       )
     })
 
+    // Measured before any click, which may change what the screen shows. The marks go again
+    // afterwards: the controls are found and clicked in the screen as the canvas draws it live.
+    pageHeight = expandPage(mount, frameHeight)
+    for (const marked of Array.from(mount.querySelectorAll(`[${PAGE_ATTRIBUTE}]`))) {
+      marked.removeAttribute(PAGE_ATTRIBUTE)
+    }
+
     // Every control is located before the first click, so a click that changes the screen does
     // not move the paths of the controls after it.
     const controls = [...mount.querySelectorAll(INTERACTIVE_SELECTOR)].filter(isEnabled).flatMap(element => {
@@ -187,7 +246,45 @@ export function probeScreen(screen: PrototypeScreen, doc: Document = document): 
     host.remove()
   }
 
-  return { links, ...(error === undefined ? {} : { error }) }
+  return {
+    links,
+    ...(pageHeight === undefined ? {} : { pageHeight }),
+    ...(error === undefined ? {} : { error }),
+  }
+}
+
+/**
+ * The full page height of a screen drawn at `size`, for a frame size other than the screen's own,
+ * which the probe already measured. It renders the screen out of sight, measures, and tears it down.
+ */
+export function measureScreenPage(
+  screen: PrototypeScreen,
+  size: { width: number; height: number },
+  doc: Document = document
+): number {
+  const host = doc.createElement('div')
+  host.setAttribute('aria-hidden', 'true')
+  host.style.cssText = `position:fixed;top:0;left:-100000px;width:${size.width}px;height:${size.height}px;overflow:hidden;visibility:hidden;pointer-events:none`
+  const mount = doc.createElement('div')
+  mount.style.cssText = 'height:100%;overflow:hidden'
+  host.appendChild(mount)
+  doc.body.appendChild(host)
+  const root = createRoot(mount, { onUncaughtError: () => {} })
+  try {
+    flushSync(() => {
+      root.render(
+        <PrototypeRuntime value={{ ...NO_LINKS, screenId: screen.id, variant: screen.variant }}>
+          <screen.Component />
+        </PrototypeRuntime>
+      )
+    })
+    return expandPage(mount, size.height)
+  } catch {
+    return size.height
+  } finally {
+    root.unmount()
+    host.remove()
+  }
 }
 
 /** Reads the links of every screen state in the prototype. */

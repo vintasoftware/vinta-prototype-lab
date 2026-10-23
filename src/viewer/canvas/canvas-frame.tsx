@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowRight, MessageSquare, Undo2, X } from 'lucide-react'
-import { type KeyboardEvent, memo, type ReactNode, useRef } from 'react'
+import { type KeyboardEvent, memo, type ReactNode, useLayoutEffect, useRef } from 'react'
 import type { NumberedAnnotation } from '../../components/annotation-overlay'
 import { NO_NAVIGATION, type ScreenNavigation } from '../../components/prototype-runtime'
 import { ScreenThumbnail } from '../../components/screen-thumbnail'
@@ -8,6 +8,7 @@ import { DEFAULT_VARIANT } from '../../lib/constants'
 import type { FrameSize } from '../../lib/device-frame'
 import { edgeKey, HEADER_HEIGHT, rowCount } from '../../lib/flow-drawing'
 import type { FlowControl, FlowEdge, FlowNode, FlowNodeKey } from '../../lib/flow-graph'
+import { expandPage } from '../../lib/probe-screen'
 import type { PrototypeScreen } from '../../types'
 import { Badge, Button, cn } from '../../ui'
 import { FramePins } from './frame-pins'
@@ -76,8 +77,13 @@ export interface CanvasFrameProps {
   /** Marked ready for an engineer to build, in `canvas.json`. */
   ready?: boolean
   box: CanvasFrameBox
-  /** The size the screen renders at, before the canvas zoom. */
+  /** The size the screen renders at, before the canvas zoom: its device or viewport. */
   frameSize: FrameSize
+  /**
+   * The height the screen needs to show all of itself. A frame that is not live is drawn this tall,
+   * as a full-page screenshot; a live one goes back to `frameSize` and scrolls, as a device does.
+   */
+  pageHeight?: number
   edges: readonly FlowEdge[]
   nodeByKey: ReadonlyMap<FlowNodeKey, FlowNode>
   selected: boolean
@@ -122,6 +128,7 @@ export const CanvasFrame = memo(function CanvasFrame({
   ready = false,
   box,
   frameSize,
+  pageHeight,
   edges,
   nodeByKey,
   selected,
@@ -145,6 +152,16 @@ export const CanvasFrame = memo(function CanvasFrame({
   const name = viewportLabel === undefined ? nodeName(node) : `${nodeName(node)} (${viewportLabel})`
   const mount = useRef<HTMLDivElement | null>(null)
   const drawn = mounted || live !== undefined
+  const shown = live === undefined ? { width: frameSize.width, height: pageHeight ?? frameSize.height } : frameSize
+
+  // A screen that sizes itself from the window (`h-svh`) still scrolls inside a taller frame, so
+  // its scrolling areas are let out here as the probe let them out to measure. A live frame draws a
+  // new screen (see the thumbnail's key), which scrolls at its device height again.
+  useLayoutEffect(() => {
+    if (drawn && live === undefined && pageHeight !== undefined && mount.current !== null) {
+      expandPage(mount.current, frameSize.height)
+    }
+  }, [drawn, live, pageHeight, frameSize.height])
 
   return (
     <article
@@ -157,7 +174,8 @@ export const CanvasFrame = memo(function CanvasFrame({
         left: box.x,
         top: box.y,
         width: box.width,
-        height: box.height,
+        // A live frame is as tall as its device, so its card ends higher than the place kept for it.
+        ...(live === undefined ? { height: box.height } : {}),
         ...(selected || live !== undefined ? { outlineWidth: 'calc(3px * var(--canvas-label-scale, 1))' } : {}),
       }}
       className={cn(
@@ -228,7 +246,7 @@ export const CanvasFrame = memo(function CanvasFrame({
       <div
         className='relative mx-2 overflow-hidden rounded-sm border border-border bg-background'
         // Contained, so a screen's own layout and painting never reach past its frame.
-        style={{ width: frameSize.width + 2, height: frameSize.height + 2, contain: 'strict' }}
+        style={{ width: shown.width + 2, height: shown.height + 2, contain: 'strict' }}
       >
         {drawn ? (
           <ScreenThumbnail
@@ -236,7 +254,7 @@ export const CanvasFrame = memo(function CanvasFrame({
             key={live === undefined ? 'own' : `${live.screen.id}/${live.screen.variant}`}
             screen={live?.screen ?? node.screen}
             showHotspots={showHotspots}
-            size={frameSize}
+            size={shown}
             scale={1}
             {...(live !== undefined
               ? { navigation: live.navigation }
