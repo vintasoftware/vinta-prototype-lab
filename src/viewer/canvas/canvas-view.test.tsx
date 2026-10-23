@@ -79,7 +79,7 @@ function renderCanvas(props: Partial<CanvasViewProps> = {}) {
     onToggleArrows: vi.fn(),
     onArrange: vi.fn((_canvas: CanvasFile) => Promise.resolve()),
   }
-  render(
+  const view = (extra: Partial<CanvasViewProps>) => (
     <CanvasView
       prototype={prototype as NonNullable<typeof prototype>}
       flow={ready()}
@@ -92,9 +92,11 @@ function renderCanvas(props: Partial<CanvasViewProps> = {}) {
       canArrange={false}
       {...handlers}
       {...props}
+      {...extra}
     />
   )
-  return handlers
+  const { rerender } = render(view({}))
+  return { ...handlers, rerender: (extra: Partial<CanvasViewProps>) => rerender(view(extra)) }
 }
 
 const zoomLabel = () => screen.getByText(/^\d+%$/)
@@ -174,6 +176,49 @@ describe('CanvasView', () => {
 
     fireEvent.focus(screen.getByRole('button', { name: 'Review' }))
     expect(onSelect).toHaveBeenLastCalledWith('review', 'default')
+  })
+
+  it('brings a frame picked from outside into view, and leaves one picked on the canvas where it is', () => {
+    const { rerender, onSelect } = renderCanvas({ selectedKey: 'home/default' })
+    for (let step = 0; step < 4; step += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    }
+    const before = content().style.transform
+
+    // A click, without the focus that comes with it: happy-dom reads every focus as from the keyboard.
+    fireEvent.click(screen.getByRole('button', { name: 'Lost' }))
+    expect(onSelect).toHaveBeenLastCalledWith('lost', 'default')
+    rerender({ selectedKey: 'lost/default' })
+    expect(content().style.transform).toBe(before)
+
+    rerender({ selectedKey: 'review/empty' })
+    expect(content().style.transform).not.toBe(before)
+  })
+
+  it('undoes any scroll of the canvas itself, which moves only by its camera', () => {
+    renderCanvas()
+    const canvas = screen.getByRole('region', { name: 'Canvas' })
+
+    canvas.scrollLeft = 300
+    fireEvent.scroll(canvas)
+
+    expect(canvas.scrollLeft).toBe(0)
+  })
+
+  it('brings a frame that takes focus from the keyboard into view, and leaves a clicked one where it is', () => {
+    renderCanvas()
+    for (let step = 0; step < 4; step += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    }
+    const lost = screen.getByRole('button', { name: 'Lost' })
+    const before = content().style.transform
+
+    fireEvent.focus(lost)
+    expect(content().style.transform).toBe(before)
+
+    vi.spyOn(lost, 'matches').mockImplementation(selector => selector === ':focus-visible')
+    fireEvent.focus(lost)
+    expect(content().style.transform).not.toBe(before)
   })
 
   it('moves to the nearest frame with the arrow keys', async () => {
@@ -449,6 +494,133 @@ describe('CanvasView', () => {
       fireEvent.pointerUp(window, { pointerId: 1 })
 
       expect(await screen.findByRole('alert')).toHaveTextContent('The layout was not saved: canvas.json is read-only')
+    })
+  })
+
+  describe('live frames', () => {
+    const frame = (name: string) => screen.getByRole('article', { name })
+
+    it('makes the focused frame live with L, so it clicks through inside itself', async () => {
+      renderCanvas()
+      screen.getByRole('button', { name: 'Home' }).focus()
+
+      await userEvent.keyboard('l')
+
+      const home = frame('Home')
+      expect(within(home).getByText('Live')).toBeInTheDocument()
+      expect(within(home).getByText('Good morning').closest('[inert]')).toBeNull()
+
+      await userEvent.click(within(home).getByRole('button', { name: 'Book a visit' }))
+
+      expect(within(home).getByRole('heading', { name: 'Review your visit' })).toBeInTheDocument()
+      await userEvent.click(within(home).getByRole('button', { name: 'Back to Home' }))
+      expect(within(home).getByText('Good morning')).toBeInTheDocument()
+    })
+
+    it('stops on Esc, back on its own state and inert again', async () => {
+      renderCanvas()
+      screen.getByRole('button', { name: 'Home' }).focus()
+      await userEvent.keyboard('l')
+      await userEvent.click(within(frame('Home')).getByRole('button', { name: 'Book a visit' }))
+
+      await userEvent.keyboard('{Escape}')
+
+      expect(within(frame('Home')).queryByText('Live')).not.toBeInTheDocument()
+      expect(within(frame('Home')).getByText('Good morning').closest('[inert]')).not.toBeNull()
+    })
+
+    it('stays live on an Esc the screen used itself, to close one of its menus', async () => {
+      renderCanvas()
+      screen.getByRole('button', { name: 'Home' }).focus()
+      await userEvent.keyboard('l')
+
+      const used = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+      used.preventDefault()
+      act(() => {
+        window.dispatchEvent(used)
+      })
+
+      expect(within(frame('Home')).getByText('Live')).toBeInTheDocument()
+    })
+
+    it('stops from its own button, and on a press anywhere else on the canvas', async () => {
+      renderCanvas()
+      screen.getByRole('button', { name: 'Home' }).focus()
+      await userEvent.keyboard('l')
+      await userEvent.click(screen.getByRole('button', { name: 'Stop the live frame' }))
+      expect(within(frame('Home')).queryByText('Live')).not.toBeInTheDocument()
+
+      screen.getByRole('button', { name: 'Home' }).focus()
+      await userEvent.keyboard('l')
+      fireEvent.pointerDown(screen.getByRole('region', { name: 'Canvas' }), { button: 0, pointerId: 1 })
+      expect(within(frame('Home')).queryByText('Live')).not.toBeInTheDocument()
+    })
+
+    it('keeps one frame live at a time', async () => {
+      renderCanvas()
+      screen.getByRole('button', { name: 'Home' }).focus()
+      await userEvent.keyboard('l')
+      screen.getByRole('button', { name: 'Lost' }).focus()
+      await userEvent.keyboard('l')
+
+      expect(within(frame('Lost')).getByText('Live')).toBeInTheDocument()
+      expect(within(frame('Home')).queryByText('Live')).not.toBeInTheDocument()
+    })
+
+    it('makes a frame live on double click with Live on, and opens it on the stage with Live off', async () => {
+      const { onOpen } = renderCanvas()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Live' }))
+      await userEvent.dblClick(screen.getByRole('button', { name: 'Lost' }))
+
+      expect(within(frame('Lost')).getByText('Live')).toBeInTheDocument()
+      expect(onOpen).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('viewports', () => {
+    const frames = () => [...document.querySelectorAll('article[data-canvas-frame]')]
+
+    it('draws each state in two viewports side by side, named on their titles', async () => {
+      renderCanvas()
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Viewports' }), 'Desktop and tablet')
+
+      expect(frames()).toHaveLength(8)
+      expect(screen.getByRole('article', { name: 'Home (Tablet)' })).toBeInTheDocument()
+      const mounts = within(screen.getByRole('article', { name: 'Home (Desktop)' })).getByText('Good morning')
+      expect(mounts.closest('[data-viewport]')).toHaveStyle({ width: '1280px' })
+      expect(
+        within(screen.getByRole('article', { name: 'Home (Tablet)' }))
+          .getByText('Good morning')
+          .closest('[data-viewport]')
+      ).toHaveStyle({ width: '834px' })
+    })
+
+    it('saves the choice to canvas.json with the dev server, and keeps it on the page without', async () => {
+      const arranging = renderCanvas({ canArrange: true })
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Viewports' }), 'Tablet and mobile')
+      expect(arranging.onArrange).toHaveBeenCalledWith({ version: 1, sections: [], viewports: ['tablet', 'mobile'] })
+    })
+
+    it('does not save the choice without the dev server', async () => {
+      const { onArrange } = renderCanvas()
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Viewports' }), 'Tablet and mobile')
+
+      expect(onArrange).not.toHaveBeenCalled()
+      expect(frames()).toHaveLength(8)
+    })
+
+    it('draws every frame in the one viewport canvas.json names', () => {
+      renderCanvas({
+        prototype: {
+          ...(prototype as NonNullable<typeof prototype>),
+          canvas: { version: 1, sections: [], viewports: ['tablet'] },
+        },
+      })
+
+      expect(screen.getByText('Good morning').closest('[data-viewport]')).toHaveStyle({ width: '834px' })
+      expect(frames()).toHaveLength(4)
     })
   })
 })

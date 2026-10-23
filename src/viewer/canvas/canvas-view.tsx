@@ -1,4 +1,14 @@
-import { AlertTriangle, ExternalLink, LayoutGrid, Maximize, Scan, Spline, ZoomIn, ZoomOut } from 'lucide-react'
+import {
+  AlertTriangle,
+  ExternalLink,
+  LayoutGrid,
+  Maximize,
+  MousePointerClick,
+  Scan,
+  Spline,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
 import {
   type KeyboardEvent,
   memo,
@@ -11,6 +21,7 @@ import {
   useState,
 } from 'react'
 import type { NumberedAnnotation } from '../../components/annotation-overlay'
+import type { ScreenNavigation } from '../../components/prototype-runtime'
 import { useCanvasCamera } from '../../hooks/use-canvas-camera'
 import type { FlowLinks } from '../../hooks/use-flow-links'
 import { useVisibleFrames } from '../../hooks/use-visible-frames'
@@ -27,7 +38,7 @@ import {
   ZOOM_STEP,
   zoomAt,
 } from '../../lib/canvas-camera'
-import { arrangedCanvas, resetCanvas, savedPositions } from '../../lib/canvas-file'
+import { arrangedCanvas, resetCanvas, savedPositions, withViewports } from '../../lib/canvas-file'
 import { arrowDirection, type CanvasFrameBox, type CanvasSection, layoutCanvas } from '../../lib/canvas-layout'
 import { FRAME_HEIGHT, VIEWPORT_WIDTH } from '../../lib/constants'
 import type { FrameSize } from '../../lib/device-frame'
@@ -40,9 +51,18 @@ import {
   type Point,
   type Size,
 } from '../../lib/flow-graph'
-import type { CanvasFile, Prototype } from '../../types'
-import { Button, cn } from '../../ui'
-import { CanvasFrame, FRAME_ATTRIBUTE } from './canvas-frame'
+import {
+  type LiveFrame,
+  liveAway,
+  liveBack,
+  liveGoTo,
+  liveReturn,
+  liveScreen,
+  startLiveFrame,
+} from '../../lib/live-frame'
+import type { CanvasFile, Prototype, ScreenViewport } from '../../types'
+import { Button, cn, NativeSelect, NativeSelectOption } from '../../ui'
+import { CanvasFrame, FRAME_ATTRIBUTE, type LiveView } from './canvas-frame'
 import { CanvasSectionBox, SECTION_HANDLE_ATTRIBUTE } from './canvas-section'
 
 export interface CanvasViewProps {
@@ -95,11 +115,41 @@ const SECTION_STEP = { small: 40, large: 400 }
 /** How long after the last arrow key a section moved by keyboard is saved. */
 const KEYBOARD_SAVE_DELAY = 600
 
+/** The viewport pairs the canvas can show side by side, and its one-size setting. */
+const VIEWPORT_CHOICES: readonly { value: string; label: string; viewports: readonly ScreenViewport[] }[] = [
+  { value: 'one', label: 'One size', viewports: [] },
+  { value: 'desktop,tablet', label: 'Desktop and tablet', viewports: ['desktop', 'tablet'] },
+  { value: 'desktop,mobile', label: 'Desktop and mobile', viewports: ['desktop', 'mobile'] },
+  { value: 'tablet,mobile', label: 'Tablet and mobile', viewports: ['tablet', 'mobile'] },
+]
+
+const VIEWPORT_LABEL: Readonly<Record<ScreenViewport, string>> = {
+  mobile: 'Mobile',
+  tablet: 'Tablet',
+  desktop: 'Desktop',
+}
+
+/** Separates a node's key from the viewport of its second frame: `home/default@tablet`. */
+const VIEWPORT_SEPARATOR = '@'
+
+const nodeKeyOf = (frameKey: string): FlowNodeKey => frameKey.split(VIEWPORT_SEPARATOR)[0] ?? frameKey
+
+const sizeOfViewport = (viewport: ScreenViewport): FrameSize => ({
+  width: VIEWPORT_WIDTH[viewport],
+  height: FRAME_HEIGHT[viewport],
+})
+
+/** A node with nothing under its screen: the card a second frame of the state is sized for. */
+const bareNode = (node: FlowNode): FlowNode => {
+  const { error: _error, ...rest } = node
+  return { ...rest, backControls: [] }
+}
+
 /** One empty list for every frame without pins, so the frames' memo holds across renders. */
 const NO_NOTES: readonly NumberedAnnotation[] = []
 
 function frameSizeOf(node: FlowNode, override: FrameSize | undefined): FrameSize {
-  return override ?? { width: VIEWPORT_WIDTH[node.screen.viewport], height: FRAME_HEIGHT[node.screen.viewport] }
+  return override ?? sizeOfViewport(node.screen.viewport)
 }
 
 /**
@@ -138,20 +188,48 @@ export function CanvasView({
   const ready = flow.status === 'ready'
 
   const graph = useMemo(() => buildFlowGraph(prototype, flow.linksByNode), [prototype, flow.linksByNode])
+
+  // The viewports every state is drawn in: as canvas.json says, or as changed here. Two show each
+  // state side by side in both; one sets the size of every frame, unless the device toolbar does.
+  const [viewports, setViewports] = useState<readonly ScreenViewport[]>(prototype.canvas?.viewports ?? [])
+  useEffect(() => setViewports(prototype.canvas?.viewports ?? []), [prototype.canvas?.viewports])
+  const [first, second] = viewports
+  const primarySize = useMemo(
+    () => frameSize ?? (second !== undefined || first === undefined ? undefined : sizeOfViewport(first)),
+    [frameSize, first, second]
+  )
+  const pairedFirst = second === undefined ? undefined : first
   const nodeByKey = useMemo(() => new Map(graph.nodes.map(node => [node.key, node])), [graph])
   const cardSize = useCallback(
     (key: FlowNodeKey): Size => {
       const node = nodeByKey.get(key)
-      return node === undefined ? MISSING_SIZE : cardSizeAround(node, graph.edges, frameSizeOf(node, frameSize))
+      if (node === undefined) {
+        return MISSING_SIZE
+      }
+      const size = pairedFirst === undefined ? frameSizeOf(node, primarySize) : sizeOfViewport(pairedFirst)
+      return cardSizeAround(node, graph.edges, size)
     },
-    [nodeByKey, graph.edges, frameSize]
+    [nodeByKey, graph.edges, primarySize, pairedFirst]
+  )
+  const framesOf = useCallback(
+    (node: FlowNode) =>
+      second === undefined
+        ? [{ key: node.key, size: cardSize(node.key) }]
+        : [
+            { key: node.key, size: cardSize(node.key) },
+            {
+              key: `${node.key}${VIEWPORT_SEPARATOR}${second}`,
+              size: cardSizeAround(bareNode(node), [], sizeOfViewport(second)),
+            },
+          ],
+    [cardSize, second]
   )
   // Where sections were put: the saved file, and any move not saved yet, so a move shows at once.
   const [moved, setMoved] = useState<ReadonlyMap<string, Point>>(() => new Map())
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new saved arrangement replaces the moves it records.
   useEffect(() => setMoved(new Map()), [prototype.canvas])
   const placed = useMemo(() => new Map([...savedPositions(prototype.canvas), ...moved]), [prototype.canvas, moved])
-  const layout = useMemo(() => layoutCanvas(graph, cardSize, placed), [graph, cardSize, placed])
+  const layout = useMemo(() => layoutCanvas(graph, cardSize, placed, framesOf), [graph, cardSize, placed, framesOf])
   // Sections in reading order, so Tab reads the canvas section by section, frames left to right.
   const sections = useMemo(
     () =>
@@ -163,10 +241,24 @@ export function CanvasView({
     [layout]
   )
   // One object per frame for its size, so a render of the canvas leaves the frames alone.
-  const frameSizes = useMemo(
-    () => new Map(graph.nodes.map(node => [node.key, frameSizeOf(node, frameSize)] as const)),
-    [graph, frameSize]
-  )
+  const frameSizes = useMemo(() => {
+    const sizes = new Map<string, FrameSize>()
+    for (const node of graph.nodes) {
+      sizes.set(node.key, pairedFirst === undefined ? frameSizeOf(node, primarySize) : sizeOfViewport(pairedFirst))
+      if (second !== undefined) {
+        sizes.set(`${node.key}${VIEWPORT_SEPARATOR}${second}`, sizeOfViewport(second))
+      }
+    }
+    return sizes
+  }, [graph, primarySize, pairedFirst, second])
+
+  const chooseViewports = (value: string) => {
+    const chosen = VIEWPORT_CHOICES.find(choice => choice.value === value)?.viewports ?? []
+    setViewports(chosen)
+    if (canArrange) {
+      save(withViewports(prototype.canvas, chosen))
+    }
+  }
   const frames = useMemo(
     () => layout.sections.filter(section => !section.missing).flatMap(section => section.frames),
     [layout]
@@ -249,29 +341,122 @@ export function CanvasView({
     }
   }
 
-  // A frame picked from outside the canvas, in the screen list, is brought into view.
+  // The canvas moves only by its camera. Focusing a frame makes the browser scroll the canvas to it
+  // although it hides its overflow, which would shift everything out from under the camera, so any
+  // such scroll is undone; the focused frame is brought into view by the camera instead.
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (viewport === null) {
+      return
+    }
+    const undoScroll = () => {
+      if (viewport.scrollLeft !== 0 || viewport.scrollTop !== 0) {
+        viewport.scrollTo(0, 0)
+      }
+    }
+    viewport.addEventListener('scroll', undoScroll)
+    return () => viewport.removeEventListener('scroll', undoScroll)
+  }, [])
+
+  // A frame picked from outside the canvas, in the screen list, is brought into view. One picked on
+  // the canvas is left where it is: moving it under the pointer would lose a double click.
+  const pickedHere = useRef<FlowNodeKey | undefined>(undefined)
+  const pickHere = useCallback(
+    (node: FlowNode) => {
+      pickedHere.current = node.key
+      onSelect(node.screen.id, node.screen.variant)
+    },
+    [onSelect]
+  )
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a change of the picked frame should move the camera.
   useEffect(() => {
     const box = selectedKey === undefined ? undefined : layout.frameByKey.get(selectedKey)
-    if (opened.current && box !== undefined) {
+    const fromCanvas = pickedHere.current === selectedKey
+    pickedHere.current = undefined
+    if (opened.current && box !== undefined && !fromCanvas) {
       bringIntoView(box)
     }
   }, [selectedKey])
 
-  const focusFrame = (key: FlowNodeKey) => {
+  const focusFrame = useCallback((key: string) => {
     const button = contentRef.current?.querySelector<HTMLButtonElement>(
       `[${FRAME_ATTRIBUTE}="${CSS.escape(key)}"] button[aria-pressed]`
     )
     button?.focus({ preventScroll: true })
-  }
+  }, [])
 
-  const selectFrame = (node: FlowNode) => {
-    onSelect(node.screen.id, node.screen.variant)
-    const box = layout.frameByKey.get(node.key)
+  const selectFrame = (node: FlowNode, frameKey: string) => {
+    pickHere(node)
+    const box = layout.frameByKey.get(frameKey)
     if (box !== undefined) {
       bringIntoView(box)
     }
   }
+
+  // One frame at a time can be live. With Live on, a double click makes a frame live; `L` always does.
+  const [liveOnDoubleClick, setLiveOnDoubleClick] = useState(false)
+  const [live, setLive] = useState<LiveFrame | undefined>(undefined)
+
+  const startLive = useCallback((node: FlowNode, frameKey: string) => {
+    setLive(startLiveFrame(frameKey, { screenId: node.screen.id, variant: node.screen.variant }))
+  }, [])
+
+  const stopLive = useCallback(() => {
+    setLive(current => {
+      if (current !== undefined) {
+        // Back to the frame's own button, so the keyboard carries on from where it was.
+        requestAnimationFrame(() => focusFrame(current.frameKey))
+      }
+      return undefined
+    })
+  }, [focusFrame])
+
+  // Esc stops the live frame wherever focus is: a click inside it may have swapped the screen under
+  // the focused control, leaving focus on the page.
+  useEffect(() => {
+    if (live === undefined) {
+      return
+    }
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      // An Esc the screen already used, to close one of its menus or dialogs, is not for the frame.
+      if (event.key === 'Escape' && !event.defaultPrevented) {
+        stopLive()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [live, stopLive])
+
+  const liveNavigation = useMemo((): ScreenNavigation | undefined => {
+    if (live === undefined) {
+      return undefined
+    }
+    return {
+      screenId: live.session.current.screenId,
+      variant: live.session.current.variant,
+      goToScreen: (screenId, options) =>
+        setLive(current =>
+          current === undefined ? current : liveGoTo(current, prototype, screenId, options?.variant)
+        ),
+      back: () => setLive(current => (current === undefined ? current : liveBack(current))),
+      canGoBack: live.session.history.length > 0,
+      showHotspots,
+    }
+  }, [live, prototype, showHotspots])
+
+  const liveView = useMemo((): LiveView | undefined => {
+    const screen = live === undefined ? undefined : liveScreen(live, prototype)
+    if (live === undefined || screen === undefined || liveNavigation === undefined) {
+      return undefined
+    }
+    return {
+      screen,
+      navigation: liveNavigation,
+      away: liveAway(live),
+      onReturn: () => setLive(current => (current === undefined ? current : liveReturn(current))),
+      onStop: stopLive,
+    }
+  }, [live, prototype, liveNavigation, stopLive])
 
   // Moving sections. The section is moved on the page while it is dragged, and its frames with it;
   // the arrangement is saved when it is let go.
@@ -372,6 +557,11 @@ export function CanvasView({
       return
     }
     const onWheel = (event: WheelEvent) => {
+      // A live frame scrolls its own screen; Ctrl or Cmd still zooms the canvas.
+      const liveFrame = viewport.querySelector('[data-live]')
+      if (!(event.ctrlKey || event.metaKey) && event.target instanceof Node && liveFrame?.contains(event.target)) {
+        return
+      }
       event.preventDefault()
       const unit = event.deltaMode === 1 ? 16 : 1
       if (event.ctrlKey || event.metaKey) {
@@ -392,6 +582,10 @@ export function CanvasView({
   const [panning, setPanning] = useState(false)
 
   const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    // A press anywhere but on the live frame makes it inert again.
+    if (live !== undefined && !(event.target instanceof Element && event.target.closest('[data-live]') !== null)) {
+      stopLive()
+    }
     const onFrame =
       event.target instanceof Element &&
       event.target.closest(`[${FRAME_ATTRIBUTE}], [${SECTION_HANDLE_ATTRIBUTE}]`) !== null
@@ -443,6 +637,14 @@ export function CanvasView({
         : null
 
     const inCanvas = event.target instanceof Node && viewportRef.current?.contains(event.target) === true
+    const inLiveFrame =
+      live !== undefined &&
+      event.target instanceof Element &&
+      event.target.closest(`[${FRAME_ATTRIBUTE}]`)?.getAttribute(FRAME_ATTRIBUTE) === live.frameKey
+    // Inside a live frame the keys belong to the screen: it may have inputs and its own arrow keys.
+    if (inLiveFrame) {
+      return
+    }
     if (event.key === ' ') {
       // Space held over the canvas turns a drag into a pan. On a toolbar button it presses the button.
       if (inCanvas) {
@@ -468,10 +670,10 @@ export function CanvasView({
         frames.filter(frame => frame.key !== from.key).map(frame => ({ key: frame.key, rect: frame })),
         direction
       )
-      const nextNode = nextKey === undefined ? undefined : nodeByKey.get(nextKey)
-      if (nextNode !== undefined) {
-        selectFrame(nextNode)
-        focusFrame(nextNode.key)
+      const nextNode = nextKey === undefined ? undefined : nodeByKey.get(nodeKeyOf(nextKey))
+      if (nextKey !== undefined && nextNode !== undefined) {
+        selectFrame(nextNode, nextKey)
+        focusFrame(nextKey)
       }
       return
     }
@@ -492,13 +694,27 @@ export function CanvasView({
   }
 
   const onFrameKeyDown = useCallback(
-    (node: FlowNode, event: KeyboardEvent<HTMLButtonElement>) => {
+    (node: FlowNode, frameKey: string, event: KeyboardEvent<HTMLButtonElement>) => {
       if (event.key === 'Enter') {
         event.preventDefault()
         onOpen(node.screen.id, node.screen.variant)
+      } else if (event.key === 'l' || event.key === 'L') {
+        event.preventDefault()
+        startLive(node, frameKey)
       }
     },
-    [onOpen]
+    [onOpen, startLive]
+  )
+
+  const onFrameDoubleClick = useCallback(
+    (node: FlowNode, frameKey: string) => {
+      if (liveOnDoubleClick) {
+        startLive(node, frameKey)
+      } else {
+        onOpen(node.screen.id, node.screen.variant)
+      }
+    },
+    [liveOnDoubleClick, startLive, onOpen]
   )
 
   // The arrows are measured from the drawn screens, so they are drawn again whenever what is drawn
@@ -563,8 +779,10 @@ export function CanvasView({
       rows.current.set(key, element)
     }
   }, [])
-  const select = useCallback((node: FlowNode) => onSelect(node.screen.id, node.screen.variant), [onSelect])
-  const open = useCallback((node: FlowNode) => onOpen(node.screen.id, node.screen.variant), [onOpen])
+  const select = pickHere
+  const selectFocused = useRef(selectFrame)
+  selectFocused.current = selectFrame
+  const focusFrameAndShow = useCallback((node: FlowNode, frameKey: string) => selectFocused.current(node, frameKey), [])
   const pin = useCallback(
     (node: FlowNode, note: NumberedAnnotation | undefined) => onPin(node.screen.id, node.screen.variant, note?.id),
     [onPin]
@@ -657,6 +875,30 @@ export function CanvasView({
           <ExternalLink />
           Open
         </Button>
+        <Button
+          variant={liveOnDoubleClick ? 'light' : 'ghost'}
+          size='sm'
+          aria-pressed={liveOnDoubleClick}
+          title='With Live on, a double click makes a frame clickable inside itself. L does it from the keyboard.'
+          onClick={() => setLiveOnDoubleClick(current => !current)}
+        >
+          <MousePointerClick />
+          Live
+        </Button>
+        <NativeSelect
+          size='sm'
+          aria-label='Viewports'
+          title='Show each state in one size, or in two side by side'
+          className='w-44 [&_select]:h-8!'
+          value={second === undefined ? 'one' : `${first},${second}`}
+          onChange={event => chooseViewports(event.target.value)}
+        >
+          {VIEWPORT_CHOICES.map(choice => (
+            <NativeSelectOption key={choice.value} value={choice.value}>
+              {choice.label}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
         {canArrange && (
           <Button
             variant='ghost'
@@ -722,25 +964,34 @@ export function CanvasView({
                 onHandleKeyDown={onSectionKeyDown(section)}
               >
                 {placedFrames.map(box => {
-                  const node = nodeByKey.get(box.key)
+                  const node = nodeByKey.get(nodeKeyOf(box.key))
                   if (node === undefined) {
                     return <MissingCard key={box.key} box={box} screenId={section.screenId} />
                   }
-                  const notes = showNotes ? (notesByScreen.get(node.screen.id) ?? NO_NOTES) : NO_NOTES
+                  const secondary = box.key !== node.key
+                  const isLive = live?.frameKey === box.key ? liveView : undefined
+                  const pinned = isLive?.screen.id ?? node.screen.id
+                  const notes = showNotes ? (notesByScreen.get(pinned) ?? NO_NOTES) : NO_NOTES
                   const openComments = (notesByScreen.get(node.screen.id) ?? []).filter(
                     note => note.status !== 'resolved'
                   ).length
                   return (
                     <CanvasFrame
-                      key={node.key}
+                      key={box.key}
                       node={node}
+                      frameKey={box.key}
+                      {...(second === undefined
+                        ? {}
+                        : { viewportLabel: VIEWPORT_LABEL[secondary ? second : (first ?? second)] })}
+                      secondary={secondary}
+                      {...(isLive === undefined ? {} : { live: isLive })}
                       box={box}
-                      frameSize={frameSizes.get(node.key) ?? frameSizeOf(node, frameSize)}
+                      frameSize={frameSizes.get(box.key) ?? frameSizeOf(node, frameSize)}
                       edges={graph.edges}
                       nodeByKey={nodeByKey}
                       selected={node.key === selectedKey}
                       dimmed={hovered !== undefined && hovered !== node.key && !touches(graph.edges, hovered, node.key)}
-                      mounted={readable && drawn.has(node.key)}
+                      mounted={readable && drawn.has(box.key)}
                       showHotspots={showHotspots}
                       notes={notes}
                       openComments={openComments}
@@ -750,7 +1001,8 @@ export function CanvasView({
                       mountRef={mountRef}
                       rowRef={rowRef}
                       onSelect={select}
-                      onOpen={open}
+                      onFocusFrame={focusFrameAndShow}
+                      onDoubleClick={onFrameDoubleClick}
                       onHover={setHovered}
                       onKeyDown={onFrameKeyDown}
                     />

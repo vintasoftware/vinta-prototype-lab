@@ -142,7 +142,7 @@ export default function Screen() {
       <nav className='flex w-56 shrink-0 flex-col gap-1 border-border border-r bg-card p-3' aria-label='Sections'>
 ${nav}
       </nav>
-      <main className='flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-6'>
+      <main className='flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-6 *:shrink-0'>
         <header className='flex items-center justify-between'>
           <div>
             <p className='text-muted-foreground text-sm'>Step ${index + 1} of ${SCREENS.length}</p>

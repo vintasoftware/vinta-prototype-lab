@@ -49,7 +49,7 @@ export default function Screen() {
           Settings
         </Button>
       </nav>
-      <main className='flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-6'>
+      <main className='flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-6 *:shrink-0'>
         <header className='flex items-center justify-between'>
           <div>
             <p className='text-muted-foreground text-sm'>Step 5 of 12</p>

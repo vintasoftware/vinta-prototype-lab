@@ -1,6 +1,6 @@
 import type { Rect } from './canvas-camera'
 import { MISSING_SIZE } from './flow-drawing'
-import type { FlowGraph, FlowNodeKey, Point, Size } from './flow-graph'
+import type { FlowGraph, FlowNode, FlowNodeKey, Point, Size } from './flow-graph'
 
 /** One frame on the canvas: its card (title, screen, rows), in canvas pixels. */
 export interface CanvasFrameBox extends Rect {
@@ -50,8 +50,11 @@ interface SectionDraft {
   frames: Array<{ key: FlowNodeKey; size: Size }>
 }
 
+/** The frames one screen state is drawn in: one, or one per viewport when several are shown. */
+export type FramesOf = (node: FlowNode) => Array<{ key: string; size: Size }>
+
 /** Groups the graph's nodes by screen, in the order the sidebar lists them, one section each. */
-function draftSections(graph: FlowGraph, cardSize: (key: FlowNodeKey) => Size): SectionDraft[] {
+function draftSections(graph: FlowGraph, framesOf: FramesOf): SectionDraft[] {
   const drafts: SectionDraft[] = []
   const byScreen = new Map<string, SectionDraft>()
 
@@ -63,7 +66,7 @@ function draftSections(graph: FlowGraph, cardSize: (key: FlowNodeKey) => Size): 
       drafts.push(draft)
     }
     draft.layer = Math.min(draft.layer, node.layer)
-    draft.frames.push({ key: node.key, size: cardSize(node.key) })
+    draft.frames.push(...framesOf(node))
   }
 
   for (const missing of graph.missing) {
@@ -180,13 +183,17 @@ function autoPositions(drafts: readonly SectionDraft[], origin: Point): Map<stri
  * `saved` holds positions a person dragged sections to. Those sections stay where they were put;
  * any other section is laid out by the columns, to the right of everything already placed, so a new
  * screen never lands on top of an arranged one.
+ *
+ * `framesOf` says which frames each state is drawn in, side by side in its section: one by default,
+ * one per viewport when several are shown.
  */
 export function layoutCanvas(
   graph: FlowGraph,
   cardSize: (key: FlowNodeKey) => Size,
-  saved: ReadonlyMap<string, Point> = new Map()
+  saved: ReadonlyMap<string, Point> = new Map(),
+  framesOf: FramesOf = node => [{ key: node.key, size: cardSize(node.key) }]
 ): CanvasLayout {
-  const drafts = draftSections(graph, cardSize)
+  const drafts = draftSections(graph, framesOf)
   const placed = drafts.filter(draft => saved.has(draft.screenId))
   const unplaced = drafts.filter(draft => !saved.has(draft.screenId))
 

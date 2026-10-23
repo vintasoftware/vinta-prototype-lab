@@ -69,11 +69,15 @@ export function useCanvasCamera(contentRef: RefObject<HTMLElement | null>): Canv
           }, PAN_SETTLE_MS)
         }
         content.style.transform = `translate(${settled.x}px, ${settled.y}px) scale(${settled.zoom})`
-        content.style.setProperty('--canvas-zoom', String(settled.zoom))
-        content.style.setProperty(
-          '--canvas-label-scale',
-          String(Math.min(MAX_LABEL_SCALE, Math.max(1, 1 / settled.zoom)))
-        )
+        // A pan changes only the transform. Setting the zoom's properties again would send the
+        // browser through its full compositing update on every step, so they change with the zoom.
+        if (settled.zoom !== zoomRef.current || content.style.getPropertyValue('--canvas-zoom') === '') {
+          content.style.setProperty('--canvas-zoom', String(settled.zoom))
+          content.style.setProperty(
+            '--canvas-label-scale',
+            String(Math.min(MAX_LABEL_SCALE, Math.max(1, 1 / settled.zoom)))
+          )
+        }
       }
       // A pan leaves the zoom as it was; setting it anyway would still render the canvas.
       if (settled.zoom !== zoomRef.current) {

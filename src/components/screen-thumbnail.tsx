@@ -4,7 +4,7 @@ import type { FrameSize } from '../lib/device-frame'
 import { thumbnailSize } from '../lib/flow-drawing'
 import type { PrototypeScreen, ScreenViewport } from '../types'
 import { cn, RenderBoundary } from '../ui'
-import { NO_NAVIGATION, PrototypeRuntime } from './prototype-runtime'
+import { NO_NAVIGATION, PrototypeRuntime, type ScreenNavigation } from './prototype-runtime'
 
 export interface ScreenThumbnailProps {
   screen: PrototypeScreen
@@ -21,13 +21,18 @@ export interface ScreenThumbnailProps {
   size?: FrameSize
   /** How much to shrink it. Defaults to the flow map's factor for the viewport; the canvas uses 1. */
   scale?: number
+  /**
+   * Makes the screen clickable, with this navigation, as a live frame on the canvas is. Without it
+   * the screen is inert: nothing in it can be clicked, focused or read out.
+   */
+  navigation?: ScreenNavigation
   className?: string
 }
 
 /**
- * A screen drawn small, for the flow map. It is the real screen rendered at its own viewport size
- * and scaled down, so it looks the way the stage does. It is inert: nothing in it can be clicked,
- * focused or read out, so the card around it is the one control.
+ * A screen drawn small, for the canvas. It is the real screen rendered at its own viewport size
+ * and scaled, so it looks the way the stage does. It is inert unless given a navigation: nothing in
+ * it can be clicked, focused or read out, so the frame around it is the one control.
  */
 export function ScreenThumbnail({
   screen,
@@ -36,8 +41,10 @@ export function ScreenThumbnail({
   mountRef,
   size,
   scale: scaleOverride,
+  navigation,
   className,
 }: ScreenThumbnailProps) {
+  const live = navigation !== undefined
   const frame = viewport ?? screen.viewport
   const scale = scaleOverride ?? THUMBNAIL_SCALE[frame]
   const inner = size ?? { width: VIEWPORT_WIDTH[frame], height: FRAME_HEIGHT[frame] }
@@ -48,10 +55,16 @@ export function ScreenThumbnail({
 
   return (
     <div
-      inert
-      aria-hidden='true'
+      inert={!live}
+      aria-hidden={live ? undefined : 'true'}
       style={{ width: outer.width, height: outer.height }}
-      className={cn('pointer-events-none select-none overflow-hidden bg-background', className)}
+      className={cn(
+        'overflow-hidden bg-background',
+        // An inert screen is a picture: its animations would only keep the browser compositing every
+        // frame, which is what makes a canvas of many screens stutter.
+        !live && 'pointer-events-none select-none [&_*]:animate-none! [&_*]:transition-none!',
+        className
+      )}
     >
       <div
         ref={mountRef}
@@ -66,7 +79,9 @@ export function ScreenThumbnail({
         className='overflow-hidden'
       >
         <RenderBoundary fallback={<ScreenDidNotRender />}>
-          <PrototypeRuntime value={{ ...NO_NAVIGATION, screenId: screen.id, variant: screen.variant, showHotspots }}>
+          <PrototypeRuntime
+            value={navigation ?? { ...NO_NAVIGATION, screenId: screen.id, variant: screen.variant, showHotspots }}
+          >
             <screen.Component />
           </PrototypeRuntime>
         </RenderBoundary>

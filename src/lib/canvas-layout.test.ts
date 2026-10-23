@@ -116,6 +116,25 @@ describe('layoutCanvas', () => {
   })
 })
 
+describe('layoutCanvas with several frames per state', () => {
+  it('draws each state in every frame it is given, side by side, in list order', () => {
+    const layout = layoutCanvas(graph, cardSize, new Map(), node => [
+      { key: node.key, size: { width: 400, height: 900 } },
+      { key: `${node.key}@tablet`, size: { width: 800, height: 900 } },
+    ])
+    const review = layout.sections.find(section => section.screenId === 'review')
+
+    expect(review?.frames.map(frame => frame.key)).toEqual([
+      'review/default',
+      'review/default@tablet',
+      'review/empty',
+      'review/empty@tablet',
+    ])
+    expect(layout.frameByKey.get('review/default@tablet')?.width).toBe(800)
+    expect(review?.width).toBe(padding * 2 + 400 * 2 + 800 * 2 + frameGap * 3)
+  })
+})
+
 describe('arrowDirection', () => {
   const box = (x: number) => ({ x, y: 0, width: 100, height: 100 })
 

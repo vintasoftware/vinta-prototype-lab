@@ -398,11 +398,34 @@ It opens centred on the screen you came from, or fitted to everything when opene
 | Fit everything | Toolbar button | `Shift+1` |
 | Zoom to the picked frame | Toolbar button | `Shift+2` |
 | Pick a frame | Click | Tab through the frames in reading order; arrow keys move to the nearest frame that way |
-| Open it on the stage | Double-click, or the toolbar's **Open** | `Enter` |
+| Open it on the stage | Double-click (with **Live** off), or the toolbar's **Open** | `Enter` |
+| Make it live | Double-click with **Live** on | `L` |
+| Stop the live frame | Its X, or a press anywhere else | `Esc` |
 | Back to the canvas | The **Canvas** button | `v` |
 
 Zoom runs from 5% to 200%, holding still the point under the pointer, or the picked frame from the
 keyboard. Below 20% a frame is a card with its title only.
+
+### Live frames
+
+Frames are inert: nothing in them clicks, so a click picks the frame. To try one, make it **live**:
+focus it and press `L`, or turn **Live** on in the canvas toolbar and double-click it. A live frame
+clicks through inside itself, on a history of its own, without moving the screen the viewer has
+open. When it moves on, its title offers **Back to** the state it belongs to. `Esc`, the X on its
+title, or a press anywhere else on the canvas makes it inert again, back on its own state.
+
+One frame is live at a time. With **Live** off, a double click opens the frame on the stage instead.
+A live frame scrolls its own screen with the wheel; Ctrl or Cmd and the wheel still zoom the canvas.
+Dialogs, popovers and menus a live screen opens are drawn over the canvas, at the size of the page
+rather than of the frame.
+
+### Two viewports
+
+**Viewports** in the canvas toolbar draws every state in two sizes side by side, desktop and tablet
+for example, so a layout that breaks at one size shows without switching. The arrows and the rows
+belong to the first frame of each pair. "One size" goes back to a single frame per state, sized by
+the device toolbar or the screen's own viewport. The choice is saved in `canvas.json` under the dev
+server; a built copy keeps it for the page only.
 
 ### Arranging it
 
@@ -463,9 +486,10 @@ accessibility bug it is.
 
 ### Large prototypes
 
-Every frame is a live render of its screen, so the canvas draws only the frames in view, a couple at
+Every frame is a real render of its screen, so the canvas draws only the frames in view, a couple at
 a time, and holds new ones back while a pan is moving. A frame out of view, or below 20%, is a card
-with its title. With 60 desktop states the canvas is usable in about half a second and pans at the
+with its title. Animations and transitions inside a frame that is not live are switched off: the
+frame is a picture, and a running animation keeps the browser recompositing the whole canvas. With 60 desktop states the canvas is usable in about half a second and pans at the
 display's frame rate.
 
 ### Screens on the canvas: media queries follow the window

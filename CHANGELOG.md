@@ -18,6 +18,10 @@ All notable changes to this package are recorded here. Versions follow
   **Reset layout** to go back to the flow's columns. The arrangement is saved to `canvas.json` in
   the prototype's folder through the dev server, and a section for a screen that is gone is a line
   in Problems. A built copy draws the saved arrangement read-only.
+- **Live frames**: `L`, or a double click with **Live** on, makes one frame click through inside
+  itself on its own history, with a **Back to** chip and `Esc` to stop.
+- **Two viewports**: the canvas can draw every state in two sizes side by side; the choice is saved
+  in `canvas.json`.
 - The canvas draws only the frames in view, a couple at a time, and holds new ones back while a pan
   is moving; below 20% a frame is a card with its title. A generated 60-state fixture,
   `example/prototypes/canvas-sixty`, measures it (`node scripts/generate-canvas-fixture.mjs` writes it).

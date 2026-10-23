@@ -1,13 +1,15 @@
-import { AlertTriangle, ArrowRight, MessageSquare, Undo2 } from 'lucide-react'
+import { AlertTriangle, ArrowRight, MessageSquare, Undo2, X } from 'lucide-react'
 import { type KeyboardEvent, memo, useRef } from 'react'
 import type { NumberedAnnotation } from '../../components/annotation-overlay'
+import type { ScreenNavigation } from '../../components/prototype-runtime'
 import { ScreenThumbnail } from '../../components/screen-thumbnail'
 import type { CanvasFrameBox } from '../../lib/canvas-layout'
 import { DEFAULT_VARIANT } from '../../lib/constants'
 import type { FrameSize } from '../../lib/device-frame'
 import { edgeKey, HEADER_HEIGHT, rowCount } from '../../lib/flow-drawing'
 import type { FlowControl, FlowEdge, FlowNode, FlowNodeKey } from '../../lib/flow-graph'
-import { Badge, cn } from '../../ui'
+import type { PrototypeScreen } from '../../types'
+import { Badge, Button, cn } from '../../ui'
 import { FramePins } from './frame-pins'
 
 /**
@@ -42,8 +44,28 @@ export function nodeName(node: FlowNode): string {
     : `${node.screen.title} · ${node.screen.variantLabel}`
 }
 
+/** A frame made live: the screen it shows now, its own navigation, and the way back out. */
+export interface LiveView {
+  screen: PrototypeScreen
+  navigation: ScreenNavigation
+  /** Whether it has clicked away from its own state; the title then offers the way back. */
+  away: boolean
+  /** Back to the state the frame belongs to, as the "Back to" chip does. */
+  onReturn: () => void
+  /** Makes the frame inert again, on its own state. */
+  onStop: () => void
+}
+
 export interface CanvasFrameProps {
   node: FlowNode
+  /** Identifies this frame: the node's key, or the node's key and a viewport for a second frame of the state. */
+  frameKey: string
+  /** The viewport this frame shows, named on its title when the canvas shows each state in two. */
+  viewportLabel?: string
+  /** A state's second frame: no rows under it and no arrows from it, which the first frame carries. */
+  secondary: boolean
+  /** Set while the frame is live: it clicks through inside itself. */
+  live?: LiveView
   box: CanvasFrameBox
   /** The size the screen renders at, before the canvas zoom. */
   frameSize: FrameSize
@@ -60,22 +82,32 @@ export interface CanvasFrameProps {
   openComments: number
   selectedNoteId: string | undefined
   onPin: (node: FlowNode, note: NumberedAnnotation | undefined) => void
-  frameRef: (key: FlowNodeKey, element: HTMLElement | null) => void
-  mountRef: (key: FlowNodeKey, element: HTMLDivElement | null) => void
+  frameRef: (key: string, element: HTMLElement | null) => void
+  mountRef: (key: string, element: HTMLDivElement | null) => void
   rowRef: (edgeKey: string, element: HTMLLIElement | null) => void
   onSelect: (node: FlowNode) => void
-  onOpen: (node: FlowNode) => void
+  /** The frame took focus, from Tab or the arrow keys: it is picked and brought into view. */
+  onFocusFrame: (node: FlowNode, frameKey: string) => void
+  /** A double click on the frame: opens it on the stage, or makes it live, as the canvas decides. */
+  onDoubleClick: (node: FlowNode, frameKey: string) => void
   onHover: (key: FlowNodeKey | undefined) => void
-  onKeyDown: (node: FlowNode, event: KeyboardEvent<HTMLButtonElement>) => void
+  onKeyDown: (node: FlowNode, frameKey: string, event: KeyboardEvent<HTMLButtonElement>) => void
 }
 
 /**
  * One screen state on the canvas: a title, the real screen at its own size, and a row for each
  * place its controls lead. The screen is inert; the button over it is the frame's one control, so
  * Tab reaches every frame, a click selects it and a double click or Enter opens it on the stage.
+ *
+ * A live frame drops that button: its screen clicks through inside the frame, on a navigation of
+ * its own, and its title says so and offers the way back.
  */
 export const CanvasFrame = memo(function CanvasFrame({
   node,
+  frameKey,
+  viewportLabel,
+  secondary,
+  live,
   box,
   frameSize,
   edges,
@@ -92,30 +124,34 @@ export const CanvasFrame = memo(function CanvasFrame({
   mountRef,
   rowRef,
   onSelect,
-  onOpen,
+  onFocusFrame,
+  onDoubleClick,
   onHover,
   onKeyDown,
 }: CanvasFrameProps) {
   const outgoing = edges.filter(edge => edge.from === node.key)
-  const name = nodeName(node)
+  const name = viewportLabel === undefined ? nodeName(node) : `${nodeName(node)} (${viewportLabel})`
   const mount = useRef<HTMLDivElement | null>(null)
+  const drawn = mounted || live !== undefined
 
   return (
     <article
-      ref={element => frameRef(node.key, element)}
-      {...{ [FRAME_ATTRIBUTE]: node.key }}
-      data-flow-node={node.key}
+      ref={element => frameRef(frameKey, element)}
+      {...{ [FRAME_ATTRIBUTE]: frameKey }}
+      data-flow-node={secondary ? undefined : node.key}
+      data-live={live === undefined ? undefined : ''}
       aria-label={name}
       style={{
         left: box.x,
         top: box.y,
         width: box.width,
         height: box.height,
-        ...(selected ? { outlineWidth: 'calc(3px * var(--canvas-label-scale, 1))' } : {}),
+        ...(selected || live !== undefined ? { outlineWidth: 'calc(3px * var(--canvas-label-scale, 1))' } : {}),
       }}
       className={cn(
         'pointer-events-auto absolute flex flex-col rounded-lg border border-border bg-card shadow-sm transition-opacity',
         selected && 'outline outline-primary',
+        live !== undefined && 'outline outline-success',
         dimmed && 'opacity-40'
       )}
       onMouseEnter={() => onHover(node.key)}
@@ -131,18 +167,39 @@ export const CanvasFrame = memo(function CanvasFrame({
         <div
           className={cn(
             'absolute left-0 z-10 flex items-center gap-2 rounded-t-lg bg-card px-3',
-            mounted ? 'bottom-0 origin-bottom-left' : 'top-0 origin-top-left'
+            drawn ? 'bottom-0 origin-bottom-left' : 'top-0 origin-top-left'
           )}
           style={{
             height: HEADER_HEIGHT,
-            width: `calc(100% / ${TITLE_SCALE[mounted ? 'drawn' : 'card']})`,
-            transform: `scale(${TITLE_SCALE[mounted ? 'drawn' : 'card']})`,
+            width: `calc(100% / ${TITLE_SCALE[drawn ? 'drawn' : 'card']})`,
+            transform: `scale(${TITLE_SCALE[drawn ? 'drawn' : 'card']})`,
           }}
         >
           <span className='truncate font-medium text-sm'>{node.screen.title}</span>
           {node.screen.variant !== DEFAULT_VARIANT && <Badge variant='outline'>{node.screen.variantLabel}</Badge>}
+          {viewportLabel !== undefined && <Badge variant='neutral'>{viewportLabel}</Badge>}
           {node.entry && <Badge variant='primary'>Entry</Badge>}
           {node.unreachable && <Badge variant='warning'>Unreachable</Badge>}
+          {live !== undefined && (
+            <>
+              <Badge variant='success'>Live</Badge>
+              {live.away && (
+                <Button variant='outline' size='xs' onClick={live.onReturn}>
+                  <Undo2 />
+                  Back to {node.screen.variant === DEFAULT_VARIANT ? node.screen.title : node.screen.variantLabel}
+                </Button>
+              )}
+              <Button
+                variant='ghost'
+                size='icon-xs'
+                aria-label='Stop the live frame'
+                title='Stop the live frame (Esc)'
+                onClick={live.onStop}
+              >
+                <X />
+              </Button>
+            </>
+          )}
           {openComments > 0 && (
             <span
               className='ml-auto flex shrink-0 items-center gap-1 text-muted-foreground text-xs'
@@ -160,42 +217,50 @@ export const CanvasFrame = memo(function CanvasFrame({
         // Contained, so a screen's own layout and painting never reach past its frame.
         style={{ width: frameSize.width + 2, height: frameSize.height + 2, contain: 'strict' }}
       >
-        {mounted ? (
+        {drawn ? (
           <ScreenThumbnail
-            screen={node.screen}
+            // A live frame that clicks to another screen draws that one, so a new screen starts fresh.
+            key={live === undefined ? 'own' : `${live.screen.id}/${live.screen.variant}`}
+            screen={live?.screen ?? node.screen}
             showHotspots={showHotspots}
             size={frameSize}
             scale={1}
+            {...(live === undefined ? {} : { navigation: live.navigation })}
             mountRef={element => {
               mount.current = element
-              mountRef(node.key, element)
+              mountRef(frameKey, element)
             }}
           />
         ) : (
           <div aria-hidden='true' className='size-full bg-muted' />
         )}
-        <button
-          type='button'
-          aria-label={name}
-          aria-pressed={selected}
-          onClick={() => onSelect(node)}
-          onDoubleClick={() => onOpen(node)}
-          onFocus={() => onSelect(node)}
-          onKeyDown={event => onKeyDown(node, event)}
-          className='absolute inset-0 cursor-default rounded-sm outline-none hover:bg-primary/5 focus-visible:bg-primary/5'
-        />
-        {mounted && notes.length > 0 && (
+        {live === undefined && (
+          <button
+            type='button'
+            aria-label={name}
+            aria-pressed={selected}
+            onClick={() => onSelect(node)}
+            onDoubleClick={() => onDoubleClick(node, frameKey)}
+            onFocus={event =>
+              // Focus from the keyboard brings the frame into view; a click is already on it.
+              event.currentTarget.matches(':focus-visible') ? onFocusFrame(node, frameKey) : onSelect(node)
+            }
+            onKeyDown={event => onKeyDown(node, frameKey, event)}
+            className='absolute inset-0 cursor-default rounded-sm outline-none hover:bg-primary/5 focus-visible:bg-primary/5'
+          />
+        )}
+        {drawn && notes.length > 0 && (
           <FramePins
             mountRef={mount}
             notes={notes}
             selectedId={selectedNoteId}
             onSelect={note => onPin(node, note)}
-            revision={node.key}
+            revision={live === undefined ? frameKey : `${frameKey}:${live.screen.id}/${live.screen.variant}`}
           />
         )}
       </div>
 
-      {rowCount(node, edges) > 0 && (
+      {!secondary && rowCount(node, edges) > 0 && (
         <ul className='flex flex-col px-3 py-2 text-xs'>
           {outgoing.map(edge => {
             const target = nodeByKey.get(edge.to)
