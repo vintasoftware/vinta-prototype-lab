@@ -612,14 +612,11 @@ describe('CanvasView', () => {
       await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Viewports' }), 'Desktop and tablet')
 
       await waitFor(() => expect(frames()).toHaveLength(8))
-      expect(screen.getByRole('article', { name: 'Home (Tablet)' })).toBeInTheDocument()
-      const mounts = within(screen.getByRole('article', { name: 'Home (Desktop)' })).getByText('Good morning')
-      expect(mounts.closest('[data-viewport]')).toHaveStyle({ width: '1280px' })
-      expect(
-        within(screen.getByRole('article', { name: 'Home (Tablet)' }))
-          .getByText('Good morning')
-          .closest('[data-viewport]')
-      ).toHaveStyle({ width: '834px' })
+      // Frames draw their screens a couple at a time, so the screens are waited for too.
+      const desktop = await within(screen.getByRole('article', { name: 'Home (Desktop)' })).findByText('Good morning')
+      const tablet = await within(screen.getByRole('article', { name: 'Home (Tablet)' })).findByText('Good morning')
+      expect(desktop.closest('[data-viewport]')).toHaveStyle({ width: '1280px' })
+      expect(tablet.closest('[data-viewport]')).toHaveStyle({ width: '834px' })
     })
 
     it('saves the choice to canvas.json with the dev server, and keeps it on the page without', async () => {
