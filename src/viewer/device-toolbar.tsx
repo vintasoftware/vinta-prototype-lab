@@ -78,7 +78,7 @@ export function DeviceToolbar({ frame, onFrame, defaultSize, defaultLabel, zoom,
         ))}
       </NativeSelect>
 
-      <div className='max-[1100px]:hidden! flex items-center gap-1'>
+      <div className='max-[1200px]:hidden! flex items-center gap-1'>
         {/* A typed size is no longer the device's own, so it drops the device. */}
         <SizeField label='Width' value={size.width} onCommit={width => onFrame({ width, height: size.height })} />
         <span className='text-muted-foreground text-xs'>×</span>

@@ -51,6 +51,8 @@ All notable changes to this package are recorded here. Versions follow
   header's **Flow** button is now **Canvas**.
 - Where the controls lead is read one screen state at a time, so a large prototype no longer holds
   the page while it is read, and the canvas says how far along it is.
+- The header fits a 13-inch laptop: **Back** and **Restart** are icons with tooltips, the prototype
+  picker is a little narrower, and the compact header starts below 1200px.
 
 ### Fixed
 
