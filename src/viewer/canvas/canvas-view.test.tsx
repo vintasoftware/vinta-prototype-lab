@@ -7,6 +7,7 @@ import { ScreenLink } from '../../components/screen-link'
 import type { FlowLinks } from '../../hooks/use-flow-links'
 import { buildPrototypes } from '../../lib/discovery'
 import { probePrototype } from '../../lib/probe-screen'
+import type { CanvasFile } from '../../types'
 import { CanvasView, type CanvasViewProps } from './canvas-view'
 
 function HomeScreen() {
@@ -76,6 +77,7 @@ function renderCanvas(props: Partial<CanvasViewProps> = {}) {
     onOpen: vi.fn(),
     onPin: vi.fn(),
     onToggleArrows: vi.fn(),
+    onArrange: vi.fn((_canvas: CanvasFile) => Promise.resolve()),
   }
   render(
     <CanvasView
@@ -87,6 +89,7 @@ function renderCanvas(props: Partial<CanvasViewProps> = {}) {
       selectedKey={undefined}
       selectedNoteId={undefined}
       opening='fit'
+      canArrange={false}
       {...handlers}
       {...props}
     />
@@ -358,5 +361,94 @@ describe('CanvasView', () => {
     })
 
     expect(zoomLabel().textContent).toBe(zoom)
+  })
+
+  describe('arranging', () => {
+    const section = (name: string) => screen.getByRole('region', { name: `Screen ${name}` })
+    const withCanvas = (canvas: NonNullable<typeof prototype>['canvas']) => ({
+      ...(prototype as NonNullable<typeof prototype>),
+      canvas,
+    })
+
+    it('puts a section where canvas.json saved it', () => {
+      renderCanvas({ prototype: withCanvas({ version: 1, sections: [{ screen: 'review', x: -900, y: 1200 }] }) })
+
+      expect(section('Review')).toHaveStyle({ left: '-900px', top: '1200px' })
+    })
+
+    it('offers no handles and no reset without the dev server', () => {
+      renderCanvas()
+
+      expect(screen.queryByRole('button', { name: 'Move the Review section' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Reset layout' })).not.toBeInTheDocument()
+    })
+
+    it('moves a section dragged by its name, and saves every section where it is', () => {
+      const { onArrange } = renderCanvas({ canArrange: true })
+      const handle = screen.getByRole('button', { name: 'Move the Review section' })
+      const before = section('Review')
+      const left = Number.parseFloat(before.style.left)
+      const top = Number.parseFloat(before.style.top)
+
+      fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 100, clientY: 100 })
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 150, clientY: 80 })
+      fireEvent.pointerUp(window, { pointerId: 1 })
+
+      const zoom = Number.parseInt(zoomLabel().textContent ?? '100', 10) / 100
+      expect(onArrange).toHaveBeenCalledTimes(1)
+      const saved = onArrange.mock.calls[0]?.[0]
+      expect(saved?.sections.map(placed => placed.screen).sort()).toEqual(['home', 'lost', 'review'])
+      const review = saved?.sections.find(placed => placed.screen === 'review')
+      expect(review?.x).toBeCloseTo(left + 50 / zoom, 0)
+      expect(review?.y).toBeCloseTo(top - 20 / zoom, 0)
+      expect(Number.parseFloat(section('Review').style.left)).toBeCloseTo(review?.x ?? 0, 0)
+    })
+
+    it('moves a focused section with the arrow keys, Shift for a bigger step, and saves after a moment', () => {
+      vi.useFakeTimers()
+      const { onArrange } = renderCanvas({ canArrange: true })
+      const handle = screen.getByRole('button', { name: 'Move the Home section' })
+      const left = Number.parseFloat(section('Home').style.left)
+
+      fireEvent.keyDown(handle, { key: 'ArrowRight' })
+      fireEvent.keyDown(handle, { key: 'ArrowRight', shiftKey: true })
+
+      expect(section('Home')).toHaveStyle({ left: `${left + 440}px` })
+      expect(onArrange).not.toHaveBeenCalled()
+      act(() => vi.advanceTimersByTime(700))
+      expect(onArrange).toHaveBeenCalledTimes(1)
+    })
+
+    it('puts every section back in the columns of the flow on Reset layout', async () => {
+      const { onArrange } = renderCanvas({
+        canArrange: true,
+        prototype: withCanvas({
+          version: 1,
+          sections: [{ screen: 'review', x: -900, y: 1200 }],
+          viewports: ['tablet'],
+        }),
+      })
+
+      await userEvent.click(screen.getByRole('button', { name: 'Reset layout' }))
+
+      expect(onArrange).toHaveBeenCalledWith({ version: 1, sections: [], viewports: ['tablet'] })
+    })
+
+    it('has nothing to reset when nothing was arranged', () => {
+      renderCanvas({ canArrange: true })
+
+      expect(screen.getByRole('button', { name: 'Reset layout' })).toBeDisabled()
+    })
+
+    it('says why when the arrangement could not be saved', async () => {
+      renderCanvas({ canArrange: true, onArrange: vi.fn(() => Promise.reject(new Error('canvas.json is read-only'))) })
+      const handle = screen.getByRole('button', { name: 'Move the Home section' })
+
+      fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 0, clientY: 0 })
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 40, clientY: 0 })
+      fireEvent.pointerUp(window, { pointerId: 1 })
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('The layout was not saved: canvas.json is read-only')
+    })
   })
 })

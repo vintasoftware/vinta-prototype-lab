@@ -66,6 +66,18 @@ export interface PrototypeDoc {
   body: string
 }
 
+/**
+ * `canvas.json`: how a person arranged the prototype on the canvas. It is a view, saved apart from
+ * the screens, and reviewed in the pull request with them.
+ */
+export interface CanvasFile {
+  version: 1
+  /** Top-left corner of each screen's section, in canvas pixels. Screens left out are laid out by the canvas. */
+  sections: Array<{ screen: string; x: number; y: number }>
+  /** The viewports each state is drawn in, side by side. Left out, each screen keeps its own. */
+  viewports?: ScreenViewport[]
+}
+
 export interface Prototype {
   /** Folder path under `prototypes/`, e.g. `billing/refunds`. Identifies the prototype in the URL. */
   slug: string
@@ -74,6 +86,8 @@ export interface Prototype {
   doc: PrototypeDoc
   screens: PrototypeScreen[]
   annotations: Annotation[]
+  /** The arrangement saved in `canvas.json`, when the prototype has one. */
+  canvas?: CanvasFile
   /** Problems found while loading. The viewer shows these instead of failing to start. */
   issues: string[]
 }

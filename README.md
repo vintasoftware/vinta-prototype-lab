@@ -94,6 +94,7 @@ project:
 prototypes/patient-booking/
   prototype.md            the story: the flow, the rules, the open questions
   annotations.json        comments, each pinned to an element by its semantic id
+  canvas.json             how the canvas is arranged (written by the viewer; optional)
   screens/
     10-home.tsx           one screen, one file, default-exported
     20-choose-time.tsx
@@ -402,6 +403,35 @@ It opens centred on the screen you came from, or fitted to everything when opene
 
 Zoom runs from 5% to 200%, holding still the point under the pointer, or the picked frame from the
 keyboard. Below 20% a frame is a card with its title only.
+
+### Arranging it
+
+Under `prototype-lab dev` you can arrange the canvas your own way:
+
+- **Drag a section by its name** to move it, frames and all. Or focus the name (Tab) and move it with
+  the arrow keys: 40 px a press, 400 px with Shift.
+- **Reset layout** in the canvas toolbar puts every section back in the flow's columns.
+
+The arrangement is saved to `canvas.json` in the prototype's folder, beside `annotations.json`, and
+is reviewed in the pull request with the rest of the change. It is a view: it never changes a
+screen.
+
+```json
+{
+  "version": 1,
+  "sections": [
+    { "screen": "choose-time", "x": 0, "y": 0 },
+    { "screen": "review", "x": 2400, "y": 0 }
+  ],
+  "viewports": ["desktop"]
+}
+```
+
+A section for a screen that no longer exists is dropped, with a line in Problems saying so, and the
+next save writes the file without it. A new screen with no saved place is laid out by the canvas to
+the right of the rest. Editing the file by hand reloads the page, the way editing a screen does;
+saving from the canvas does not. A copy from `prototype-lab build` draws the saved arrangement and
+offers no way to change it.
 
 ### The arrows
 

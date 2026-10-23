@@ -114,7 +114,7 @@ export const CanvasFrame = memo(function CanvasFrame({
         ...(selected ? { outlineWidth: 'calc(3px * var(--canvas-label-scale, 1))' } : {}),
       }}
       className={cn(
-        'absolute flex flex-col rounded-lg border border-border bg-card shadow-sm transition-opacity',
+        'pointer-events-auto absolute flex flex-col rounded-lg border border-border bg-card shadow-sm transition-opacity',
         selected && 'outline outline-primary',
         dimmed && 'opacity-40'
       )}

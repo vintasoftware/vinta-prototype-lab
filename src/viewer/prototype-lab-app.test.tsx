@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { anchor } from '../components/anchor'
@@ -813,6 +813,61 @@ describe('PrototypeLabApp', () => {
 
       expect(screen.getByRole('heading', { name: 'Review your visit' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Stop presenting' })).toBeInTheDocument()
+    })
+  })
+
+  describe('the canvas arrangement', () => {
+    const arranged = buildPrototypes({
+      docs: { '../../prototypes/booking/prototype.md': '---\ntitle: Booking\nentry: home\n---\n' },
+      annotations: {},
+      screens: {
+        '../../prototypes/booking/screens/10-home.tsx': { default: HomeScreen },
+        '../../prototypes/booking/screens/20-review.tsx': { default: ReviewScreen },
+      },
+      canvases: {
+        '../../prototypes/booking/canvas.json': {
+          version: 1,
+          sections: [
+            { screen: 'home', x: 0, y: 0 },
+            { screen: 'gone', x: 10, y: 10 },
+          ],
+        },
+      },
+    })
+
+    it('lists a section for a screen that is gone in Problems', async () => {
+      await renderWithDocPanel(<PrototypeLabApp prototypes={arranged} />)
+
+      await userEvent.click(screen.getByRole('tab', { name: /Problems/ }))
+
+      expect(
+        screen.getByText('canvas.json: section "gone" is for a screen that does not exist, so it was dropped.')
+      ).toBeInTheDocument()
+    })
+
+    it('saves a moved section through the dev server, and the stale line goes with the old file', async () => {
+      vi.stubGlobal('IntersectionObserver', undefined)
+      const fetch = vi.fn((url: string, _init?: { body: string }) =>
+        url.includes('__canvas')
+          ? Promise.resolve({ ok: true, json: () => Promise.resolve({ saved: true }) })
+          : Promise.reject(new Error('Storybook is not running'))
+      )
+      vi.stubGlobal('fetch', fetch)
+      await renderWithDocPanel(<PrototypeLabApp prototypes={arranged} />)
+      await userEvent.keyboard('v')
+
+      const handle = await screen.findByRole('button', { name: 'Move the Review section' })
+      fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 0, clientY: 0 })
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 30, clientY: 30 })
+      fireEvent.pointerUp(window, { pointerId: 1 })
+
+      await waitFor(() => expect(fetch).toHaveBeenCalledWith('/__canvas', expect.anything()))
+      const body = JSON.parse(fetch.mock.calls.find(([url]) => url === '/__canvas')?.[1]?.body ?? '{}')
+      expect(body.slug).toBe('booking')
+      expect(body.canvas.sections.map((placed: { screen: string }) => placed.screen).sort()).toEqual(['home', 'review'])
+
+      await userEvent.click(screen.getByRole('tab', { name: /Problems/ }))
+      expect(await screen.findByText('Nothing to fix — the prototype loaded cleanly.')).toBeInTheDocument()
     })
   })
 })

@@ -186,4 +186,40 @@ describe('variantsOf and distinctScreens', () => {
     expect(prototype && variantsOf(prototype, 'home').map(screen => screen.variant)).toEqual(['default', 'empty'])
     expect(prototype && distinctScreens(prototype).map(screen => screen.id)).toEqual(['home', 'review'])
   })
+
+  describe('canvas.json', () => {
+    const Home = () => null
+
+    it('reads the arrangement and reports a section for a screen that is gone', () => {
+      const [prototype] = buildPrototypes({
+        docs: { '../../prototypes/booking/prototype.md': '---\ntitle: Booking\n---\n' },
+        annotations: {},
+        screens: { '../../prototypes/booking/screens/10-home.tsx': { default: Home } },
+        canvases: {
+          '../../prototypes/booking/canvas.json': {
+            version: 1,
+            sections: [
+              { screen: 'home', x: 40, y: 80 },
+              { screen: 'checkout', x: 0, y: 0 },
+            ],
+          },
+        },
+      })
+
+      expect(prototype?.canvas?.sections).toEqual([{ screen: 'home', x: 40, y: 80 }])
+      expect(prototype?.issues).toEqual([
+        'canvas.json: section "checkout" is for a screen that does not exist, so it was dropped.',
+      ])
+    })
+
+    it('has no arrangement for a prototype without the file', () => {
+      const [prototype] = buildPrototypes({
+        docs: { '../../prototypes/booking/prototype.md': '---\ntitle: Booking\n---\n' },
+        annotations: {},
+        screens: { '../../prototypes/booking/screens/10-home.tsx': { default: Home } },
+      })
+
+      expect(prototype?.canvas).toBeUndefined()
+    })
+  })
 })

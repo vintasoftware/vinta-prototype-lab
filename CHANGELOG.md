@@ -14,6 +14,10 @@ All notable changes to this package are recorded here. Versions follow
   double click opens one on the stage. Picking a frame opens that screen state, so the URL, the
   screen list and the panels follow the canvas. Comment pins sit on the frames and open their
   comment in the Comments panel.
+- **Arranging the canvas**: drag a section by its name, or move it with the arrow keys, and
+  **Reset layout** to go back to the flow's columns. The arrangement is saved to `canvas.json` in
+  the prototype's folder through the dev server, and a section for a screen that is gone is a line
+  in Problems. A built copy draws the saved arrangement read-only.
 - The canvas draws only the frames in view, a couple at a time, and holds new ones back while a pan
   is moving; below 20% a frame is a card with its title. A generated 60-state fixture,
   `example/prototypes/canvas-sixty`, measures it (`node scripts/generate-canvas-fixture.mjs` writes it).

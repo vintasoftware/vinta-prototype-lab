@@ -1,22 +1,25 @@
 import type { Prototype, PrototypeDoc, PrototypeScreen, ScreenModule } from '../types'
 import { parseAnnotationsFile } from './annotations'
+import { type ParsedCanvasFile, parseCanvasFile } from './canvas-file'
 import { DEFAULT_VARIANT } from './constants'
 import { parseFrontmatter } from './frontmatter'
 import { buildScreenMeta, titleize } from './screen-id'
 import type { ScreenAddress } from './session'
 
-/** The three file kinds a prototype folder holds, keyed by path. */
+/** The file kinds a prototype folder holds, keyed by path. */
 export interface PrototypeSources {
   docs: Record<string, string>
   annotations: Record<string, unknown>
   screens: Record<string, ScreenModule>
+  /** `canvas.json` files, the arrangement saved on the canvas. Optional, as a project may have none. */
+  canvases?: Record<string, unknown>
 }
 
 /** Where a path enters the prototypes folder. */
 const PROTOTYPES_ROOT = /(?:^|\/)prototypes\//
 
-/** What sits directly in a prototype folder: its doc, its notes, or a screen under `screens/`. */
-const PROTOTYPE_FILE = /^(.+?)\/(?:prototype\.md|annotations\.json|screens\/[^/]+)$/
+/** What sits directly in a prototype folder: its doc, its notes, its canvas, or a screen under `screens/`. */
+const PROTOTYPE_FILE = /^(.+?)\/(?:prototype\.md|annotations\.json|canvas\.json|screens\/[^/]+)$/
 
 /**
  * The folder a file belongs to, as a path under `prototypes/` such as `billing/refunds`. That path
@@ -103,6 +106,7 @@ export function buildPrototypes(sources: PrototypeSources): Prototype[] {
     ...Object.keys(sources.docs),
     ...Object.keys(sources.screens),
     ...Object.keys(sources.annotations),
+    ...Object.keys(sources.canvases ?? {}),
   ]) {
     const slug = slugOf(path)
     if (slug !== undefined) {
@@ -152,8 +156,23 @@ export function buildPrototypes(sources: PrototypeSources): Prototype[] {
       issues.push(`prototype.md: entry "${doc.entry}" is not one of the screens.`)
     }
 
+    const canvasEntry = Object.entries(sources.canvases ?? {}).find(([path]) => slugOf(path) === slug)
+    const canvas: ParsedCanvasFile =
+      canvasEntry === undefined
+        ? { issues: [] }
+        : parseCanvasFile(canvasEntry[1], fileNameOf(canvasEntry[0]), screenIds)
+    issues.push(...canvas.issues)
+
     const group = slug.split('/').slice(0, -1)
-    prototypes.push({ slug, group, doc, screens, annotations: parsed.annotations, issues })
+    prototypes.push({
+      slug,
+      group,
+      doc,
+      screens,
+      annotations: parsed.annotations,
+      ...(canvas.canvas === undefined ? {} : { canvas: canvas.canvas }),
+      issues,
+    })
   }
 
   return prototypes

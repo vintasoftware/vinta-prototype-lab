@@ -1,4 +1,4 @@
-import { AlertTriangle, ExternalLink, Maximize, Scan, Spline, ZoomIn, ZoomOut } from 'lucide-react'
+import { AlertTriangle, ExternalLink, LayoutGrid, Maximize, Scan, Spline, ZoomIn, ZoomOut } from 'lucide-react'
 import {
   type KeyboardEvent,
   memo,
@@ -27,15 +27,23 @@ import {
   ZOOM_STEP,
   zoomAt,
 } from '../../lib/canvas-camera'
-import { arrowDirection, type CanvasFrameBox, layoutCanvas } from '../../lib/canvas-layout'
+import { arrangedCanvas, resetCanvas, savedPositions } from '../../lib/canvas-file'
+import { arrowDirection, type CanvasFrameBox, type CanvasSection, layoutCanvas } from '../../lib/canvas-layout'
 import { FRAME_HEIGHT, VIEWPORT_WIDTH } from '../../lib/constants'
 import type { FrameSize } from '../../lib/device-frame'
 import { cardSizeAround, type Drawing, drawFlow, edgeKey, MISSING_SIZE, NOTHING_DRAWN } from '../../lib/flow-drawing'
-import { buildFlowGraph, type FlowEdge, type FlowNode, type FlowNodeKey, type Size } from '../../lib/flow-graph'
-import type { Prototype } from '../../types'
+import {
+  buildFlowGraph,
+  type FlowEdge,
+  type FlowNode,
+  type FlowNodeKey,
+  type Point,
+  type Size,
+} from '../../lib/flow-graph'
+import type { CanvasFile, Prototype } from '../../types'
 import { Button, cn } from '../../ui'
 import { CanvasFrame, FRAME_ATTRIBUTE } from './canvas-frame'
-import { CanvasSectionBox } from './canvas-section'
+import { CanvasSectionBox, SECTION_HANDLE_ATTRIBUTE } from './canvas-section'
 
 export interface CanvasViewProps {
   prototype: Prototype
@@ -58,6 +66,10 @@ export interface CanvasViewProps {
   onPin: (screenId: string, variant: string, noteId: string | undefined) => void
   /** How the canvas opens: fitted to everything, or centred on the picked frame. */
   opening: 'fit' | 'selection'
+  /** Whether sections can be moved and the layout reset: only with the dev server, which saves them. */
+  canArrange: boolean
+  /** Saves a new arrangement to the prototype's `canvas.json`. */
+  onArrange: (canvas: CanvasFile) => Promise<void>
 }
 
 /**
@@ -76,6 +88,12 @@ const ARROW_KEYS: Readonly<Record<string, Direction>> = {
   ArrowUp: 'up',
   ArrowDown: 'down',
 }
+
+/** How far an arrow key moves a focused section, and how far with Shift held, in canvas pixels. */
+const SECTION_STEP = { small: 40, large: 400 }
+
+/** How long after the last arrow key a section moved by keyboard is saved. */
+const KEYBOARD_SAVE_DELAY = 600
 
 /** One empty list for every frame without pins, so the frames' memo holds across renders. */
 const NO_NOTES: readonly NumberedAnnotation[] = []
@@ -108,6 +126,8 @@ export function CanvasView({
   selectedNoteId,
   onPin,
   opening,
+  canArrange,
+  onArrange,
 }: CanvasViewProps) {
   const viewportRef = useRef<HTMLElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -126,7 +146,22 @@ export function CanvasView({
     },
     [nodeByKey, graph.edges, frameSize]
   )
-  const layout = useMemo(() => layoutCanvas(graph, cardSize), [graph, cardSize])
+  // Where sections were put: the saved file, and any move not saved yet, so a move shows at once.
+  const [moved, setMoved] = useState<ReadonlyMap<string, Point>>(() => new Map())
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new saved arrangement replaces the moves it records.
+  useEffect(() => setMoved(new Map()), [prototype.canvas])
+  const placed = useMemo(() => new Map([...savedPositions(prototype.canvas), ...moved]), [prototype.canvas, moved])
+  const layout = useMemo(() => layoutCanvas(graph, cardSize, placed), [graph, cardSize, placed])
+  // Sections in reading order, so Tab reads the canvas section by section, frames left to right.
+  const sections = useMemo(
+    () =>
+      readingOrder(layout.sections.map(section => ({ key: section, rect: section }))).map(section => ({
+        section,
+        // Each frame relative to its section, which is what it is placed in.
+        frames: section.frames.map(frame => ({ ...frame, x: frame.x - section.x, y: frame.y - section.y })),
+      })),
+    [layout]
+  )
   // One object per frame for its size, so a render of the canvas leaves the frames alone.
   const frameSizes = useMemo(
     () => new Map(graph.nodes.map(node => [node.key, frameSizeOf(node, frameSize)] as const)),
@@ -135,13 +170,6 @@ export function CanvasView({
   const frames = useMemo(
     () => layout.sections.filter(section => !section.missing).flatMap(section => section.frames),
     [layout]
-  )
-  const ordered = useMemo(
-    () =>
-      readingOrder(frames.map(frame => ({ key: frame.key, rect: frame })))
-        .map(key => nodeByKey.get(key))
-        .filter(node => node !== undefined),
-    [frames, nodeByKey]
   )
 
   const notesByScreen = useMemo(() => {
@@ -245,6 +273,97 @@ export function CanvasView({
     }
   }
 
+  // Moving sections. The section is moved on the page while it is dragged, and its frames with it;
+  // the arrangement is saved when it is let go.
+  const [arrangeError, setArrangeError] = useState<string | undefined>(undefined)
+  const [dragging, setDragging] = useState(false)
+  const sectionElements = useRef(new Map<string, HTMLElement>())
+
+  const save = useCallback(
+    (canvas: CanvasFile) => {
+      setArrangeError(undefined)
+      onArrange(canvas).catch((thrown: unknown) => {
+        setArrangeError(thrown instanceof Error ? thrown.message : String(thrown))
+      })
+    },
+    [onArrange]
+  )
+
+  /** Every section where it is now, with one of them moved, as the file will hold them. */
+  const arrangementWith = (screenId: string, to: Point): CanvasFile =>
+    arrangedCanvas(
+      prototype.canvas,
+      layout.sections
+        .filter(section => !section.missing)
+        .map(section => ({ screen: section.screenId, ...(section.screenId === screenId ? to : section) }))
+    )
+
+  const moveSection = (screenId: string, to: Point) => {
+    setMoved(current => new Map([...current, [screenId, to]]))
+  }
+
+  const startSectionDrag = (section: CanvasSection) => (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    const element = sectionElements.current.get(section.screenId)
+    const start = { x: event.clientX, y: event.clientY }
+    let to: Point = { x: section.x, y: section.y }
+    setDragging(true)
+
+    const move = (moveEvent: PointerEvent) => {
+      const zoomNow = camera.current.zoom
+      to = {
+        x: section.x + (moveEvent.clientX - start.x) / zoomNow,
+        y: section.y + (moveEvent.clientY - start.y) / zoomNow,
+      }
+      if (element !== undefined) {
+        element.style.left = `${to.x}px`
+        element.style.top = `${to.y}px`
+      }
+    }
+    const end = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+      setDragging(false)
+      if (to.x !== section.x || to.y !== section.y) {
+        moveSection(section.screenId, to)
+        save(arrangementWith(section.screenId, to))
+      }
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+  }
+
+  const keyboardSave = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const onSectionKeyDown = (section: CanvasSection) => (event: KeyboardEvent<HTMLButtonElement>) => {
+    const direction = ARROW_KEYS[event.key]
+    if (direction === undefined) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    const step = event.shiftKey ? SECTION_STEP.large : SECTION_STEP.small
+    const to = {
+      x: section.x + (direction === 'left' ? -step : direction === 'right' ? step : 0),
+      y: section.y + (direction === 'up' ? -step : direction === 'down' ? step : 0),
+    }
+    moveSection(section.screenId, to)
+    const canvas = arrangementWith(section.screenId, to)
+    clearTimeout(keyboardSave.current)
+    keyboardSave.current = setTimeout(() => save(canvas), KEYBOARD_SAVE_DELAY)
+  }
+  useEffect(() => () => clearTimeout(keyboardSave.current), [])
+
+  const resetLayout = () => {
+    setMoved(new Map())
+    save(resetCanvas(prototype.canvas))
+  }
+
   // The wheel pans, and zooms with Ctrl or Cmd held, which is also what a trackpad pinch sends. The
   // listener is added by hand because React's is passive, and the page must not zoom or scroll.
   useEffect(() => {
@@ -273,7 +392,9 @@ export function CanvasView({
   const [panning, setPanning] = useState(false)
 
   const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
-    const onFrame = event.target instanceof Element && event.target.closest(`[${FRAME_ATTRIBUTE}]`) !== null
+    const onFrame =
+      event.target instanceof Element &&
+      event.target.closest(`[${FRAME_ATTRIBUTE}], [${SECTION_HANDLE_ATTRIBUTE}]`) !== null
     if (event.button !== 0 || (onFrame && !spaceHeld.current && pointers.current.size === 0)) {
       return
     }
@@ -536,6 +657,23 @@ export function CanvasView({
           <ExternalLink />
           Open
         </Button>
+        {canArrange && (
+          <Button
+            variant='ghost'
+            size='sm'
+            disabled={(prototype.canvas?.sections.length ?? 0) === 0 && moved.size === 0}
+            title='Put every section back in the columns of the flow'
+            onClick={resetLayout}
+          >
+            <LayoutGrid />
+            Reset layout
+          </Button>
+        )}
+        {arrangeError !== undefined && (
+          <p role='alert' className='text-destructive text-xs'>
+            The layout was not saved: {arrangeError}
+          </p>
+        )}
         <p className='ml-auto hidden text-muted-foreground text-xs lg:block'>
           Drag or scroll to pan. Ctrl or Cmd and scroll to zoom. Tab or arrows to move between frames.
         </p>
@@ -568,65 +706,63 @@ export function CanvasView({
           style={{ width: right, height: bottom, visibility: ready ? 'visible' : 'hidden' }}
         >
           {ready &&
-            layout.sections.map(section => <CanvasSectionBox key={`section:${section.screenId}`} section={section} />)}
+            sections.map(({ section, frames: placedFrames }) => (
+              <CanvasSectionBox
+                key={`section:${section.screenId}`}
+                section={section}
+                movable={canArrange && !section.missing}
+                sectionRef={element => {
+                  if (element === null) {
+                    sectionElements.current.delete(section.screenId)
+                  } else {
+                    sectionElements.current.set(section.screenId, element)
+                  }
+                }}
+                onHandlePointerDown={startSectionDrag(section)}
+                onHandleKeyDown={onSectionKeyDown(section)}
+              >
+                {placedFrames.map(box => {
+                  const node = nodeByKey.get(box.key)
+                  if (node === undefined) {
+                    return <MissingCard key={box.key} box={box} screenId={section.screenId} />
+                  }
+                  const notes = showNotes ? (notesByScreen.get(node.screen.id) ?? NO_NOTES) : NO_NOTES
+                  const openComments = (notesByScreen.get(node.screen.id) ?? []).filter(
+                    note => note.status !== 'resolved'
+                  ).length
+                  return (
+                    <CanvasFrame
+                      key={node.key}
+                      node={node}
+                      box={box}
+                      frameSize={frameSizes.get(node.key) ?? frameSizeOf(node, frameSize)}
+                      edges={graph.edges}
+                      nodeByKey={nodeByKey}
+                      selected={node.key === selectedKey}
+                      dimmed={hovered !== undefined && hovered !== node.key && !touches(graph.edges, hovered, node.key)}
+                      mounted={readable && drawn.has(node.key)}
+                      showHotspots={showHotspots}
+                      notes={notes}
+                      openComments={openComments}
+                      selectedNoteId={selectedNoteId}
+                      onPin={pin}
+                      frameRef={frameRef}
+                      mountRef={mountRef}
+                      rowRef={rowRef}
+                      onSelect={select}
+                      onOpen={open}
+                      onHover={setHovered}
+                      onKeyDown={onFrameKeyDown}
+                    />
+                  )
+                })}
+              </CanvasSectionBox>
+            ))}
 
-          {ready &&
-            ordered.map(node => {
-              const box = layout.frameByKey.get(node.key) as CanvasFrameBox
-              const notes = showNotes ? (notesByScreen.get(node.screen.id) ?? NO_NOTES) : NO_NOTES
-              const openComments = (notesByScreen.get(node.screen.id) ?? []).filter(
-                note => note.status !== 'resolved'
-              ).length
-              return (
-                <CanvasFrame
-                  key={node.key}
-                  node={node}
-                  box={box}
-                  frameSize={frameSizes.get(node.key) ?? frameSizeOf(node, frameSize)}
-                  edges={graph.edges}
-                  nodeByKey={nodeByKey}
-                  selected={node.key === selectedKey}
-                  dimmed={hovered !== undefined && hovered !== node.key && !touches(graph.edges, hovered, node.key)}
-                  mounted={readable && drawn.has(node.key)}
-                  showHotspots={showHotspots}
-                  notes={notes}
-                  openComments={openComments}
-                  selectedNoteId={selectedNoteId}
-                  onPin={pin}
-                  frameRef={frameRef}
-                  mountRef={mountRef}
-                  rowRef={rowRef}
-                  onSelect={select}
-                  onOpen={open}
-                  onHover={setHovered}
-                  onKeyDown={onFrameKeyDown}
-                />
-              )
-            })}
-
-          {ready &&
-            graph.missing.map(missing => {
-              const box = layout.frameByKey.get(missing.key)
-              if (box === undefined) {
-                return null
-              }
-              return (
-                <article
-                  key={missing.key}
-                  data-flow-node={missing.key}
-                  style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
-                  className='absolute flex flex-col justify-center rounded-lg border border-destructive-border border-dashed bg-destructive-subtle px-3 text-destructive'
-                >
-                  <p className='flex items-center gap-1.5 font-medium text-sm'>
-                    <AlertTriangle className='size-4 shrink-0' />
-                    <span className='truncate'>No screen “{missing.screenId}”</span>
-                  </p>
-                  <p className='mt-1 text-xs'>A control opens it, but no file under screens/ defines it.</p>
-                </article>
-              )
-            })}
-
-          {arrows && ready && <CanvasArrows drawing={drawing} hovered={hovered} width={right} height={bottom} />}
+          {/* Hidden while a section is dragged: they are measured again once it is let go. */}
+          {arrows && ready && !dragging && (
+            <CanvasArrows drawing={drawing} hovered={hovered} width={right} height={bottom} />
+          )}
         </div>
       </section>
     </div>
@@ -765,4 +901,21 @@ function useStaggeredSet(target: ReadonlySet<string>, perFrame: number, paused: 
   }, [target, perFrame, paused])
 
   return current
+}
+
+/** Stands in for a screen a control opens but no file defines. */
+function MissingCard({ box, screenId }: { box: CanvasFrameBox; screenId: string }) {
+  return (
+    <article
+      data-flow-node={box.key}
+      style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
+      className='pointer-events-auto absolute flex flex-col justify-center rounded-lg border border-destructive-border border-dashed bg-destructive-subtle px-3 text-destructive'
+    >
+      <p className='flex items-center gap-1.5 font-medium text-sm'>
+        <AlertTriangle className='size-4 shrink-0' />
+        <span className='truncate'>No screen “{screenId}”</span>
+      </p>
+      <p className='mt-1 text-xs'>A control opens it, but no file under screens/ defines it.</p>
+    </article>
+  )
 }

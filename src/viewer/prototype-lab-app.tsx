@@ -17,7 +17,7 @@ import { useVisibleBox } from '../hooks/use-visible-box'
 import { useWindowViewport } from '../hooks/use-window-viewport'
 import { type AnnotationEdit, annotationId } from '../lib/annotation-edit'
 import { annotationsForScreen } from '../lib/annotations'
-import { canEditAnnotations, nameElement, saveAnnotationEdit } from '../lib/annotations-api'
+import { canEditAnnotations, nameElement, saveAnnotationEdit, saveCanvas } from '../lib/annotations-api'
 import { componentSelector, resolveComponentSelector } from '../lib/component-link'
 import { ancestorPaths, nearestNodePath } from '../lib/component-tree'
 import { DEFAULT_VARIANT, FRAME_HEIGHT, VIEWPORT_WIDTH } from '../lib/constants'
@@ -38,7 +38,7 @@ import { readPresenting, writePresenting } from '../lib/present-param'
 import { titleize } from '../lib/screen-id'
 import { SOURCE_ATTRIBUTE, suggestAnchorId } from '../lib/source-ref'
 import type { StorybookOptions } from '../lib/storybook-links'
-import type { Annotation, Prototype, ScreenViewport } from '../types'
+import type { Annotation, CanvasFile, Prototype, ScreenViewport } from '../types'
 import { cn } from '../ui'
 import { CanvasView } from './canvas/canvas-view'
 import { type CommentDraft, chosenName } from './comment-composer'
@@ -324,6 +324,27 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
     [applyEdit, composing, picked, pickedTarget, prototype, state.current.screenId]
   )
 
+  /**
+   * Saves how the canvas is arranged. The file the server wrote is the one the viewer now holds, so
+   * the problem lines about the old file go with it.
+   */
+  const arrangeCanvas = useCallback(
+    async (canvas: CanvasFile) => {
+      if (prototype === undefined) {
+        return
+      }
+      await saveCanvas(prototype.slug, canvas)
+      setPrototypes(current =>
+        current.map(candidate =>
+          candidate.slug === prototype.slug
+            ? { ...candidate, canvas, issues: candidate.issues.filter(issue => !issue.startsWith('canvas.json:')) }
+            : candidate
+        )
+      )
+    },
+    [prototype]
+  )
+
   const toggleCollapsed = useCallback((path: string) => {
     setCollapsed(current => {
       const next = new Set(current)
@@ -538,6 +559,8 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
                 }
               }}
               opening={canvasOpening}
+              canArrange={canEditAnnotations()}
+              onArrange={arrangeCanvas}
             />
           ) : screen === undefined ? (
             <p className='self-center text-muted-foreground text-sm'>

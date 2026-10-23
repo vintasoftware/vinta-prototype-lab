@@ -5,7 +5,15 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Annotation } from '../types'
-import { annotationsPathFor, editAnnotations, fromTheViewer, nameElement, servedBy } from './annotations-writer'
+import {
+  annotationsPathFor,
+  canvasPathFor,
+  editAnnotations,
+  fromTheViewer,
+  nameElement,
+  servedBy,
+  writeCanvas,
+} from './annotations-writer'
 
 const NOTE: Annotation = {
   id: 'home-primary-action',
@@ -162,6 +170,35 @@ describe('editAnnotations', () => {
     })
 
     expect(result.status).toBe(400)
+  })
+})
+
+describe('writeCanvas', () => {
+  const canvas = { version: 1 as const, sections: [{ screen: 'home', x: 0, y: 40 }] }
+
+  it("writes the arrangement to the prototype's canvas.json, as two-space JSON", async () => {
+    const result = await writeCanvas(prototypesDir, { slug: 'booking', canvas })
+
+    expect(result).toEqual({ status: 200, body: { saved: true } })
+    expect(await readFile(path.join(prototypesDir, 'booking', 'canvas.json'), 'utf8')).toBe(
+      `${JSON.stringify(canvas, null, 2)}\n`
+    )
+  })
+
+  it('says what it will write before the file changes', async () => {
+    let told: string | undefined
+    await writeCanvas(prototypesDir, { slug: 'booking', canvas }, (_file, content) => {
+      told = content
+    })
+
+    expect(told).toContain('"screen": "home"')
+  })
+
+  it('refuses a slug that is not a folder name', async () => {
+    expect((await writeCanvas(prototypesDir, { slug: '../outside', canvas })).status).toBe(400)
+    expect(canvasPathFor(prototypesDir, 'billing/refunds')).toBe(
+      path.join(prototypesDir, 'billing', 'refunds', 'canvas.json')
+    )
   })
 })
 

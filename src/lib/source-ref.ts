@@ -1,6 +1,8 @@
 /** Where the dev server takes a comment edit, and where it names an element. */
 export const ANNOTATIONS_ENDPOINT = '/__annotations'
 export const NAME_ELEMENT_ENDPOINT = '/__name-element'
+/** Where the dev server takes the canvas arrangement, written to the prototype's `canvas.json`. */
+export const CANVAS_ENDPOINT = '/__canvas'
 
 /** DOM attribute carrying where in a screen file the element was written. */
 export const SOURCE_ATTRIBUTE = 'data-proto-src'

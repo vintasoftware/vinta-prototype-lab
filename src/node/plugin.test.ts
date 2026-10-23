@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer, type ViteDevServer } from 'vite'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { ANNOTATIONS_ENDPOINT } from '../lib/source-ref'
+import { ANNOTATIONS_ENDPOINT, CANVAS_ENDPOINT } from '../lib/source-ref'
 import { ENTRY_URL, entryCode, indexHtml, prototypeLab, resolvePrototypesDir } from './plugin'
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -29,13 +29,14 @@ describe('resolvePrototypesDir', () => {
 })
 
 describe('entryCode', () => {
-  it('globs the three kinds of file under the folder, from the root', () => {
+  it('globs every kind of file under the folder, from the root', () => {
     const code = entryCode({ root: '/project', prototypesDir: '/project/design/prototypes', css: [] })
 
     expect(code).toContain("import.meta.glob('/design/prototypes/**/prototype.md', { query: '?raw'")
     expect(code).toContain("import.meta.glob('/design/prototypes/**/annotations.json'")
     expect(code).toContain("import.meta.glob('/design/prototypes/**/screens/*.tsx', { eager: true })")
-    expect(code).toContain('mountViewer({ docs, annotations, screens }, {})')
+    expect(code).toContain("import.meta.glob('/design/prototypes/**/canvas.json'")
+    expect(code).toContain('mountViewer({ docs, annotations, screens, canvases }, {})')
   })
 
   it("loads the viewer's stylesheet first and the default one when the project names none", () => {
@@ -249,6 +250,31 @@ describe('the dev server', () => {
           const served = await server.transformRequest(notesUrl('billing/invoice-list'))
           expect(served?.code).toContain('The first one')
         }),
+      SERVER_TIMEOUT
+    )
+
+    it(
+      'saves the canvas arrangement to canvas.json without reloading the page',
+      async () => {
+        const file = path.join(repo, 'example/prototypes', 'patient-booking', 'canvas.json')
+        try {
+          await server.transformRequest(ENTRY_URL)
+          const canvas = { version: 1, sections: [{ screen: 'home', x: 0, y: 0 }] }
+          const sent = await sentBy(async () => {
+            const response = await fetch(`${origin}${CANVAS_ENDPOINT}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ slug: 'patient-booking', canvas }),
+            })
+            expect(response.status).toBe(200)
+          })
+          expect(sent).not.toContain('full-reload')
+          expect(JSON.parse(await readFile(file, 'utf8'))).toEqual(canvas)
+        } finally {
+          await rm(file, { force: true })
+          await settle()
+        }
+      },
       SERVER_TIMEOUT
     )
 

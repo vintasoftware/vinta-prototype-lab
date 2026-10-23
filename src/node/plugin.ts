@@ -92,9 +92,10 @@ export function entryCode({ root, prototypesDir, css, storybook }: EntryOptions)
     // `**` reaches prototypes inside group folders, e.g. `billing/refunds/prototype.md`.
     `const docs = import.meta.glob('${base}/**/prototype.md', { query: '?raw', import: 'default', eager: true })`,
     `const annotations = import.meta.glob('${base}/**/annotations.json', { import: 'default', eager: true })`,
+    `const canvases = import.meta.glob('${base}/**/canvas.json', { import: 'default', eager: true })`,
     `const screens = import.meta.glob('${base}/**/screens/*.tsx', { eager: true })`,
     '',
-    `mountViewer({ docs, annotations, screens }, ${JSON.stringify(options)})`,
+    `mountViewer({ docs, annotations, screens, canvases }, ${JSON.stringify(options)})`,
     '',
   ].join('\n')
 }
