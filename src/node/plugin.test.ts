@@ -94,7 +94,12 @@ describe('prototypeLab', () => {
 
     expect(all.some(name => name.startsWith('vite:react'))).toBe(true)
     expect(all.some(name => name.startsWith('@tailwindcss/vite'))).toBe(true)
-    expect(bare).toEqual(['prototype-lab:viewer', 'prototype-lab:stamp-jsx-source', 'prototype-lab:annotations-writer'])
+    expect(bare).toEqual([
+      'prototype-lab:viewer',
+      'prototype-lab:stamp-jsx-source',
+      'prototype-lab:annotations-writer',
+      'prototype-lab:own-build-reload',
+    ])
   })
 })
 

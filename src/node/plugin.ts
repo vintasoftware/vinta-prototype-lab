@@ -1,8 +1,10 @@
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin, PluginOption } from 'vite'
 import { annotationsWriter } from '../dev/annotations-writer'
+import { ownBuildReload } from '../dev/own-build-reload'
 import { stampJsxSource } from '../dev/stamp-jsx-source'
 import type { StorybookOptions } from '../lib/storybook-links'
 
@@ -217,6 +219,8 @@ export function prototypeLab(options: PrototypeLabOptions = {}): PluginOption[] 
     viewerPlugin(root, prototypesDir, options),
     stampJsxSource({ root }),
     annotationsWriter({ prototypesDir, root }),
+    // This file runs from the package's build folder, which the page imports the viewer from.
+    ownBuildReload(path.dirname(fileURLToPath(import.meta.url))),
     ...(options.tailwind === false ? [] : [tailwindcss()]),
     ...(options.react === false ? [] : [react()]),
   ]
