@@ -51,7 +51,19 @@ function viewportBox(element: Element, depth = 0): Box | undefined {
   return box
 }
 
-/** Measures one anchored element against the frame's own box. */
+/**
+ * How much smaller or larger the frame is drawn than its own size, as a CSS `scale()` on a parent
+ * makes it when the viewer zooms the frame. 1 when the frame has no layout width to compare with.
+ */
+function drawnScale(frame: Element, drawnWidth: number): number {
+  const ownWidth = frame instanceof HTMLElement ? frame.offsetWidth : 0
+  return ownWidth > 0 && drawnWidth > 0 ? drawnWidth / ownWidth : 1
+}
+
+/**
+ * Measures one anchored element against the frame's own box, in the frame's own pixels. The overlay
+ * draws inside the frame, so a box measured on a zoomed frame is scaled back to the frame's size.
+ */
 export function measureAnchor(element: Element, frame: Element): AnchorRect | undefined {
   const box = viewportBox(element)
   if (box === undefined) {
@@ -59,12 +71,13 @@ export function measureAnchor(element: Element, frame: Element): AnchorRect | un
   }
 
   const origin = frame.getBoundingClientRect()
+  const scale = drawnScale(frame, origin.width)
 
   return {
-    top: box.top - origin.top,
-    left: box.left - origin.left,
-    width: box.right - box.left,
-    height: box.bottom - box.top,
+    top: (box.top - origin.top) / scale,
+    left: (box.left - origin.left) / scale,
+    width: (box.right - box.left) / scale,
+    height: (box.bottom - box.top) / scale,
   }
 }
 
