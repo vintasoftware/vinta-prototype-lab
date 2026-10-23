@@ -53,7 +53,7 @@ All notable changes to this package are recorded here. Versions follow
   the page while it is read, and the canvas says how far along it is.
 - The header fits a 13-inch laptop: **Back** and **Restart** are icons with tooltips, the prototype
   picker is a little narrower, and the compact header starts below 1200px.
-- The prototype picker opens on the prototype that is open now, highlighted and scrolled into view.
+- The prototype picker opens on the prototype that is open now, highlighted, and scrolled to it once when it is out of view.
 
 ### Fixed
 

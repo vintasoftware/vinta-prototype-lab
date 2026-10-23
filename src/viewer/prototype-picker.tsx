@@ -1,5 +1,5 @@
 import { Check, ChevronsUpDown } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { titleize } from '../lib/screen-id'
 import type { Prototype } from '../types'
 import {
@@ -59,14 +59,21 @@ export interface PrototypePickerProps {
   onOpenPrototype: (slug: string) => void
 }
 
-/** Scrolls a list so its current item sits in the middle, or as near as the list's ends allow. */
+/**
+ * Scrolls a list so its current item sits in the middle, or as near as the list's ends allow, when
+ * the item is out of view. An item already in view stays where it is.
+ */
 export function scrollToCurrent(list: HTMLElement | null) {
   const item = list?.querySelector<HTMLElement>('[data-current]')
-  if (list === null || item === null || item === undefined) {
+  if (list === null || list === undefined || item === null || item === undefined) {
     return
   }
-  const offset = item.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop
-  list.scrollTop = offset - (list.clientHeight - item.offsetHeight) / 2
+  const listBox = list.getBoundingClientRect()
+  const itemBox = item.getBoundingClientRect()
+  if (itemBox.top >= listBox.top && itemBox.bottom <= listBox.bottom) {
+    return
+  }
+  list.scrollTop = itemBox.top - listBox.top + list.scrollTop - (list.clientHeight - item.offsetHeight) / 2
 }
 
 /** The header's prototype switcher: a searchable list, grouped by the folders under `prototypes/`. */
@@ -74,6 +81,14 @@ export function PrototypePicker({ prototypes, slug, onOpenPrototype }: Prototype
   const [open, setOpen] = useState(false)
   const groups = useMemo(() => groupPrototypes(prototypes), [prototypes])
   const current = prototypes.find(prototype => prototype.slug === slug)
+  const list = useRef<HTMLDivElement>(null)
+
+  // Once per opening, so it never pulls the list back while someone scrolls it.
+  useEffect(() => {
+    if (open) {
+      scrollToCurrent(list.current)
+    }
+  }, [open])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -91,10 +106,10 @@ export function PrototypePicker({ prototypes, slug, onOpenPrototype }: Prototype
         </Button>
       </PopoverTrigger>
       <PopoverContent align='start' className='w-72 p-0'>
-        {/* Opens on the prototype that is open now, highlighted and scrolled to the middle of the list. */}
+        {/* Opens on the prototype that is open now, highlighted, and scrolled to it when it is out of view. */}
         <Command filter={matchesSearch} defaultValue={slug}>
           <CommandInput placeholder='Search prototypes…' />
-          <CommandList ref={scrollToCurrent}>
+          <CommandList ref={list}>
             <CommandEmpty>No prototype matches.</CommandEmpty>
             {groups.map(group => (
               <CommandGroup key={group.heading} heading={group.heading === '' ? undefined : group.heading}>

@@ -35,19 +35,32 @@ describe('groupPrototypes', () => {
 })
 
 describe('scrollToCurrent', () => {
-  it('scrolls the list so the current item sits in its middle', () => {
+  it('scrolls the list so a current item out of view sits in its middle', () => {
     const list = document.createElement('div')
     list.innerHTML = '<div></div><div data-current></div>'
     const item = list.lastElementChild as HTMLElement
     Object.defineProperty(list, 'clientHeight', { value: 300 })
     Object.defineProperty(item, 'offsetHeight', { value: 32 })
-    list.getBoundingClientRect = () => ({ top: 100 }) as DOMRect
-    item.getBoundingClientRect = () => ({ top: 700 }) as DOMRect
+    list.getBoundingClientRect = () => ({ top: 100, bottom: 400 }) as DOMRect
+    item.getBoundingClientRect = () => ({ top: 700, bottom: 732 }) as DOMRect
 
     scrollToCurrent(list)
 
     // 600 down the list, less half of what the list shows around the item.
     expect(list.scrollTop).toBe(600 - (300 - 32) / 2)
+  })
+
+  it('leaves the list alone when the current item is in view', () => {
+    const list = document.createElement('div')
+    list.innerHTML = '<div data-current></div>'
+    const item = list.firstElementChild as HTMLElement
+    list.scrollTop = 40
+    list.getBoundingClientRect = () => ({ top: 100, bottom: 400 }) as DOMRect
+    item.getBoundingClientRect = () => ({ top: 350, bottom: 382 }) as DOMRect
+
+    scrollToCurrent(list)
+
+    expect(list.scrollTop).toBe(40)
   })
 })
 
