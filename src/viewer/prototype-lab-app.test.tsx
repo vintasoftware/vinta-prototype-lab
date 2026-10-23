@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { anchor } from '../components/anchor'
 import { ScreenLink } from '../components/screen-link'
 import { type AnnotationEdit, applyAnnotationEdit } from '../lib/annotation-edit'
@@ -53,6 +53,13 @@ const prototypes = buildPrototypes({
   },
 })
 
+/** The viewer opens with the doc panel shut; the doc and comment tests start with it open. */
+async function renderWithDocPanel(ui: Parameters<typeof render>[0]) {
+  const result = render(ui)
+  await userEvent.click(screen.getByRole('button', { name: 'Show the doc panel' }))
+  return result
+}
+
 describe('PrototypeLabApp', () => {
   beforeEach(() => {
     window.location.hash = ''
@@ -90,8 +97,8 @@ describe('PrototypeLabApp', () => {
     expect(screen.getByRole('heading', { name: 'Nothing to review' })).toBeInTheDocument()
   })
 
-  it('shows the prototype document beside the screen', () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+  it('shows the prototype document beside the screen', async () => {
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
 
     expect(screen.getByRole('heading', { name: 'Booking' })).toBeInTheDocument()
     expect(screen.getByText('How a patient books a visit.')).toBeInTheDocument()
@@ -99,7 +106,7 @@ describe('PrototypeLabApp', () => {
   })
 
   it('shows the comments written for the open screen', async () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
 
     await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
 
@@ -108,7 +115,7 @@ describe('PrototypeLabApp', () => {
   })
 
   it('says the prototype loaded cleanly when it has no problems', async () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
 
     await userEvent.click(screen.getByRole('tab', { name: /Problems/ }))
 
@@ -310,8 +317,18 @@ describe('PrototypeLabApp', () => {
     expect(screen.getByRole('navigation', { name: 'Screens' })).toBeInTheDocument()
   })
 
-  it('closes and reopens the doc panel from the header', async () => {
+  it('opens with the doc panel shut and the comments hidden', () => {
     render(<PrototypeLabApp prototypes={prototypes} />)
+
+    expect(screen.queryByRole('tab', { name: 'Doc' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Comments' })).toHaveAttribute('data-variant', 'ghost')
+    expect(screen.getByRole('heading', { name: 'Good morning' })).toBeInTheDocument()
+  })
+
+  it('opens and closes the doc panel from the header', async () => {
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
+
+    expect(screen.getByRole('tab', { name: 'Doc' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Hide the doc panel' }))
 
@@ -325,7 +342,7 @@ describe('PrototypeLabApp', () => {
   })
 
   it('closes each panel with its own bracket key, leaving the other one open', async () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
 
     // `[[` types one `[`: user-event reads a lone bracket as the start of a key descriptor.
     await userEvent.keyboard('[[')
@@ -424,7 +441,7 @@ describe('PrototypeLabApp', () => {
       })
     )
 
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
     const tree = screen.getByRole('list', { name: 'Components' })
 
     await userEvent.click(within(tree).getByRole('button', { name: 'Badge #task-count' }))
@@ -468,7 +485,7 @@ describe('PrototypeLabApp', () => {
     })
 
     const openComposer = async () => {
-      render(<PrototypeLabApp prototypes={prototypes} />)
+      await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
       const tree = screen.getByRole('list', { name: 'Components' })
       await userEvent.click(within(tree).getByRole('button', { name: 'CardTitle' }))
       await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
@@ -532,7 +549,7 @@ describe('PrototypeLabApp', () => {
       })
     )
 
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
     await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -554,7 +571,7 @@ describe('PrototypeLabApp', () => {
   })
 
   it('offers no way to write a comment with no component picked', async () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
 
     await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
 
@@ -575,7 +592,7 @@ describe('PrototypeLabApp', () => {
       )
     )
 
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
     const tree = screen.getByRole('list', { name: 'Components' })
 
     await userEvent.click(within(tree).getByRole('button', { name: 'Badge #task-count' }))
@@ -654,7 +671,7 @@ describe('PrototypeLabApp', () => {
   })
 
   it('offers the name of the element picked now, not the one picked when the form opened', async () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
     const tree = screen.getByRole('list', { name: 'Components' })
 
     await userEvent.click(within(tree).getByRole('button', { name: 'CardTitle' }))
@@ -691,5 +708,66 @@ describe('PrototypeLabApp', () => {
     render(<PrototypeLabApp prototypes={[]} />)
 
     expect(screen.getByRole('heading', { name: 'No prototypes yet' })).toBeInTheDocument()
+  })
+
+  describe('the device toolbar', () => {
+    const frameOf = (heading: string) => screen.getByRole('heading', { name: heading }).closest('[data-viewport]')
+
+    it('draws the screen in the device picked, and remembers it on the next visit', async () => {
+      const { unmount } = render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Device' }), 'iPhone SE')
+
+      expect(frameOf('Good morning')).toHaveAttribute('data-viewport', 'mobile')
+      expect(frameOf('Good morning')).toHaveStyle({ width: '375px', height: '667px' })
+      expect(screen.getByText('375 × 667 · iPhone SE · 100%')).toBeInTheDocument()
+
+      unmount()
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      expect(screen.getByRole('combobox', { name: 'Device' })).toHaveValue('iphone-se')
+      expect(frameOf('Good morning')).toHaveStyle({ width: '375px' })
+    })
+
+    it('goes back to the screen own size', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Device' }), 'iPad Mini')
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Device' }), 'Screen default')
+
+      expect(frameOf('Good morning')).toHaveAttribute('data-viewport', 'desktop')
+      expect(frameOf('Good morning')).toHaveStyle({ width: '1280px', height: '820px' })
+    })
+  })
+
+  describe('presenting', () => {
+    afterEach(() => {
+      window.history.replaceState(null, '', '/')
+    })
+
+    it('gives the screen the whole window on P, and comes back on Esc', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.keyboard('p')
+
+      expect(screen.getByRole('heading', { name: 'Good morning' })).toBeInTheDocument()
+      expect(screen.queryByRole('navigation', { name: 'Screens' })).not.toBeInTheDocument()
+      expect(window.location.search).toBe('?present')
+
+      await userEvent.keyboard('{Escape}')
+
+      expect(screen.getByRole('navigation', { name: 'Screens' })).toBeInTheDocument()
+      expect(window.location.search).toBe('')
+    })
+
+    it('opens presenting from the page address, and still follows links', async () => {
+      window.history.replaceState(null, '', '/?present')
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Book a visit' }))
+
+      expect(screen.getByRole('heading', { name: 'Review your visit' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Stop presenting' })).toBeInTheDocument()
+    })
   })
 })

@@ -5,14 +5,17 @@ export type ViewToggle = 'notes' | 'hotspots' | 'inspect' | 'flow' | 'screens' |
 
 export type ViewToggles = Record<ViewToggle, boolean>
 
-/** How the viewer opens: both panels out, comments drawn, nothing else on. */
+/**
+ * How the viewer opens: the screens panel out, and the screen otherwise left alone, with the doc
+ * panel shut and comments hidden. `c` and `]` bring them back.
+ */
 const OPENING_TOGGLES: ViewToggles = {
-  notes: true,
+  notes: false,
   hotspots: false,
   inspect: false,
   flow: false,
   screens: true,
-  doc: true,
+  doc: false,
 }
 
 /** The key that flips each one. */
