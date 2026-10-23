@@ -64,6 +64,10 @@ All notable changes to this package are recorded here. Versions follow
 
 - The inspect outline of the element under the pointer stays on the stage. Drawing it changed the
   frame's DOM, which read the component tree again and cleared the hover that drew it.
+- A viewer running against a linked checkout no longer goes blank when the package is rebuilt. A
+  full build empties `dist/` and writes the stylesheet last, and the page reloaded in that gap, found
+  no stylesheet and never started. The reload now waits until the output is complete, comes once
+  per rebuild, and reaches the browser rather than only the server environment.
 
 ### Removed
 
