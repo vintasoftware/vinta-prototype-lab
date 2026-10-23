@@ -1,4 +1,5 @@
 import { AlertTriangle, MessageSquarePlus, Pencil, Trash2 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { NumberedAnnotation } from '../components/annotation-overlay'
 import { ANNOTATION_KIND } from '../lib/annotation-kind'
 import { Markdown } from '../lib/markdown'
@@ -7,7 +8,7 @@ import { Badge, Button, cn, Tabs, TabsContent, TabsList, TabsTrigger } from '../
 import { CommentComposer, type CommentDraft } from './comment-composer'
 
 /** The panel's tabs. */
-export type PanelTab = 'doc' | 'notes' | 'issues'
+export type PanelTab = 'doc' | 'notes' | 'issues' | 'dev'
 
 export interface SidePanelProps {
   prototype: Prototype
@@ -34,6 +35,8 @@ export interface SidePanelProps {
   saveError?: string
   /** Offered when the picked element carries no semantic id and could be given one. */
   suggestedName?: string
+  /** The Dev tab: how the picked element is built. */
+  dev?: ReactNode
 }
 
 export function SidePanel({
@@ -55,6 +58,7 @@ export function SidePanel({
   saving,
   saveError,
   suggestedName,
+  dev,
 }: SidePanelProps) {
   const issueCount = prototype.issues.length
 
@@ -69,6 +73,7 @@ export function SidePanel({
           <TabsTrigger value='doc'>Doc</TabsTrigger>
           <TabsTrigger value='notes'>Comments {notes.length > 0 && `(${notes.length})`}</TabsTrigger>
           <TabsTrigger value='issues'>Problems {issueCount > 0 && `(${issueCount})`}</TabsTrigger>
+          {dev !== undefined && <TabsTrigger value='dev'>Dev</TabsTrigger>}
         </TabsList>
 
         <TabsContent value='doc' className='min-h-0 flex-1 overflow-y-auto px-4 py-3'>
@@ -130,6 +135,12 @@ export function SidePanel({
             </ul>
           )}
         </TabsContent>
+
+        {dev !== undefined && (
+          <TabsContent value='dev' className='min-h-0 flex-1 overflow-y-auto px-4 py-3'>
+            {dev}
+          </TabsContent>
+        )}
 
         <TabsContent value='issues' className='min-h-0 flex-1 overflow-y-auto px-4 py-3'>
           {issueCount === 0 ? (

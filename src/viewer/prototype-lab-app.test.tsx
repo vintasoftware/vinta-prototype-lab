@@ -870,4 +870,64 @@ describe('PrototypeLabApp', () => {
       expect(await screen.findByText('Nothing to fix — the prototype loaded cleanly.')).toBeInTheDocument()
     })
   })
+
+  describe('the Dev tab', () => {
+    // Stamped the way the dev server stamps a screen today: file, line, column and tag.
+    const Stamped = () => (
+      <div>
+        <h1 data-slot='card-title' data-proto-src='prototypes/kit/screens/10-start.tsx:7:9:CardTitle'>
+          Start
+        </h1>
+      </div>
+    )
+    const kit = buildPrototypes({
+      docs: { '../../prototypes/kit/prototype.md': '---\ntitle: Kit\n---\n' },
+      annotations: {},
+      screens: { '../../prototypes/kit/screens/10-start.tsx': { default: Stamped } },
+    })
+
+    it('shows how the component picked on the stage is built, and where it was written', async () => {
+      await renderWithDocPanel(<PrototypeLabApp prototypes={kit} />)
+      await userEvent.click(
+        within(screen.getByRole('list', { name: 'Components' })).getByRole('button', { name: 'CardTitle' })
+      )
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Dev' }))
+
+      const panel = screen.getByRole('tabpanel')
+      expect(within(panel).getByText('CardTitle')).toBeInTheDocument()
+      expect(within(panel).getByText('screens/10-start.tsx:7')).toBeInTheDocument()
+    })
+
+    it('shows the component picked in a frame on the canvas', async () => {
+      vi.stubGlobal('IntersectionObserver', undefined)
+      await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.keyboard('v')
+      await screen.findByRole('article', { name: 'Home' })
+
+      await waitFor(() =>
+        expect(
+          within(screen.getByRole('list', { name: 'Components' })).getByRole('button', { name: 'CardTitle' })
+        ).toBeInTheDocument()
+      )
+      await userEvent.click(
+        within(screen.getByRole('list', { name: 'Components' })).getByRole('button', { name: 'CardTitle' })
+      )
+      await userEvent.click(screen.getByRole('tab', { name: 'Dev' }))
+
+      expect(within(screen.getByRole('tabpanel')).getByText('CardTitle')).toBeInTheDocument()
+    })
+
+    it('turns measuring on and off with M', async () => {
+      await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.click(
+        within(screen.getByRole('list', { name: 'Components' })).getByRole('button', { name: 'CardTitle' })
+      )
+      await userEvent.click(screen.getByRole('tab', { name: 'Dev' }))
+
+      await userEvent.keyboard('m')
+
+      expect(screen.getByRole('button', { name: 'Measure' })).toHaveAttribute('aria-pressed', 'true')
+    })
+  })
 })

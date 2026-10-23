@@ -12,6 +12,7 @@ import {
 import {
   type KeyboardEvent,
   memo,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -90,6 +91,15 @@ export interface CanvasViewProps {
   canArrange: boolean
   /** Saves a new arrangement to the prototype's `canvas.json`. */
   onArrange: (canvas: CanvasFile) => Promise<void>
+  /** Inspect is on: the picked frame takes the pointer, so its elements can be picked. */
+  inspecting?: boolean
+  /**
+   * Told which element the picked frame's screen renders into, as it is drawn and undrawn. The
+   * viewer reads its component tree and inspects it there, as it does on the stage.
+   */
+  onInspectRoot?: (mount: HTMLElement | null) => void
+  /** Drawn over the picked frame's screen: the inspect outlines and measurements. */
+  inspectOverlay?: ReactNode
 }
 
 /**
@@ -178,6 +188,9 @@ export function CanvasView({
   opening,
   canArrange,
   onArrange,
+  inspecting = false,
+  onInspectRoot,
+  inspectOverlay,
 }: CanvasViewProps) {
   const viewportRef = useRef<HTMLElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -772,6 +785,14 @@ export function CanvasView({
       mounts.current.set(key, element)
     }
   }, [])
+
+  // The picked frame's screen is where the viewer reads the component tree and inspects, once drawn.
+  const pickedDrawn = selectedKey !== undefined && zoom >= CARD_ONLY_ZOOM && drawn.has(selectedKey)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the mount appears when the frame is drawn, and changes with the live screen.
+  useEffect(() => {
+    onInspectRoot?.(selectedKey === undefined || !pickedDrawn ? null : (mounts.current.get(selectedKey) ?? null))
+  }, [selectedKey, pickedDrawn, live, onInspectRoot])
+  useEffect(() => () => onInspectRoot?.(null), [onInspectRoot])
   const rowRef = useCallback((key: string, element: HTMLLIElement | null) => {
     if (element === null) {
       rows.current.delete(key)
@@ -985,6 +1006,9 @@ export function CanvasView({
                         : { viewportLabel: VIEWPORT_LABEL[secondary ? second : (first ?? second)] })}
                       secondary={secondary}
                       {...(isLive === undefined ? {} : { live: isLive })}
+                      {...(node.key === selectedKey && !secondary && isLive === undefined
+                        ? { inspectable: inspecting, overlay: inspectOverlay }
+                        : {})}
                       box={box}
                       frameSize={frameSizes.get(box.key) ?? frameSizeOf(node, frameSize)}
                       edges={graph.edges}

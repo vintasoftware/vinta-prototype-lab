@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowRight, MessageSquare, Undo2, X } from 'lucide-react'
-import { type KeyboardEvent, memo, useRef } from 'react'
+import { type KeyboardEvent, memo, type ReactNode, useRef } from 'react'
 import type { NumberedAnnotation } from '../../components/annotation-overlay'
-import type { ScreenNavigation } from '../../components/prototype-runtime'
+import { NO_NAVIGATION, type ScreenNavigation } from '../../components/prototype-runtime'
 import { ScreenThumbnail } from '../../components/screen-thumbnail'
 import type { CanvasFrameBox } from '../../lib/canvas-layout'
 import { DEFAULT_VARIANT } from '../../lib/constants'
@@ -66,6 +66,13 @@ export interface CanvasFrameProps {
   secondary: boolean
   /** Set while the frame is live: it clicks through inside itself. */
   live?: LiveView
+  /**
+   * Set on the picked frame while Inspect is on: its screen takes the pointer, so a click picks an
+   * element in it, the way it does on the stage.
+   */
+  inspectable?: boolean
+  /** Drawn over the screen, as the stage draws its inspect outlines and measurements. */
+  overlay?: ReactNode
   box: CanvasFrameBox
   /** The size the screen renders at, before the canvas zoom. */
   frameSize: FrameSize
@@ -108,6 +115,8 @@ export const CanvasFrame = memo(function CanvasFrame({
   viewportLabel,
   secondary,
   live,
+  inspectable = false,
+  overlay,
   box,
   frameSize,
   edges,
@@ -225,7 +234,18 @@ export const CanvasFrame = memo(function CanvasFrame({
             showHotspots={showHotspots}
             size={frameSize}
             scale={1}
-            {...(live === undefined ? {} : { navigation: live.navigation })}
+            {...(live !== undefined
+              ? { navigation: live.navigation }
+              : inspectable
+                ? {
+                    navigation: {
+                      ...NO_NAVIGATION,
+                      screenId: node.screen.id,
+                      variant: node.screen.variant,
+                      showHotspots,
+                    },
+                  }
+                : {})}
             mountRef={element => {
               mount.current = element
               mountRef(frameKey, element)
@@ -234,7 +254,7 @@ export const CanvasFrame = memo(function CanvasFrame({
         ) : (
           <div aria-hidden='true' className='size-full bg-muted' />
         )}
-        {live === undefined && (
+        {live === undefined && !inspectable && (
           <button
             type='button'
             aria-label={name}
@@ -249,6 +269,7 @@ export const CanvasFrame = memo(function CanvasFrame({
             className='absolute inset-0 cursor-default rounded-sm outline-none hover:bg-primary/5 focus-visible:bg-primary/5'
           />
         )}
+        {drawn && overlay}
         {drawn && notes.length > 0 && (
           <FramePins
             mountRef={mount}

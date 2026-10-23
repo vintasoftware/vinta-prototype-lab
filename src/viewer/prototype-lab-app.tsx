@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnnotationOverlay, type NumberedAnnotation } from '../components/annotation-overlay'
 import { InspectOverlay } from '../components/inspect-overlay'
+import { MeasureOverlay } from '../components/measure-overlay'
 import { PrototypeFrame } from '../components/prototype-frame'
 import { PrototypeRuntime, type ScreenNavigation } from '../components/prototype-runtime'
 import { ResizableFrame } from '../components/resizable-frame'
@@ -10,6 +11,7 @@ import { useElementSize } from '../hooks/use-element-size'
 import { useFlowLinks } from '../hooks/use-flow-links'
 import { useInspectMode } from '../hooks/use-inspect-mode'
 import { useInspectRects } from '../hooks/use-inspect-rects'
+import { useKeyHeld } from '../hooks/use-key-held'
 import { usePrototypeSession } from '../hooks/use-prototype-session'
 import { useStorybookLinks } from '../hooks/use-storybook-links'
 import { TOGGLE_KEYS, useViewToggles } from '../hooks/use-view-toggles'
@@ -34,14 +36,16 @@ import {
 } from '../lib/device-frame'
 import { distinctScreens } from '../lib/discovery'
 import { flowNodeKey } from '../lib/flow-graph'
+import { boxModel, measureBetween } from '../lib/measure'
 import { readPresenting, writePresenting } from '../lib/present-param'
 import { titleize } from '../lib/screen-id'
 import { SOURCE_ATTRIBUTE, suggestAnchorId } from '../lib/source-ref'
-import type { StorybookOptions } from '../lib/storybook-links'
+import { findStorybookLink, type StorybookOptions } from '../lib/storybook-links'
 import type { Annotation, CanvasFile, Prototype, ScreenViewport } from '../types'
 import { cn } from '../ui'
 import { CanvasView } from './canvas/canvas-view'
 import { type CommentDraft, chosenName } from './comment-composer'
+import { DevPanel } from './dev-panel'
 import { EmptyLab } from './empty-lab'
 import { PresentingStage } from './presenting-stage'
 import { type PanelTab, SidePanel } from './side-panel'
@@ -113,8 +117,19 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
   const [namingError, setNamingError] = useState<string | undefined>(undefined)
 
   const frameRef = useRef<HTMLDivElement>(null)
-  // The stage leaves the DOM while the map is open, so what was measured on it has to go too.
-  const revision = `${state.slug}/${state.current.screenId}/${state.current.variant}/${toggles.canvas ? 'canvas' : 'stage'}`
+  // On the canvas the picked frame's screen is what the tree reads and Inspect picks in; the canvas
+  // says which element that is as the frame is drawn, and the count makes the hooks read it again.
+  const canvasMountRef = useRef<HTMLElement | null>(null)
+  const [canvasMount, setCanvasMount] = useState(0)
+  const onInspectRoot = useCallback((mount: HTMLElement | null) => {
+    if (canvasMountRef.current !== mount) {
+      canvasMountRef.current = mount
+      setCanvasMount(count => count + 1)
+    }
+  }, [])
+  const inspectRef: RefObject<HTMLElement | null> = toggles.canvas ? canvasMountRef : frameRef
+  // The stage leaves the DOM while the canvas is open, so what was measured on it has to go too.
+  const revision = `${state.slug}/${state.current.screenId}/${state.current.variant}/${toggles.canvas ? `canvas:${canvasMount}` : 'stage'}`
   const flow = useFlowLinks(prototype, toggles.canvas)
   // How the canvas opens: `v` centres it on the screen open now; `f`, the old flow map key, fits it all.
   const [canvasOpening, setCanvasOpening] = useState<'fit' | 'selection'>('selection')
@@ -143,9 +158,9 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
     return counts
   }, [prototype])
 
-  const tree = useComponentTree(frameRef, revision)
+  const tree = useComponentTree(inspectRef, revision)
   const targets = useMemo(() => notes.map(note => note.target), [notes])
-  const rects = useAnchorRects(frameRef, targets, tree, revision)
+  const rects = useAnchorRects(inspectRef, targets, tree, revision)
   const unanchored = useMemo(
     () => new Set(notes.filter(note => !rects.has(note.target)).map(note => note.id)),
     [notes, rects]
@@ -177,7 +192,30 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
     state.component !== undefined && selectedPath === undefined && tree.roots.length > 0 ? state.component : undefined
   const selectedElement = selectedPath === undefined ? undefined : tree.elementByPath.get(selectedPath)
   const hoveredElement = hoveredPath === undefined ? undefined : tree.elementByPath.get(hoveredPath)
-  const inspectRects = useInspectRects(frameRef, selectedElement, hoveredElement, revision)
+  const inspectRects = useInspectRects(inspectRef, selectedElement, hoveredElement, revision)
+
+  // Measuring: Alt held, or Measure on, measures from the picked element to the hovered one, or
+  // shows the hovered one's own spacing when nothing is picked.
+  const altHeld = useKeyHeld('Alt')
+  const [measureOn, setMeasureOn] = useState(false)
+  const measuring = altHeld || measureOn
+  const measurements = useMemo(
+    () =>
+      measuring &&
+      inspectRects.selected !== undefined &&
+      inspectRects.hovered !== undefined &&
+      hoveredPath !== selectedPath
+        ? measureBetween(inspectRects.selected, inspectRects.hovered)
+        : [],
+    [measuring, inspectRects, hoveredPath, selectedPath]
+  )
+  const spacing =
+    measuring &&
+    inspectRects.selected === undefined &&
+    inspectRects.hovered !== undefined &&
+    hoveredElement !== undefined
+      ? { rect: inspectRects.hovered, model: boxModel(getComputedStyle(hoveredElement)) }
+      : undefined
 
   const selectPath = useCallback(
     (path: string | undefined) => {
@@ -245,7 +283,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
     [tree]
   )
 
-  useInspectMode({ frameRef, enabled: toggles.inspect, onPick: pickComponent, onHover: hoverComponent })
+  useInspectMode({ frameRef: inspectRef, enabled: toggles.inspect, onPick: pickComponent, onHover: hoverComponent })
 
   const applyEdit = useCallback(
     async (edit: AnnotationEdit) => {
@@ -409,6 +447,9 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
       if (event.key === 'p') {
         setPresenting(true)
       }
+      if (event.key === 'm') {
+        setMeasureOn(on => !on)
+      }
       if (event.key === 'Escape') {
         setSelectedNoteId(undefined)
         clearComponent()
@@ -447,6 +488,36 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
     canGoBack: session.canGoBack,
     showHotspots: toggles.hotspots,
   }
+
+  // The outlines and measurements drawn over the screen being inspected, on the stage or the canvas.
+  const pickedNode = selectedPath === undefined ? undefined : tree.nodeByPath.get(selectedPath)
+  const inspectOverlay = (
+    <>
+      <InspectOverlay
+        {...inspectRects}
+        {...(selectedPath === undefined ? {} : { label: pickedNode?.label ?? selectedPath })}
+      />
+      {(measurements.length > 0 || spacing !== undefined) && (
+        <MeasureOverlay measurements={measurements} {...(spacing === undefined ? {} : { spacing })} />
+      )}
+    </>
+  )
+  const pickedStory =
+    pickedNode?.kind === 'component' ? findStorybookLink(storybook.links, pickedNode.label) : undefined
+  const devPanel = (
+    <DevPanel
+      {...(selectedElement === undefined ? {} : { element: selectedElement })}
+      {...(inspectRef.current === null ? {} : { frame: inspectRef.current })}
+      {...(pickedNode === undefined ? {} : { label: pickedNode.label })}
+      {...(pickedTarget === undefined ? {} : { selector: pickedTarget })}
+      {...(pickedNode?.anchorId === undefined ? {} : { anchorId: pickedNode.anchorId })}
+      {...(pickedStory === undefined ? {} : { storybookLink: pickedStory })}
+      canOpenSource={canEditAnnotations()}
+      measuring={measuring}
+      onToggleMeasure={() => setMeasureOn(on => !on)}
+      measurements={measurements}
+    />
+  )
 
   if (presenting && screen !== undefined) {
     return (
@@ -561,6 +632,9 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
               opening={canvasOpening}
               canArrange={canEditAnnotations()}
               onArrange={arrangeCanvas}
+              inspecting={toggles.inspect}
+              onInspectRoot={onInspectRoot}
+              inspectOverlay={inspectOverlay}
             />
           ) : screen === undefined ? (
             <p className='self-center text-muted-foreground text-sm'>
@@ -587,12 +661,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
                 inspecting={toggles.inspect}
                 overlay={
                   <>
-                    <InspectOverlay
-                      {...inspectRects}
-                      {...(selectedPath === undefined
-                        ? {}
-                        : { label: tree.nodeByPath.get(selectedPath)?.label ?? selectedPath })}
-                    />
+                    {inspectOverlay}
                     {toggles.notes && (
                       <AnnotationOverlay
                         notes={notes}
@@ -637,6 +706,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
             }
             author={author}
             saving={saving}
+            dev={devPanel}
             {...(saveError === undefined ? {} : { saveError })}
           />
         )}

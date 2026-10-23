@@ -22,6 +22,11 @@ All notable changes to this package are recorded here. Versions follow
   itself on its own history, with a **Back to** chip and `Esc` to stop.
 - **Two viewports**: the canvas can draw every state in two sizes side by side; the choice is saved
   in `canvas.json`.
+- **Dev tab**: the picked element's component, path, id, Storybook page and source line, with
+  **Open in editor**; its colours, spacing, typography, radius and shadow read back to utility and
+  token, flagging a value no token produces; its size in frame pixels; and **Measure** (Alt and
+  hover, or `M` and the component tree) for the distances to another element. It works on the stage
+  and in the picked frame of the canvas.
 - The canvas draws only the frames in view, a couple at a time, and holds new ones back while a pan
   is moving; below 20% a frame is a card with its title. A generated 60-state fixture,
   `example/prototypes/canvas-sixty`, measures it (`node scripts/generate-canvas-fixture.mjs` writes it).
@@ -35,6 +40,11 @@ All notable changes to this package are recorded here. Versions follow
   header's **Flow** button is now **Canvas**.
 - Where the controls lead is read one screen state at a time, so a large prototype no longer holds
   the page while it is read, and the canvas says how far along it is.
+
+### Fixed
+
+- The inspect outline of the element under the pointer stays on the stage. Drawing it changed the
+  frame's DOM, which read the component tree again and cleared the hover that drew it.
 
 ### Removed
 

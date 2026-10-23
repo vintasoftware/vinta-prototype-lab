@@ -499,6 +499,32 @@ canvas and on the stage alike. Container queries read the frame. For anything in
 respond to the frame it is drawn in, prefer container queries (Tailwind's `@container` and `@md:`
 variants) over `md:` and other media query variants.
 
+## Dev tools
+
+The **Dev** tab of the right panel says how the picked element is built, on the stage and on the
+canvas. Turn on Inspect (`i`) and click an element, or pick its row in the component tree. On the
+canvas, Inspect works in the picked frame: its screen takes the pointer while Inspect is on.
+
+- **Element**: the component's name and path, as the tree shows them, its semantic id, its
+  Storybook page, and where it was written, `screens/10-home.tsx:34`. **Open in editor** opens that
+  line through the dev server's own open-in-editor support. An element written inside a component
+  says so, with the line of the component in the screen.
+- **Styles as tokens**: background, text and border colour, padding, margin and gap, font size,
+  line height, weight and family, radius and shadow. Each is read back to the utility class that set
+  it (`bg-muted`), the token behind it (`--color-muted`, or `--muted` for a theme declared with
+  `@theme inline`), and the value the browser resolved. A spacing step reads `--spacing × 3`. A value
+  no utility set is matched against the page's tokens, and every token of that value is named;
+  a value no token produces is flagged **not a token**. A token is never guessed.
+- **Size** in the frame's own pixels, whatever the zoom.
+- **Measure**: hold Alt and point at another element to see the distances to it, as design tools
+  draw them, in the frame's own pixels. With nothing picked, Alt shows an element's padding and
+  margin. From the keyboard, turn Measure on (`M`) and move through the component tree: each row in
+  focus is measured against the picked element. The tab lists the distances, and the picked element's
+  padding and margin by side.
+
+Under `prototype-lab build` the tab still reads components, tokens and sizes; there is no source to
+open, since the dev server is what records where each element was written.
+
 ## Using the viewer
 
 - **Doc / Comments / Problems** panels on the right. Problems lists everything wrong with the
@@ -511,7 +537,8 @@ variants) over `md:` and other media query variants.
   picked component with it. Paste it into a ticket. In-prototype **Back** is the flow's own back, so
   the URL is replaced rather than pushed.
 - **Keys.** `c` toggles comments, `h` toggles hotspots, `i` toggles inspect mode, `v` toggles the
-  canvas, `a` its arrows, `f` opens it with the arrows on, `[` and `]` close the panels either side,
+  canvas, `a` its arrows, `f` opens it with the arrows on, `m` turns measuring on, `[` and `]` close
+  the panels either side,
   `Esc` clears the open note and the picked component. The canvas has its own keys, listed under
   [Moving around](#moving-around).
 
