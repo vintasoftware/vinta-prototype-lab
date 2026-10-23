@@ -54,6 +54,7 @@ All notable changes to this package are recorded here. Versions follow
 - The header fits a 13-inch laptop: **Back** and **Restart** are icons with tooltips, the prototype
   picker is a little narrower, and the compact header starts below 1200px.
 - The prototype picker opens on the prototype that is open now, highlighted, and scrolled to it once when it is out of view.
+- The header shows Vinta's mark beside "Prototype Lab", on windows wide enough for the title.
 
 ### Fixed
 
