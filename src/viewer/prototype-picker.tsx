@@ -74,7 +74,7 @@ export function PrototypePicker({ prototypes, slug, onOpenPrototype }: Prototype
           role='combobox'
           aria-expanded={open}
           aria-label='Prototype'
-          className='max-w-64 justify-between font-normal'
+          className='max-w-64 justify-between font-normal max-[1100px]:max-w-35'
         >
           <span className='truncate'>{current?.doc.title ?? 'Choose a prototype'}</span>
           <ChevronsUpDown className='text-muted-foreground' />

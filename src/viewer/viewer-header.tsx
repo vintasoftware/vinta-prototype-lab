@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   Crosshair,
   type LucideIcon,
+  Maximize,
   MessageSquare,
   PanelLeft,
   PanelLeftClose,
@@ -14,6 +15,7 @@ import {
 import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
 import type { Prototype, ScreenViewport } from '../types'
 import { Badge, Button, SegmentedToggle } from '../ui'
+import { DeviceToolbar, type DeviceToolbarProps } from './device-toolbar'
 import { PrototypePicker } from './prototype-picker'
 
 const VIEWPORT_OPTIONS = [
@@ -43,6 +45,15 @@ export interface ViewerHeaderProps {
   canGoBack: boolean
   onBack: () => void
   onRestart: () => void
+  /** The device toolbar. Without it the header offers the three viewports instead. */
+  device?: DeviceToolbarProps
+  /** Shows the Present button, which gives the screen the whole window. */
+  onPresent?: () => void
+}
+
+/** A button's text, dropped on a window too narrow for it; the icon and tooltip stay. */
+function Label({ children }: { children: string }) {
+  return <span className='max-[1460px]:hidden'>{children}</span>
 }
 
 export function ViewerHeader({
@@ -57,10 +68,14 @@ export function ViewerHeader({
   canGoBack,
   onBack,
   onRestart,
+  device,
+  onPresent,
 }: ViewerHeaderProps) {
   return (
-    <header className='flex shrink-0 flex-wrap items-center gap-3 border-border border-b bg-card px-4 py-2'>
-      <span className='font-semibold text-sm'>Prototype Lab</span>
+    // One row always: a narrower window drops the labels first, then the title and the size fields,
+    // and a window narrower still scrolls the row sideways rather than hiding a button.
+    <header className='flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-border border-b bg-card px-4 py-2 *:shrink-0 max-[1100px]:gap-1 max-[1100px]:px-2'>
+      <span className='font-semibold text-sm max-[1100px]:hidden'>Prototype Lab</span>
 
       <PanelButton
         open={toggles.screens}
@@ -73,26 +88,49 @@ export function ViewerHeader({
       <PrototypePicker prototypes={prototypes} slug={slug} onOpenPrototype={onOpenPrototype} />
 
       <div className='flex items-center gap-1'>
-        <Button variant='outline' size='sm' onClick={onBack} disabled={!canGoBack}>
+        <Button variant='outline' size='sm' title='Back' onClick={onBack} disabled={!canGoBack}>
           <ArrowLeft />
-          Back
+          <Label>Back</Label>
         </Button>
-        <Button variant='ghost' size='sm' onClick={onRestart}>
+        <Button variant='ghost' size='sm' title='Restart' onClick={onRestart}>
           <RotateCcw />
-          Restart
+          <Label>Restart</Label>
         </Button>
       </div>
 
       <div className='ml-auto flex items-center gap-2'>
-        <SegmentedToggle size='sm' options={VIEWPORT_OPTIONS} value={viewport} onValueChange={onViewportChange} />
+        {device === undefined ? (
+          <SegmentedToggle size='sm' options={VIEWPORT_OPTIONS} value={viewport} onValueChange={onViewportChange} />
+        ) : (
+          <DeviceToolbar {...device} />
+        )}
 
         {MODES.map(({ name, label, Icon }) => (
-          <Button key={name} variant={toggles[name] ? 'light' : 'ghost'} size='sm' onClick={() => onToggle(name)}>
+          <Button
+            key={name}
+            variant={toggles[name] ? 'light' : 'ghost'}
+            size='sm'
+            aria-label={label}
+            title={label}
+            onClick={() => onToggle(name)}
+          >
             <Icon />
-            {label}
+            <Label>{label}</Label>
             {name === 'notes' && noteCount > 0 && <Badge variant='neutral'>{noteCount}</Badge>}
           </Button>
         ))}
+
+        {onPresent !== undefined && (
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            aria-label='Present the screen'
+            title='Present: only the screen, without the viewer (P)'
+            onClick={onPresent}
+          >
+            <Maximize />
+          </Button>
+        )}
 
         <PanelButton
           open={toggles.doc}
