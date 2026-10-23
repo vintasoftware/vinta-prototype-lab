@@ -1,5 +1,6 @@
 import type { Ref } from 'react'
 import { FRAME_HEIGHT, THUMBNAIL_SCALE, VIEWPORT_WIDTH } from '../lib/constants'
+import type { FrameSize } from '../lib/device-frame'
 import { thumbnailSize } from '../lib/flow-drawing'
 import type { PrototypeScreen, ScreenViewport } from '../types'
 import { cn, RenderBoundary } from '../ui'
@@ -16,6 +17,10 @@ export interface ScreenThumbnailProps {
    * the map can find a control in the thumbnail.
    */
   mountRef?: Ref<HTMLDivElement>
+  /** The size to render the screen at. Defaults to its viewport's frame. */
+  size?: FrameSize
+  /** How much to shrink it. Defaults to the flow map's factor for the viewport; the canvas uses 1. */
+  scale?: number
   className?: string
 }
 
@@ -24,10 +29,22 @@ export interface ScreenThumbnailProps {
  * and scaled down, so it looks the way the stage does. It is inert: nothing in it can be clicked,
  * focused or read out, so the card around it is the one control.
  */
-export function ScreenThumbnail({ screen, showHotspots, viewport, mountRef, className }: ScreenThumbnailProps) {
+export function ScreenThumbnail({
+  screen,
+  showHotspots,
+  viewport,
+  mountRef,
+  size,
+  scale: scaleOverride,
+  className,
+}: ScreenThumbnailProps) {
   const frame = viewport ?? screen.viewport
-  const scale = THUMBNAIL_SCALE[frame]
-  const outer = thumbnailSize(frame)
+  const scale = scaleOverride ?? THUMBNAIL_SCALE[frame]
+  const inner = size ?? { width: VIEWPORT_WIDTH[frame], height: FRAME_HEIGHT[frame] }
+  const outer =
+    size === undefined && scaleOverride === undefined
+      ? thumbnailSize(frame)
+      : { width: Math.round(inner.width * scale), height: Math.round(inner.height * scale) }
 
   return (
     <div
@@ -38,9 +55,11 @@ export function ScreenThumbnail({ screen, showHotspots, viewport, mountRef, clas
     >
       <div
         ref={mountRef}
+        data-viewport={frame}
         style={{
-          width: VIEWPORT_WIDTH[frame],
-          height: FRAME_HEIGHT[frame],
+          width: inner.width,
+          height: inner.height,
+          // The transform stays on, even at 1, so `position: fixed` inside a screen stays in its frame.
           transform: `scale(${scale})`,
           transformOrigin: '0 0',
         }}

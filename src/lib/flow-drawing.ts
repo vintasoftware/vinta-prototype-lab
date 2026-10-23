@@ -40,7 +40,11 @@ export function rowCount(node: FlowNode, edges: readonly FlowEdge[]): number {
 }
 
 export function cardSize(node: FlowNode, edges: readonly FlowEdge[], viewport: ScreenViewport | undefined): Size {
-  const thumbnail = thumbnailSize(viewport ?? node.screen.viewport)
+  return cardSizeAround(node, edges, thumbnailSize(viewport ?? node.screen.viewport))
+}
+
+/** The card around a screen drawn at `thumbnail`: its header above, its rows below. */
+export function cardSizeAround(node: FlowNode, edges: readonly FlowEdge[], thumbnail: Size): Size {
   const rows = rowCount(node, edges)
   return {
     width: thumbnail.width + 2 * (CARD_BORDER + THUMBNAIL_INSET + THUMBNAIL_BORDER),
@@ -121,6 +125,11 @@ export interface DrawFlowOptions {
   /** The row on a card for each edge, by {@link edgeKey}. Where an arrow starts when its control is not found. */
   rows: ReadonlyMap<string, Element>
   measure?: Measure
+  /**
+   * Which way the arrow between two nodes runs. Defaults to their layers, which is right for the
+   * columns the graph lays out; a canvas a person arranged passes one read from where nodes sit.
+   */
+  directionOf?: (from: FlowNodeKey, to: FlowNodeKey) => 'forward' | 'backward' | 'sideways'
 }
 
 /**
@@ -140,6 +149,7 @@ export function drawFlow({
   mounts,
   rows,
   measure = element => element.getBoundingClientRect(),
+  directionOf,
 }: DrawFlowOptions): Drawing {
   const origin = measure(content)
   if (origin.width === 0 && origin.height === 0) {
@@ -206,7 +216,9 @@ export function drawFlow({
     }
     const fromLayer = layerOf.get(edge.from) ?? 0
     const toLayer = layerOf.get(edge.to) ?? 0
-    const direction = toLayer > fromLayer ? 'forward' : toLayer < fromLayer ? 'backward' : 'sideways'
+    const direction =
+      directionOf?.(edge.from, edge.to) ??
+      (toLayer > fromLayer ? 'forward' : toLayer < fromLayer ? 'backward' : 'sideways')
 
     // Leave from the control nearest the side the arrow exits, so it crosses none of its siblings.
     const boxes = edge.controls.flatMap(control => controlBox(edge.from, control) ?? [])

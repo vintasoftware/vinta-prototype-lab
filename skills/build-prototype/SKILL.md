@@ -114,14 +114,14 @@ Rules that keep a prototype useful:
   component nobody has built. Wrap that thing in a `relative` element and put the hotspot inside it
   with no geometry: it fills the wrapper, so it stays on its target at every viewport. Reach for the
   `area` prop only over something that scales as one piece, such as a mock image.
-- **Navigate from a button, a link or a hotspot, never from a `div` with an `onClick`.** The flow
-  map finds links by clicking what a person can reach; a clickable `div` shows no arrow, and it is
+- **Navigate from a button, a link or a hotspot, never from a `div` with an `onClick`.** The
+  canvas finds links by clicking what a person can reach; a clickable `div` shows no arrow, and it is
   not reachable from the keyboard either.
 - **Navigate during the click.** A `goToScreen()` inside a timer or after an `await` is not seen by
-  the map, so the control reads as leading nowhere.
+  the canvas, so the control reads as leading nowhere.
 
-Every screen must be reachable from the entry screen. Open **Flow** (`f`) in the viewer: every card
-should carry an arrow in, none should say **Unreachable**, and there should be no red card — that is
+Every screen must be reachable from the entry screen. Open the canvas with its arrows (`f`) in the
+viewer: every frame should carry an arrow in, none should say **Unreachable**, and there should be no red card. A red card is
 a `goToScreen()` naming a screen that does not exist.
 
 ## 6. Pin the comments
@@ -177,8 +177,8 @@ Then open the viewer and check, on each screen:
 - **Problems tab is empty.** It lists missing default exports, notes pointing at screens that do not
   exist, and an `entry` that is not there.
 - **No comment reads "Target missing"** — that means an `anchor()` was renamed or removed.
-- **Every link goes somewhere**, and Back returns where it came from. The **Flow** map shows all of
-  them at once: no **Unreachable** badge, no red card.
+- **Every link goes somewhere**, and Back returns where it came from. The canvas with its arrows
+  (`f`) shows all of them at once: no **Unreachable** badge, no red card.
 - **The browser console is clean.** A nested-button warning means a `Button` ended up inside a
   `ScreenLink`.
 - **Each state renders**, including the empty and error ones.
@@ -196,7 +196,7 @@ you built.
 | Handwritten `<div>` chrome instead of the design system | The review discusses the mock instead of the design. |
 | A state hidden behind in-screen `useState` | Invisible in the sidebar, so it never gets reviewed. |
 | A hotspot placed with `area` percentages of a flex container | It sits on its target at one width and drifts off it at every other. |
-| Navigation on a `div onClick` | No arrow on the flow map, and no way to reach it from the keyboard. |
-| `goToScreen()` after a timer or an `await` | The map reads the control as leading nowhere. |
+| Navigation on a `div onClick` | No arrow on the canvas, and no way to reach it from the keyboard. |
+| `goToScreen()` after a timer or an `await` | The canvas reads the control as leading nowhere. |
 | Prototypes folder not named `prototypes` | The viewer refuses to start; screen files are recognised by that folder name. |
 | Prototype built as a Storybook story | No flow, no doc, no comments — the reason this tool exists. |

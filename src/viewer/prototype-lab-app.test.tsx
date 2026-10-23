@@ -257,7 +257,7 @@ describe('PrototypeLabApp', () => {
 
     render(<PrototypeLabApp prototypes={prototypes} storybook={false} />)
 
-    await screen.findByRole('button', { name: 'Flow' })
+    await screen.findByRole('button', { name: 'Canvas' })
     expect(fetch).not.toHaveBeenCalled()
     expect(screen.queryByText(/Nothing is serving Storybook at/)).not.toBeInTheDocument()
   })
@@ -273,23 +273,68 @@ describe('PrototypeLabApp', () => {
     })
   })
 
-  it('shows the flow map and opens a screen from one of its cards', async () => {
+  it('shows the canvas and opens a screen from one of its frames', async () => {
     render(<PrototypeLabApp prototypes={prototypes} />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Flow' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Canvas' }))
 
     const home = await screen.findByRole('article', { name: 'Home' })
     const rows = within(home).getByRole('list')
     expect(within(rows).getByText('Book a visit')).toBeInTheDocument()
     expect(within(rows).getByText('Review')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Open Review · Empty' }))
+    await userEvent.dblClick(screen.getByRole('button', { name: 'Review · Empty' }))
 
     expect(screen.getByRole('heading', { name: 'Nothing to review' })).toBeInTheDocument()
     expect(screen.queryByRole('article', { name: 'Home' })).not.toBeInTheDocument()
   })
 
-  it('toggles the flow map with the f key and empties the component tree while it is open', async () => {
+  it('opens the canvas with v, and picking a frame puts its screen in the URL', async () => {
+    render(<PrototypeLabApp prototypes={prototypes} />)
+
+    await userEvent.keyboard('v')
+    await userEvent.click(await screen.findByRole('button', { name: 'Review · Empty' }))
+
+    expect(window.location.hash).toBe('#/p/booking/review/empty')
+    expect(screen.getByRole('button', { name: 'Review · Empty' })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.keyboard('v')
+
+    expect(screen.getByRole('heading', { name: 'Nothing to review' })).toBeInTheDocument()
+  })
+
+  it('turns the arrows off and on with a, only on the canvas', async () => {
+    render(<PrototypeLabApp prototypes={prototypes} />)
+
+    await userEvent.keyboard('a')
+    await userEvent.keyboard('v')
+    const arrows = await screen.findByRole('button', { name: 'Arrows' })
+    expect(arrows).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.keyboard('a')
+
+    expect(arrows).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('opens a comment in the Comments panel from a pin on a frame', async () => {
+    // happy-dom lays nothing out; give every element a box so the pins have somewhere to go.
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 10, y: 10, width: 50, height: 20 })
+    )
+    // happy-dom's IntersectionObserver never reports; without one every frame counts as in view.
+    vi.stubGlobal('IntersectionObserver', undefined)
+    render(<PrototypeLabApp prototypes={prototypes} />)
+
+    await userEvent.keyboard('c')
+    await userEvent.keyboard('v')
+    await screen.findByRole('article', { name: 'Home' })
+    await userEvent.click(await screen.findByRole('button', { name: 'Note 1: One filled button per screen' }))
+
+    expect(screen.getByRole('tab', { name: /Comments/ })).toHaveAttribute('aria-selected', 'true')
+    expect(within(screen.getByRole('tabpanel')).getByText('One filled button per screen')).toBeInTheDocument()
+  })
+
+  it('toggles the canvas with the f key and empties the component tree while it is open', async () => {
     render(<PrototypeLabApp prototypes={prototypes} />)
 
     await userEvent.keyboard('f')

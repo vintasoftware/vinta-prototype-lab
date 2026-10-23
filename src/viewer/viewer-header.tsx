@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   Crosshair,
+  LayoutGrid,
   type LucideIcon,
   Maximize,
   MessageSquare,
@@ -10,7 +11,6 @@ import {
   PanelRightClose,
   RotateCcw,
   SquareDashedMousePointer,
-  Workflow,
 } from 'lucide-react'
 import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
 import type { Prototype, ScreenViewport } from '../types'
@@ -26,7 +26,7 @@ const VIEWPORT_OPTIONS = [
 
 /** The toggles the header shows as named buttons, in the order they sit. */
 const MODES: readonly { name: ViewToggle; label: string; Icon: LucideIcon }[] = [
-  { name: 'flow', label: 'Flow', Icon: Workflow },
+  { name: 'canvas', label: 'Canvas', Icon: LayoutGrid },
   { name: 'inspect', label: 'Inspect', Icon: Crosshair },
   { name: 'hotspots', label: 'Hotspots', Icon: SquareDashedMousePointer },
   { name: 'notes', label: 'Comments', Icon: MessageSquare },

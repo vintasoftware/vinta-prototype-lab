@@ -2,7 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { DEFAULT_VARIANT } from '../lib/constants'
 import { entryScreenId, resolveScreen } from '../lib/discovery'
 import { formatHash, type HashRoute, parseHash, type ScreenRoute } from '../lib/hash-route'
-import { goBack, navigateTo, type SessionState, selectComponent, showVariant, startSession } from '../lib/session'
+import {
+  goBack,
+  navigateTo,
+  type SessionState,
+  selectComponent,
+  showScreen,
+  showVariant,
+  startSession,
+} from '../lib/session'
 import type { Prototype, PrototypeScreen } from '../types'
 
 const EMPTY_STATE: SessionState = { slug: '', current: { screenId: '', variant: DEFAULT_VARIANT }, history: [] }
@@ -65,6 +73,8 @@ export interface PrototypeSession {
   openPrototype: (slug: string) => void
   goToScreen: (screenId: string, options?: { variant?: string }) => void
   selectVariant: (variant: string) => void
+  /** Shows a screen state without adding a step to the flow, as picking a frame on the canvas does. */
+  showScreen: (screenId: string, variant: string) => void
   /** Picks a component on the screen, putting it in the URL so the view can be linked to. */
   pickComponent: (component: string | undefined) => void
   back: () => void
@@ -134,6 +144,10 @@ export function usePrototypeSession(prototypes: readonly Prototype[]): Prototype
     setState(current => showVariant(current, variant))
   }, [])
 
+  const showScreenState = useCallback((screenId: string, variant: string) => {
+    setState(current => showScreen(current, { screenId, variant }))
+  }, [])
+
   const pickComponent = useCallback((component: string | undefined) => {
     setState(current => selectComponent(current, component))
   }, [])
@@ -156,6 +170,7 @@ export function usePrototypeSession(prototypes: readonly Prototype[]): Prototype
     openPrototype,
     goToScreen,
     selectVariant,
+    showScreen: showScreenState,
     pickComponent,
     back,
     canGoBack: state.history.length > 0,

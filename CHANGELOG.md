@@ -3,6 +3,35 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## Unreleased
+
+### Added
+
+- **Canvas** (`v`): every screen state as a frame on one canvas you can pan and zoom, in a section
+  per screen laid out in the flow's columns. Drag, Space and drag, or scroll to pan; Ctrl or Cmd and
+  scroll, pinch, or `+` and `-` to zoom between 5% and 200%; `Shift+1` fits everything and
+  `Shift+2` zooms to the picked frame. Tab and the arrow keys move between frames, and Enter or a
+  double click opens one on the stage. Picking a frame opens that screen state, so the URL, the
+  screen list and the panels follow the canvas. Comment pins sit on the frames and open their
+  comment in the Comments panel.
+- The canvas draws only the frames in view, a couple at a time, and holds new ones back while a pan
+  is moving; below 20% a frame is a card with its title. A generated 60-state fixture,
+  `example/prototypes/canvas-sixty`, measures it (`node scripts/generate-canvas-fixture.mjs` writes it).
+- Device presets, a resizable frame and a presenting mode on the stage (from the
+  `feature/device-toolbar` branch this one builds on).
+
+### Changed
+
+- **The flow map is the canvas's arrow layer.** Arrows (`a` on the canvas) show where each control
+  leads, as the flow map did; `f` opens the canvas with them on, fitted to the whole flow. The
+  header's **Flow** button is now **Canvas**.
+- Where the controls lead is read one screen state at a time, so a large prototype no longer holds
+  the page while it is read, and the canvas says how far along it is.
+
+### Removed
+
+- The `FlowMap` export. `CanvasView` takes its place.
+
 ## [0.1.2] - 2026-09-23
 
 ### Fixed

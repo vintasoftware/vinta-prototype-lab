@@ -6,11 +6,17 @@ import type { Annotation, Prototype } from '../types'
 import { Badge, Button, cn, Tabs, TabsContent, TabsList, TabsTrigger } from '../ui'
 import { CommentComposer, type CommentDraft } from './comment-composer'
 
+/** The panel's tabs. */
+export type PanelTab = 'doc' | 'notes' | 'issues'
+
 export interface SidePanelProps {
   prototype: Prototype
+  /** The tab shown, when the viewer decides it, as a pin clicked on the canvas opens Comments. */
+  tab?: PanelTab
+  onTabChange?: (tab: PanelTab) => void
   notes: NumberedAnnotation[]
   /** Notes whose target is not on the screen right now. Listed apart so the drift is visible. */
-  unanchored: Set<string>
+  unanchored: ReadonlySet<string>
   selectedId?: string
   onSelect: (id: string | undefined) => void
   /** What a new comment would point at: the component picked on the screen. */
@@ -32,6 +38,8 @@ export interface SidePanelProps {
 
 export function SidePanel({
   prototype,
+  tab,
+  onTabChange,
   notes,
   unanchored,
   selectedId,
@@ -52,7 +60,11 @@ export function SidePanel({
 
   return (
     <aside className='flex w-96 shrink-0 flex-col border-border border-l bg-card'>
-      <Tabs defaultValue='doc' className='flex min-h-0 flex-1 flex-col gap-0'>
+      <Tabs
+        {...(tab === undefined ? { defaultValue: 'doc' } : { value: tab })}
+        onValueChange={value => onTabChange?.(value as PanelTab)}
+        className='flex min-h-0 flex-1 flex-col gap-0'
+      >
         <TabsList variant='line' className='shrink-0 px-3 pt-2'>
           <TabsTrigger value='doc'>Doc</TabsTrigger>
           <TabsTrigger value='notes'>Comments {notes.length > 0 && `(${notes.length})`}</TabsTrigger>

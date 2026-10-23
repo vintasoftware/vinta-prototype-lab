@@ -16,6 +16,11 @@ export interface AnnotationOverlayProps {
   rects: Map<string, AnchorRect>
   selectedId?: string
   onSelect: (id: string | undefined) => void
+  /**
+   * Draws the pins at one size on screen however far the frame is zoomed, by the
+   * `--canvas-label-scale` the canvas sets. Off on the stage, which is never zoomed far.
+   */
+  steadyPins?: boolean
 }
 
 const CARD_WIDTH = 288
@@ -28,7 +33,7 @@ const PIN_SIZE = 24
  *
  * Its parent supplies the positioning context — the frame it measures against.
  */
-export function AnnotationOverlay({ notes, rects, selectedId, onSelect }: AnnotationOverlayProps) {
+export function AnnotationOverlay({ notes, rects, selectedId, onSelect, steadyPins }: AnnotationOverlayProps) {
   return (
     <div {...{ [OVERLAY_ATTRIBUTE]: '' }} className='pointer-events-none absolute inset-0 z-20'>
       {notes.map(note => {
@@ -55,7 +60,11 @@ export function AnnotationOverlay({ notes, rects, selectedId, onSelect }: Annota
                 kind.pin,
                 selected && 'ring-2 ring-foreground ring-offset-1'
               )}
-              style={{ top: rect.top - 10, left: overlayBox(rect.left - 10, PIN_SIZE).left }}
+              style={{
+                top: rect.top - 10,
+                left: overlayBox(rect.left - 10, PIN_SIZE).left,
+                ...(steadyPins ? { scale: 'var(--canvas-label-scale, 1)' } : {}),
+              }}
             >
               {note.number}
             </button>

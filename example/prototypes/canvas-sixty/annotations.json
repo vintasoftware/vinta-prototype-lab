@@ -1,0 +1,88 @@
+{
+  "notes": [
+    {
+      "id": "inbox-next",
+      "screen": "inbox",
+      "target": "inbox-next",
+      "kind": "flow",
+      "title": "Next leads to Patients"
+    },
+    {
+      "id": "inbox-title",
+      "screen": "inbox",
+      "target": "inbox-title",
+      "kind": "spec",
+      "title": "Title of Inbox"
+    },
+    {
+      "id": "patients-next",
+      "screen": "patients",
+      "target": "patients-next",
+      "kind": "flow",
+      "title": "Next leads to Patient summary"
+    },
+    {
+      "id": "patients-title",
+      "screen": "patients",
+      "target": "patients-title",
+      "kind": "question",
+      "title": "Title of Patients"
+    },
+    {
+      "id": "patient-summary-next",
+      "screen": "patient-summary",
+      "target": "patient-summary-next",
+      "kind": "flow",
+      "title": "Next leads to Visits"
+    },
+    {
+      "id": "patient-summary-title",
+      "screen": "patient-summary",
+      "target": "patient-summary-title",
+      "kind": "spec",
+      "title": "Title of Patient summary"
+    },
+    {
+      "id": "visits-next",
+      "screen": "visits",
+      "target": "visits-next",
+      "kind": "flow",
+      "title": "Next leads to Visit detail"
+    },
+    {
+      "id": "visits-title",
+      "screen": "visits",
+      "target": "visits-title",
+      "kind": "question",
+      "title": "Title of Visits"
+    },
+    {
+      "id": "visit-detail-next",
+      "screen": "visit-detail",
+      "target": "visit-detail-next",
+      "kind": "flow",
+      "title": "Next leads to Orders"
+    },
+    {
+      "id": "visit-detail-title",
+      "screen": "visit-detail",
+      "target": "visit-detail-title",
+      "kind": "spec",
+      "title": "Title of Visit detail"
+    },
+    {
+      "id": "orders-next",
+      "screen": "orders",
+      "target": "orders-next",
+      "kind": "flow",
+      "title": "Next leads to Order detail"
+    },
+    {
+      "id": "orders-title",
+      "screen": "orders",
+      "target": "orders-title",
+      "kind": "question",
+      "title": "Title of Orders"
+    }
+  ]
+}

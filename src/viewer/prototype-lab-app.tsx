@@ -20,7 +20,7 @@ import { annotationsForScreen } from '../lib/annotations'
 import { canEditAnnotations, nameElement, saveAnnotationEdit } from '../lib/annotations-api'
 import { componentSelector, resolveComponentSelector } from '../lib/component-link'
 import { ancestorPaths, nearestNodePath } from '../lib/component-tree'
-import { FRAME_HEIGHT, VIEWPORT_WIDTH } from '../lib/constants'
+import { DEFAULT_VARIANT, FRAME_HEIGHT, VIEWPORT_WIDTH } from '../lib/constants'
 import {
   type DeviceFrame,
   devicePreset,
@@ -33,17 +33,18 @@ import {
   writeDeviceSettings,
 } from '../lib/device-frame'
 import { distinctScreens } from '../lib/discovery'
+import { flowNodeKey } from '../lib/flow-graph'
 import { readPresenting, writePresenting } from '../lib/present-param'
 import { titleize } from '../lib/screen-id'
 import { SOURCE_ATTRIBUTE, suggestAnchorId } from '../lib/source-ref'
 import type { StorybookOptions } from '../lib/storybook-links'
 import type { Annotation, Prototype, ScreenViewport } from '../types'
 import { cn } from '../ui'
+import { CanvasView } from './canvas/canvas-view'
 import { type CommentDraft, chosenName } from './comment-composer'
 import { EmptyLab } from './empty-lab'
-import { FlowMap } from './flow-map'
 import { PresentingStage } from './presenting-stage'
-import { SidePanel } from './side-panel'
+import { type PanelTab, SidePanel } from './side-panel'
 import { ViewerHeader } from './viewer-header'
 import { ViewerSidebar } from './viewer-sidebar'
 
@@ -54,6 +55,8 @@ export interface PrototypeLabAppProps {
 }
 
 const AUTHOR_KEY = 'prototype-lab.author'
+
+const NONE_MISSING: ReadonlySet<string> = new Set()
 
 function rememberedAuthor(): string {
   try {
@@ -66,7 +69,7 @@ function rememberedAuthor(): string {
 /**
  * The viewer: a prototype's screens on the left, the screen on stage in the middle with the
  * designers' comments drawn over it, and the prototype's documentation on the right. Either side
- * closes, so the screen can have the window to itself. The stage can give way to the flow map,
+ * closes, so the screen can have the window to itself. The stage can give way to the canvas,
  * which shows every screen and where each control leads.
  */
 export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOptions }: PrototypeLabAppProps) {
@@ -111,8 +114,14 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
 
   const frameRef = useRef<HTMLDivElement>(null)
   // The stage leaves the DOM while the map is open, so what was measured on it has to go too.
-  const revision = `${state.slug}/${state.current.screenId}/${state.current.variant}/${toggles.flow ? 'flow' : 'stage'}`
-  const flow = useFlowLinks(prototype, toggles.flow)
+  const revision = `${state.slug}/${state.current.screenId}/${state.current.variant}/${toggles.canvas ? 'canvas' : 'stage'}`
+  const flow = useFlowLinks(prototype, toggles.canvas)
+  // How the canvas opens: `v` centres it on the screen open now; `f`, the old flow map key, fits it all.
+  const [canvasOpening, setCanvasOpening] = useState<'fit' | 'selection'>('selection')
+  const [panelTab, setPanelTab] = useState<PanelTab>('doc')
+  // A pin clicked on another frame changes the screen and picks its note in one go; the reset below
+  // that drops a note when the screen changes must leave that one alone.
+  const keepNote = useRef<string | undefined>(undefined)
 
   const notes: NumberedAnnotation[] = useMemo(() => {
     if (prototype === undefined) {
@@ -327,10 +336,32 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
     })
   }, [])
 
+  const canvasOpen = useRef(toggles.canvas)
+  canvasOpen.current = toggles.canvas
+
+  // Back on the stage, the next `v` opens the canvas on the screen again.
+  useEffect(() => {
+    if (!toggles.canvas) {
+      setCanvasOpening('selection')
+    }
+  }, [toggles.canvas])
+
+  /** `f` opens the canvas with its arrows, fitted to the whole flow, as the flow map opened; again, it closes it. */
+  const openFlow = useCallback(() => {
+    if (canvasOpen.current && toggles.arrows) {
+      setToggle('canvas', false)
+      return
+    }
+    setCanvasOpening('fit')
+    setToggle('arrows', true)
+    setToggle('canvas', true)
+  }, [setToggle, toggles.arrows])
+
   // A note belongs to the screen it was written on; a hover to the tree it was made in.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the effect runs to clear this state whenever `revision` changes.
   useEffect(() => {
-    setSelectedNoteId(undefined)
+    setSelectedNoteId(keepNote.current)
+    keepNote.current = undefined
     setHoveredPath(undefined)
     setComposing(undefined)
     setSaveError(undefined)
@@ -348,6 +379,12 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
       if (named !== undefined) {
         toggle(named)
       }
+      if (event.key === 'a' && canvasOpen.current) {
+        toggle('arrows')
+      }
+      if (event.key === 'f') {
+        openFlow()
+      }
       if (event.key === 'p') {
         setPresenting(true)
       }
@@ -358,7 +395,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [clearComponent, toggle, setPresenting])
+  }, [clearComponent, toggle, setPresenting, openFlow])
 
   if (prototype === undefined) {
     return <EmptyLab />
@@ -379,7 +416,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
     variant: state.current.variant,
     goToScreen: (screenId, options) => {
       setSelectedNoteId(undefined)
-      setToggle('flow', false)
+      setToggle('canvas', false)
       session.goToScreen(screenId, options)
     },
     back: () => {
@@ -436,11 +473,11 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
             screenId={state.current.screenId}
             variant={state.current.variant}
             noteCountByScreen={noteCountByScreen}
-            onSelectScreen={navigation.goToScreen}
-            onSelectVariant={variant => {
-              setToggle('flow', false)
-              session.selectVariant(variant)
-            }}
+            onSelectScreen={screenId =>
+              // On the canvas, picking a screen in the list picks its frame and stays on the canvas.
+              toggles.canvas ? session.showScreen(screenId, DEFAULT_VARIANT) : navigation.goToScreen(screenId)
+            }
+            onSelectVariant={session.selectVariant}
             components={{
               tree,
               ...(selectedPath === undefined ? {} : { selectedPath }),
@@ -465,20 +502,42 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
           ref={stageRef}
           className={cn(
             'flex min-h-0 flex-1 justify-center',
-            toggles.flow ? 'overflow-hidden' : 'overflow-auto overscroll-contain px-6 pt-8 pr-10 pb-10'
+            toggles.canvas ? 'overflow-hidden' : 'overflow-auto overscroll-contain px-6 pt-8 pr-10 pb-10'
           )}
         >
-          {toggles.flow ? (
-            <FlowMap
+          {toggles.canvas ? (
+            <CanvasView
               prototype={prototype}
               flow={flow}
               showHotspots={toggles.hotspots}
+              showNotes={toggles.notes}
+              arrows={toggles.arrows}
+              onToggleArrows={() => toggle('arrows')}
               {...(deviceFrame !== undefined
-                ? { viewport: viewport }
+                ? { frameSize: deviceFrame }
                 : viewportOverride === undefined
                   ? {}
-                  : { viewport: viewportOverride })}
-              onOpenScreen={(screenId, variant) => navigation.goToScreen(screenId, { variant })}
+                  : { frameSize: { width: VIEWPORT_WIDTH[viewportOverride], height: FRAME_HEIGHT[viewportOverride] } })}
+              selectedKey={screen === undefined ? undefined : flowNodeKey(screen.id, screen.variant)}
+              onSelect={session.showScreen}
+              onOpen={(screenId, variant) => {
+                session.showScreen(screenId, variant)
+                setToggle('canvas', false)
+              }}
+              selectedNoteId={selectedNoteId}
+              onPin={(screenId, variant, noteId) => {
+                const moving = screenId !== state.current.screenId || variant !== state.current.variant
+                if (moving) {
+                  keepNote.current = noteId
+                }
+                session.showScreen(screenId, variant)
+                setSelectedNoteId(noteId)
+                if (noteId !== undefined) {
+                  setPanelTab('notes')
+                  setToggle('doc', true)
+                }
+              }}
+              opening={canvasOpening}
             />
           ) : screen === undefined ? (
             <p className='self-center text-muted-foreground text-sm'>
@@ -533,8 +592,11 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
         {toggles.doc && (
           <SidePanel
             prototype={prototype}
+            tab={panelTab}
+            onTabChange={setPanelTab}
             notes={notes}
-            unanchored={unanchored}
+            // The canvas does not measure the open screen's targets, so it reports none as missing.
+            unanchored={toggles.canvas ? NONE_MISSING : unanchored}
             {...(selectedNoteId === undefined ? {} : { selectedId: selectedNoteId })}
             onSelect={setSelectedNoteId}
             {...(pickedTarget === undefined ? {} : { target: pickedTarget })}

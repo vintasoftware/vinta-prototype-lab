@@ -134,7 +134,7 @@ example, or ask your coding agent with the [build-prototype](#the-build-prototyp
 
 [skills/build-prototype](skills/build-prototype/SKILL.md) walks a coding agent through building a
 prototype in the right order: ask the designer what it cannot infer, write the doc first, build one
-file per screen state, link them, pin the comments, check the flow map. Install it either way:
+file per screen state, link them, pin the comments, check the arrows on the canvas. Install it either way:
 
 ```bash
 npx prototype-lab install-skill                         # into .claude/skills
@@ -367,41 +367,83 @@ While inspecting, a click picks instead of navigating: inspecting the button tha
 not start the flow. Comment pins stay clickable. Turn Inspect off and the prototype clicks through
 as before.
 
-## The flow map
+## The canvas
 
-**Flow** (`f`) replaces the stage with every screen state on one canvas, each drawn small, with an
-arrow from each control to the screen it opens. It answers "which button goes where" for the whole
-prototype at once, and it is read-only: the picture comes from the screens, and changing it means
-changing a screen file.
+**Canvas** (`v`) replaces the stage with every screen state of the prototype as a frame on one large
+canvas, the way a design tool lays out its frames. Pan and zoom around it to review a whole
+prototype at once instead of flipping through the screen list one state at a time. Each frame is the
+real screen at its real size, built from the project's own components; the canvas never edits one.
 
-The arrows are found at run time, not declared. When the map opens, the viewer renders each screen
-out of sight inside a runtime whose `goToScreen` and `back` record instead of navigating, clicks
-every control, and notes what each click did. So a `Button` with its own `onClick`, a `ScreenLink`
-and a `Hotspot` all show up the same way, and a link the code no longer makes disappears from the map
-on the next open.
+- **A section per screen.** The states of one screen sit side by side under the screen's name, in
+  the order of the screen list. Sections are laid out in the flow's columns: the entry screen first,
+  then what it leads to, and so on.
+- **The frame's title** names the screen and state, with **Entry**, **Unreachable** and the open
+  comment count beside it.
+- **Comment pins.** With comments on (`c`), each frame carries its numbered pins, as on the stage.
+  Click one to open the comment in the Comments panel.
+- **One size for every frame.** The device toolbar sets the frame size; with "Screen default" each
+  screen keeps its own viewport.
+- **One link everywhere.** Picking a frame opens that screen state in the viewer, so the URL names
+  it, and the screen list, the Doc and Comments panels and a copied link all follow the canvas.
 
-What the map shows:
+It opens centred on the screen you came from, or fitted to everything when opened with `f`.
+
+### Moving around
+
+| Action | Pointer | Keyboard |
+| --- | --- | --- |
+| Pan | Drag on empty canvas, Space and drag anywhere, two-finger scroll | Arrow keys, with the canvas focused and no frame |
+| Zoom | Ctrl or Cmd and the wheel, pinch | `+` and `-` |
+| Fit everything | Toolbar button | `Shift+1` |
+| Zoom to the picked frame | Toolbar button | `Shift+2` |
+| Pick a frame | Click | Tab through the frames in reading order; arrow keys move to the nearest frame that way |
+| Open it on the stage | Double-click, or the toolbar's **Open** | `Enter` |
+| Back to the canvas | The **Canvas** button | `v` |
+
+Zoom runs from 5% to 200%, holding still the point under the pointer, or the picked frame from the
+keyboard. Below 20% a frame is a card with its title only.
+
+### The arrows
+
+**Arrows** (`a`, on the canvas) draw where each control leads, from the control to the screen it
+opens. `f` opens the canvas with them on, fitted to the whole flow, and closes it again. They are
+found at run time, not declared. When the canvas opens, the viewer renders each screen out of sight
+inside a runtime whose `goToScreen` and `back` record instead of navigating, clicks every control,
+and notes what each click did. So a `Button` with its own `onClick`, a `ScreenLink` and a `Hotspot`
+all show up the same way, and a link the code no longer makes disappears on the next open.
+
+What the arrows show:
 
 - **One arrow per destination.** Six slot buttons that all open the review screen are one arrow, and
-  every control that leads there is outlined in the thumbnail. The card lists them:
+  every control that leads there is outlined. The rows under the frame list them:
   `9:00 AM, 9:30 AM +4 → Review`.
-- **Dashed arrows go back to an earlier column** — a "Back to home" link from the last screen.
-- **Controls that call `back()`** are listed on their card as `Previous screen`, with no arrow,
+- **Dashed arrows go back** to a frame further left, like a "Back to home" link from the last screen.
+- **Controls that call `back()`** are listed on their frame as `Previous screen`, with no arrow,
   since where they lead depends on where the person came from.
 - **Entry** marks the screen the prototype opens on; **Unreachable** marks a screen no control
-  leads to — a state a reviewer would never find by clicking through.
-- **A red card** stands in for a screen id that a control opens but no file defines. That is a typo
-  in a `goToScreen()` call, and the map is where it shows.
-- **Click a card** to put that screen state on stage.
+  leads to, a state a reviewer would never find by clicking through.
+- **A red card** in a section of its own stands in for a screen id that a control opens but no file
+  defines. That is a typo in a `goToScreen()` call, and the canvas is where it shows.
 
-The screens are laid out in columns by how many clicks they are from the entry, and the viewport
-switcher redraws every thumbnail in the chosen frame. Zoom with the toolbar; the map opens fitted.
-
-Two things the map cannot see. A control that navigates later — from a timer, after an `await` — is
-read as leading nowhere, because only what happens during the click counts. And a `div` with an
-`onClick` is not clicked at all: the probe clicks what a person can reach — buttons, links, and
-elements with an interactive role — so a clickable `div` shows no arrow, which is also the
+Two things the arrows cannot see. A control that navigates later, from a timer or after an `await`,
+is read as leading nowhere, because only what happens during the click counts. And a `div` with an
+`onClick` is not clicked at all: the probe clicks what a person can reach (buttons, links, and
+elements with an interactive role), so a clickable `div` shows no arrow, which is also the
 accessibility bug it is.
+
+### Large prototypes
+
+Every frame is a live render of its screen, so the canvas draws only the frames in view, a couple at
+a time, and holds new ones back while a pan is moving. A frame out of view, or below 20%, is a card
+with its title. With 60 desktop states the canvas is usable in about half a second and pans at the
+display's frame rate.
+
+### Screens on the canvas: media queries follow the window
+
+A frame changes a screen's width, but CSS media queries keep reading the browser window, on the
+canvas and on the stage alike. Container queries read the frame. For anything in a screen that must
+respond to the frame it is drawn in, prefer container queries (Tailwind's `@container` and `@md:`
+variants) over `md:` and other media query variants.
 
 ## Using the viewer
 
@@ -409,14 +451,15 @@ accessibility bug it is.
   folder — a missing default export, a note pointing at a screen that does not exist, an entry
   screen that is not there. The viewer never fails to start over a broken prototype.
 - **Either side closes.** The icon beside the title closes the screens rail; the one at the far
-  right closes the doc panel. With both shut, the screen — or the flow map — has the window to
+  right closes the doc panel. With both shut, the screen or the canvas has the window to
   itself, which is what you want when presenting or reading a wide desktop screen.
 - **Deep links.** The URL carries the screen: `#/p/patient-booking/choose-time/no-slots`, and the
   picked component with it. Paste it into a ticket. In-prototype **Back** is the flow's own back, so
   the URL is replaced rather than pushed.
-- **Keys.** `c` toggles comments, `h` toggles hotspots, `i` toggles inspect mode, `f` toggles the
-  flow map, `[` and `]` close the panels either side, `Esc` clears the open note and the picked
-  component.
+- **Keys.** `c` toggles comments, `h` toggles hotspots, `i` toggles inspect mode, `v` toggles the
+  canvas, `a` its arrows, `f` opens it with the arrows on, `[` and `]` close the panels either side,
+  `Esc` clears the open note and the picked component. The canvas has its own keys, listed under
+  [Moving around](#moving-around).
 
 ## What this is not
 
@@ -439,7 +482,7 @@ node scripts/smoke-test.mjs   # installs the packed package into a throwaway pro
 | `src/lib`             | Reading a folder: front matter, screen filenames, annotations, markdown. The flow graph and the probe that reads links out of a screen. |
 | `src/components`      | What a prototype screen imports: `anchor`, `ScreenLink`, `Hotspot`, the frame; the thumbnail the map draws. |
 | `src/hooks`           | Session state, inspect mode, the flow links, and the measuring the overlays need. |
-| `src/viewer`          | The viewer's own chrome, the flow map included, and `mountViewer`.             |
+| `src/viewer`          | The viewer's own chrome, the canvas included, and `mountViewer`.                |
 | `src/ui`              | The shadcn/ui components the chrome is built from, vendored.                  |
 | `src/dev`             | The dev-server plugins: stamping where each element was written, and writing comments and names back. |
 | `src/node`            | The Vite plugin, the CLI, and the skill installer.                            |

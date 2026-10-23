@@ -60,6 +60,17 @@ export function showVariant(state: SessionState, variant: string): SessionState 
   return moveTo(state, { ...state.current, variant }, state.history)
 }
 
+/**
+ * Shows another screen state without making it a step in the flow, as picking a frame on the
+ * canvas does. History is left alone, so Back still means the flow's own back.
+ */
+export function showScreen(state: SessionState, next: ScreenAddress): SessionState {
+  if (sameAddress(state.current, next)) {
+    return state
+  }
+  return moveTo(state, next, state.history)
+}
+
 /** Picks a component on the screen, or clears the pick. */
 export function selectComponent(state: SessionState, component: string | undefined): SessionState {
   if (state.component === component) {

@@ -71,6 +71,6 @@ export type {
   ScreenModule,
   ScreenViewport,
 } from './types'
-export { FlowMap } from './viewer/flow-map'
+export { CanvasView, type CanvasViewProps } from './viewer/canvas/canvas-view'
 export { mountViewer, type ViewerOptions } from './viewer/mount-viewer'
 export { PrototypeLabApp, type PrototypeLabAppProps } from './viewer/prototype-lab-app'
