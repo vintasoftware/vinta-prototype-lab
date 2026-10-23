@@ -517,8 +517,9 @@ variants) over `md:` and other media query variants.
 
 The **Dev** tab of the right panel says how the picked element is built, on the stage and on the
 canvas. Turn on Inspect (`i`, the crosshair in the header, or the **Inspect** button in the Dev tab)
-and click an element, or pick its row in the component tree. On the
-canvas, Inspect works in the picked frame: its screen takes the pointer while Inspect is on.
+and click an element, or pick its row in the component tree. Turning Inspect on opens the right
+panel on the Dev tab, unless a comment is being written; turning it off leaves the panel as it is. On
+the canvas, Inspect works in the picked frame: its screen takes the pointer while Inspect is on.
 
 - **Element**: the component's name and path, as the tree shows them, its semantic id, its
   Storybook page, and where it was written, `screens/10-home.tsx:34`. **Open in editor** opens that

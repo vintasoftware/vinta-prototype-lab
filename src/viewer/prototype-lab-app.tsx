@@ -135,6 +135,16 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
   // How the canvas opens: `v` centres it on the screen open now; `f`, the old flow map key, fits it all.
   const [canvasOpening, setCanvasOpening] = useState<'fit' | 'selection'>('selection')
   const [panelTab, setPanelTab] = useState<PanelTab>('doc')
+  // Turning Inspect on, from any button or key, opens the Dev tab, which is where a picked element
+  // is explained. A comment being written keeps its tab; turning Inspect off leaves the panel alone.
+  const wasInspecting = useRef(toggles.inspect)
+  useEffect(() => {
+    if (toggles.inspect && !wasInspecting.current && composing === undefined) {
+      setToggle('doc', true)
+      setPanelTab('dev')
+    }
+    wasInspecting.current = toggles.inspect
+  }, [toggles.inspect, composing, setToggle])
   // A pin clicked on another frame changes the screen and picks its note in one go; the reset below
   // that drops a note when the screen changes must leave that one alone.
   const keepNote = useRef<string | undefined>(undefined)

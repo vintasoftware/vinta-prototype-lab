@@ -57,6 +57,7 @@ All notable changes to this package are recorded here. Versions follow
 - The header shows Vinta's mark beside "Prototype Lab", on windows wide enough for the title.
 - The side panels slide in and out over 200ms on the stage, and the prototype picker grows out of its
   button. Both are instant with reduced motion, and the panels stay instant on the canvas.
+- Turning Inspect on opens the right panel on the Dev tab, unless a comment is being written.
 
 ### Fixed
 

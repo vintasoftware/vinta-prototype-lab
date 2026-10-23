@@ -918,6 +918,33 @@ describe('PrototypeLabApp', () => {
       expect(within(screen.getByRole('tabpanel')).getByText('CardTitle')).toBeInTheDocument()
     })
 
+    it('opens the Dev tab when Inspect turns on, and leaves it open when Inspect turns off', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+      const inspect = within(screen.getByRole('banner')).getByRole('button', { name: 'Inspect' })
+
+      await userEvent.click(inspect)
+
+      expect(screen.getByRole('tab', { name: 'Dev' })).toHaveAttribute('aria-selected', 'true')
+
+      await userEvent.click(inspect)
+
+      expect(screen.getByRole('tab', { name: 'Dev' })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('keeps the Comments tab when Inspect turns on while a comment is being written', async () => {
+      await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.click(
+        within(screen.getByRole('list', { name: 'Components' })).getByRole('button', { name: 'Badge #task-count' })
+      )
+      await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
+      await userEvent.click(screen.getByRole('button', { name: 'Comment on task-count' }))
+
+      await userEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Inspect' }))
+
+      expect(screen.getByRole('tab', { name: /Comments/ })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByLabelText('Title')).toBeInTheDocument()
+    })
+
     it('turns Inspect on from the Dev tab, the same as the I key', async () => {
       await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
       await userEvent.click(screen.getByRole('tab', { name: 'Dev' }))
