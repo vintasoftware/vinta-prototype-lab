@@ -6,6 +6,7 @@ import {
   resetCanvas,
   savedPositions,
   serializeCanvasFile,
+  withReady,
   withViewports,
 } from './canvas-file'
 
@@ -97,5 +98,37 @@ describe('arranging', () => {
 
   it('serializes as two-space JSON with a final newline', () => {
     expect(serializeCanvasFile(resetCanvas(undefined))).toBe('{\n  "version": 1,\n  "sections": []\n}\n')
+  })
+})
+
+describe('ready for dev', () => {
+  it('reads the states marked ready, dropping one no screen has, with a line saying so', () => {
+    const { canvas, issues } = parseCanvasFile(
+      { version: 1, sections: [], ready: ['home/default', 'gone/default'] },
+      'canvas.json',
+      screens,
+      new Set(['home/default', 'review/default'])
+    )
+
+    expect(canvas?.ready).toEqual(['home/default'])
+    expect(issues).toEqual([
+      'canvas.json: "gone/default" is marked ready for dev, but no screen state has that name, so it was dropped.',
+    ])
+  })
+
+  it('marks and unmarks a state, keeping the layout and the viewports', () => {
+    const start = { version: 1 as const, sections: [{ screen: 'home', x: 0, y: 0 }], viewports: ['tablet' as const] }
+
+    const marked = withReady(start, 'review/default', true)
+    expect(marked).toEqual({ ...start, ready: ['review/default'] })
+    expect(withReady(marked, 'review/default', false).ready).toEqual([])
+  })
+
+  it('keeps the ready states through a move, a reset and a change of viewports', () => {
+    const start = { version: 1 as const, sections: [], ready: ['home/default'] }
+
+    expect(arrangedCanvas(start, [{ screen: 'home', x: 1, y: 1 }]).ready).toEqual(['home/default'])
+    expect(resetCanvas(start).ready).toEqual(['home/default'])
+    expect(withViewports(start, ['desktop']).ready).toEqual(['home/default'])
   })
 })

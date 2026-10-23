@@ -63,7 +63,8 @@ describe('DevPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open in editor' }))
 
     expect(fetch).toHaveBeenCalledWith(
-      `/__open-in-editor?file=${encodeURIComponent('prototypes/booking/screens/10-home.tsx:34:8')}`
+      // The stamp counts columns from 0; editors from 1.
+      `/__open-in-editor?file=${encodeURIComponent('prototypes/booking/screens/10-home.tsx:34:9')}`
     )
   })
 
@@ -132,5 +133,53 @@ describe('DevPanel', () => {
 
     const top = screen.getByRole('rowheader', { name: 'top' }).closest('tr') as HTMLElement
     expect(within(top).getAllByRole('cell')[0]).toHaveTextContent('12')
+  })
+
+  it('shows the JSX the element was written as, read through the dev server, with a copy button', async () => {
+    const fetch = vi.fn((url: string) =>
+      Promise.resolve(
+        url === '/__source-snippet'
+          ? { ok: true, json: () => Promise.resolve({ snippet: "<Button variant='outline'>\n  …\n</Button>" }) }
+          : { ok: true }
+      )
+    )
+    vi.stubGlobal('fetch', fetch)
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    const element = picked('<button data-proto-src="prototypes/booking/screens/10-home.tsx:34:8:Button">Book</button>')
+    renderPanel({ element, frame })
+
+    expect(await screen.findByText(/<Button variant='outline'>/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Copy the snippet' }))
+    expect(writeText).toHaveBeenCalledWith("<Button variant='outline'>\n  …\n</Button>")
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
+  })
+
+  it('reads no snippet in a built copy', () => {
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    const element = picked('<button data-proto-src="prototypes/booking/screens/10-home.tsx:34:8:Button">Book</button>')
+    renderPanel({ element, frame, canOpenSource: false })
+
+    expect(fetch).not.toHaveBeenCalled()
+    expect(screen.queryByText('Snippet')).not.toBeInTheDocument()
+  })
+
+  it('says the role, the accessible name, the contrast against AA and whether the keyboard reaches it', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('no server')))
+    )
+    const element = picked(
+      '<button style="color: rgb(255, 255, 255); background-color: rgb(0, 0, 0); font-size: 14px">Book a visit</button>'
+    )
+    renderPanel({ element, frame, canOpenSource: false })
+
+    const section = screen.getByText('Accessibility').closest('section') as HTMLElement
+    expect(within(section).getByText('button')).toBeInTheDocument()
+    expect(within(section).getByText('Book a visit')).toBeInTheDocument()
+    expect(within(section).getByText('21:1')).toBeInTheDocument()
+    expect(within(section).getByText('Passes AA (4.5:1)')).toBeInTheDocument()
+    expect(within(section).getByText('Reachable with Tab')).toBeInTheDocument()
   })
 })

@@ -10,6 +10,11 @@ import { probePrototype } from '../../lib/probe-screen'
 import type { CanvasFile } from '../../types'
 import { CanvasView, type CanvasViewProps } from './canvas-view'
 
+vi.mock('../../lib/export-png', () => ({
+  exportPng: vi.fn(() => Promise.resolve()),
+  pngFileName: (slug: string, screenId: string, variant: string) => `${slug}--${screenId}--${variant}.png`,
+}))
+
 function HomeScreen() {
   const { goToScreen } = useScreenNavigation()
   return (
@@ -621,6 +626,57 @@ describe('CanvasView', () => {
 
       expect(screen.getByText('Good morning').closest('[data-viewport]')).toHaveStyle({ width: '834px' })
       expect(frames()).toHaveLength(4)
+    })
+  })
+
+  describe('ready for dev and PNG', () => {
+    const withReady = (ready: string[]) => ({
+      ...(prototype as NonNullable<typeof prototype>),
+      canvas: { version: 1 as const, sections: [], ready },
+    })
+
+    it('marks the states canvas.json says are ready for dev', () => {
+      renderCanvas({ prototype: withReady(['review/empty']) })
+
+      expect(
+        within(screen.getByRole('article', { name: 'Review · Empty' })).getByText('Ready for dev')
+      ).toBeInTheDocument()
+      expect(within(screen.getByRole('article', { name: 'Home' })).queryByText('Ready for dev')).not.toBeInTheDocument()
+    })
+
+    it('marks the picked state ready with the dev server, and unmarks it', async () => {
+      const marking = renderCanvas({ canArrange: true, selectedKey: 'home/default' })
+      await userEvent.click(screen.getByRole('button', { name: 'Ready for dev' }))
+      expect(marking.onArrange).toHaveBeenLastCalledWith({ version: 1, sections: [], ready: ['home/default'] })
+    })
+
+    it('unmarks a state that is ready', async () => {
+      const { onArrange } = renderCanvas({
+        canArrange: true,
+        selectedKey: 'review/empty',
+        prototype: withReady(['review/empty']),
+      })
+
+      expect(screen.getByRole('button', { name: 'Ready for dev' })).toHaveAttribute('aria-pressed', 'true')
+      await userEvent.click(screen.getByRole('button', { name: 'Ready for dev' }))
+      expect(onArrange).toHaveBeenLastCalledWith({ version: 1, sections: [], ready: [] })
+    })
+
+    it('offers no way to mark a state without the dev server', () => {
+      renderCanvas({ selectedKey: 'home/default' })
+
+      expect(screen.queryByRole('button', { name: 'Ready for dev' })).not.toBeInTheDocument()
+    })
+
+    it("saves the picked frame's screen as a PNG named after it", async () => {
+      const { exportPng } = await import('../../lib/export-png')
+      renderCanvas({ selectedKey: 'review/empty' })
+
+      await userEvent.click(screen.getByRole('button', { name: 'PNG' }))
+
+      const [element, name] = vi.mocked(exportPng).mock.calls[0] ?? []
+      expect(element).toHaveTextContent('Nothing to review')
+      expect(name).toBe('booking--review--empty.png')
     })
   })
 })

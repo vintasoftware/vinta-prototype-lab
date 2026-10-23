@@ -10,9 +10,16 @@ import {
 } from '../lib/annotation-edit'
 import { annotationSchema, parseAnnotationsFile } from '../lib/annotations'
 import { canvasFileSchema, serializeCanvasFile } from '../lib/canvas-file'
-import { ANNOTATIONS_ENDPOINT, CANVAS_ENDPOINT, NAME_ELEMENT_ENDPOINT, parseSourceRef } from '../lib/source-ref'
+import {
+  ANNOTATIONS_ENDPOINT,
+  CANVAS_ENDPOINT,
+  NAME_ELEMENT_ENDPOINT,
+  parseSourceRef,
+  SNIPPET_ENDPOINT,
+} from '../lib/source-ref'
 import type { Annotation } from '../types'
 import { addAnchor } from './add-anchor'
+import { jsxSnippet } from './source-snippet'
 import { isScreenFile } from './stamp-jsx-source'
 
 /**
@@ -71,6 +78,34 @@ export function annotationsPathFor(prototypesDir: string, slug: string): string 
 /** The canvas file a slug names, or undefined when the slug is not a path of plain folder names. */
 export function canvasPathFor(prototypesDir: string, slug: string): string | undefined {
   return prototypeFileFor(prototypesDir, slug, 'canvas.json')
+}
+
+/** Asks for the JSX an element was written as, by the stamp on it. */
+const snippetRequestSchema = z.object({ source: z.string().min(1) })
+
+export interface SnippetResult {
+  status: number
+  body: { snippet: string } | { error: string }
+}
+
+/**
+ * Reads the JSX an element was written as. Like naming, only a file under a prototype's `screens/`
+ * is ever opened, and the position comes from the stamp the dev server put on the element. It
+ * writes nothing.
+ */
+export async function readSnippet(root: string, source: string): Promise<SnippetResult> {
+  const ref = parseSourceRef(source)
+  if (ref === undefined) {
+    return { status: 400, body: { error: 'That element carries no source to read.' } }
+  }
+  const file = path.resolve(root, ref.file)
+  if (!isScreenFile(file) || path.relative(root, file).startsWith('..')) {
+    return { status: 400, body: { error: 'Only a screen of a prototype can be read.' } }
+  }
+  const snippet = jsxSnippet(await readFile(file, 'utf8'), ref.line, ref.column, ref.tag)
+  return snippet === undefined
+    ? { status: 409, body: { error: 'The element has moved since the screen was drawn. Reload and try again.' } }
+    : { status: 200, body: { snippet } }
 }
 
 /** Asks for a prototype's canvas arrangement to be written. */
@@ -318,6 +353,7 @@ export function annotationsWriter(options: { prototypesDir: string; root: string
         return result
       })
       serve(NAME_ELEMENT_ENDPOINT, nameElementRequestSchema, payload => nameElement(options.root, payload))
+      serve(SNIPPET_ENDPOINT, snippetRequestSchema, payload => readSnippet(options.root, payload.source))
       serve(CANVAS_ENDPOINT, canvasRequestSchema, async payload => {
         const result = await writeCanvas(options.prototypesDir, payload, (file, content) => {
           written.set(normalizePath(file), content)

@@ -160,7 +160,12 @@ export function buildPrototypes(sources: PrototypeSources): Prototype[] {
     const canvas: ParsedCanvasFile =
       canvasEntry === undefined
         ? { issues: [] }
-        : parseCanvasFile(canvasEntry[1], fileNameOf(canvasEntry[0]), screenIds)
+        : parseCanvasFile(
+            canvasEntry[1],
+            fileNameOf(canvasEntry[0]),
+            screenIds,
+            new Set(screens.map(screen => `${screen.id}/${screen.variant}`))
+          )
     issues.push(...canvas.issues)
 
     const group = slug.split('/').slice(0, -1)

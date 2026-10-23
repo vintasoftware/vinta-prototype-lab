@@ -73,6 +73,8 @@ export interface CanvasFrameProps {
   inspectable?: boolean
   /** Drawn over the screen, as the stage draws its inspect outlines and measurements. */
   overlay?: ReactNode
+  /** Marked ready for an engineer to build, in `canvas.json`. */
+  ready?: boolean
   box: CanvasFrameBox
   /** The size the screen renders at, before the canvas zoom. */
   frameSize: FrameSize
@@ -117,6 +119,7 @@ export const CanvasFrame = memo(function CanvasFrame({
   live,
   inspectable = false,
   overlay,
+  ready = false,
   box,
   frameSize,
   edges,
@@ -189,6 +192,7 @@ export const CanvasFrame = memo(function CanvasFrame({
           {viewportLabel !== undefined && <Badge variant='neutral'>{viewportLabel}</Badge>}
           {node.entry && <Badge variant='primary'>Entry</Badge>}
           {node.unreachable && <Badge variant='warning'>Unreachable</Badge>}
+          {ready && <Badge variant='success'>Ready for dev</Badge>}
           {live !== undefined && (
             <>
               <Badge variant='success'>Live</Badge>

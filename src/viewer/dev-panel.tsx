@@ -1,6 +1,8 @@
-import { BookOpen, ExternalLink, Ruler, TriangleAlert } from 'lucide-react'
-import { type ReactNode, useMemo, useState } from 'react'
+import { BookOpen, Check, Copy, ExternalLink, Ruler, TriangleAlert } from 'lucide-react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type AccessibilityReading, type KeyboardReach, readAccessibility } from '../lib/accessibility'
 import { measureAnchor } from '../lib/anchor-rect'
+import { fetchSnippet } from '../lib/annotations-api'
 import type { BoxModel, Measurement } from '../lib/measure'
 import { boxModel } from '../lib/measure'
 import { parseSourceRef, SOURCE_ATTRIBUTE } from '../lib/source-ref'
@@ -156,6 +158,11 @@ export function DevPanel({
     [element, frame]
   )
   const [openError, setOpenError] = useState<string | undefined>(undefined)
+  const accessibility = useMemo(
+    () => (element === undefined ? undefined : readAccessibility(element, frame ?? element.ownerDocument.body)),
+    [element, frame]
+  )
+  const snippet = useSnippet(element, canOpenSource)
 
   if (element === undefined || readings === undefined) {
     return (
@@ -220,7 +227,8 @@ export function DevPanel({
                     size='xs'
                     onClick={() => {
                       setOpenError(undefined)
-                      openInEditor(ref.file, ref.line, ref.column).catch((thrown: unknown) =>
+                      // The stamp counts columns from 0, as the parser does; editors count from 1.
+                      openInEditor(ref.file, ref.line, ref.column + 1).catch((thrown: unknown) =>
                         setOpenError(thrown instanceof Error ? thrown.message : String(thrown))
                       )
                     }}
@@ -247,6 +255,18 @@ export function DevPanel({
           </p>
         )}
       </Section>
+
+      {snippet !== undefined && (
+        <Section title='Snippet'>
+          <SnippetView snippet={snippet} />
+        </Section>
+      )}
+
+      {accessibility !== undefined && (
+        <Section title='Accessibility'>
+          <AccessibilityView reading={accessibility} />
+        </Section>
+      )}
 
       <Section title='Colors'>
         <Readings readings={readings.colors} />
@@ -364,5 +384,96 @@ function BoxModelTable({ box }: { box: BoxModel }) {
         ))}
       </tbody>
     </table>
+  )
+}
+
+/** The JSX of the element as written, read from its screen file, or why it could not be read. */
+type Snippet = { text: string } | { error: string } | 'loading'
+
+/** Reads the picked element's JSX through the dev server, which a built copy does not have. */
+function useSnippet(element: Element | undefined, available: boolean): Snippet | undefined {
+  const [snippet, setSnippet] = useState<Snippet | undefined>(undefined)
+  useEffect(() => {
+    const stamped = element?.closest(`[${SOURCE_ATTRIBUTE}]`)?.getAttribute(SOURCE_ATTRIBUTE) ?? undefined
+    if (!available || stamped === undefined) {
+      setSnippet(undefined)
+      return
+    }
+    let current = true
+    setSnippet('loading')
+    fetchSnippet(stamped)
+      .then(text => current && setSnippet({ text }))
+      .catch(
+        (thrown: unknown) => current && setSnippet({ error: thrown instanceof Error ? thrown.message : String(thrown) })
+      )
+    return () => {
+      current = false
+    }
+  }, [element, available])
+  return snippet
+}
+
+function SnippetView({ snippet }: { snippet: Snippet }) {
+  const [copied, setCopied] = useState(false)
+  if (snippet === 'loading') {
+    return <p className='text-muted-foreground text-xs'>Reading the screen file…</p>
+  }
+  if ('error' in snippet) {
+    return <p className='text-muted-foreground text-xs'>{snippet.error}</p>
+  }
+  return (
+    <div className='relative'>
+      <pre className='overflow-x-auto rounded-md bg-muted p-2 pr-9 font-mono text-xs'>
+        <code>{snippet.text}</code>
+      </pre>
+      <Button
+        variant='ghost'
+        size='icon-xs'
+        aria-label={copied ? 'Copied' : 'Copy the snippet'}
+        title='Copy the snippet'
+        className='absolute top-1.5 right-1.5'
+        onClick={() => {
+          void navigator.clipboard?.writeText(snippet.text).then(() => setCopied(true))
+        }}
+      >
+        {copied ? <Check /> : <Copy />}
+      </Button>
+    </div>
+  )
+}
+
+const KEYBOARD_REACH: Readonly<Record<KeyboardReach, { text: string; good: boolean }>> = {
+  tab: { text: 'Reachable with Tab', good: true },
+  'script-only': { text: 'Focusable, but tabindex="-1" keeps it out of the Tab order', good: false },
+  none: { text: 'Not focusable', good: false },
+  inert: { text: 'Inside an inert region, so nothing can focus it', good: false },
+  hidden: { text: 'Not drawn, so nothing can reach it', good: false },
+}
+
+/** Role, accessible name, contrast and keyboard reach, as assistive technology and WCAG see them. */
+function AccessibilityView({ reading }: { reading: AccessibilityReading }) {
+  const reach = KEYBOARD_REACH[reading.keyboard]
+  return (
+    <dl className='grid grid-cols-[6rem_1fr] gap-x-2 gap-y-1'>
+      <dt className='text-muted-foreground'>Role</dt>
+      <dd className='font-mono'>{reading.role ?? 'none'}</dd>
+      <dt className='text-muted-foreground'>Name</dt>
+      <dd>{reading.name === '' ? <span className='text-muted-foreground'>No accessible name</span> : reading.name}</dd>
+      <dt className='text-muted-foreground'>Contrast</dt>
+      <dd className='flex flex-wrap items-center gap-2'>
+        {reading.contrast === undefined ? (
+          <span className='text-muted-foreground'>Unknown: a colour is in a form the viewer cannot read.</span>
+        ) : (
+          <>
+            <span className='font-mono tabular-nums'>{reading.contrast.ratio}:1</span>
+            <Badge variant={reading.contrast.passes ? 'success' : 'destructive'}>
+              {reading.contrast.passes ? 'Passes' : 'Fails'} AA ({reading.contrast.minimum}:1)
+            </Badge>
+          </>
+        )}
+      </dd>
+      <dt className='text-muted-foreground'>Keyboard</dt>
+      <dd className={cn(!reach.good && 'text-warning')}>{reach.text}</dd>
+    </dl>
   )
 }

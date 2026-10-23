@@ -1,5 +1,7 @@
 import {
   AlertTriangle,
+  BadgeCheck,
+  Download,
   ExternalLink,
   LayoutGrid,
   Maximize,
@@ -39,10 +41,11 @@ import {
   ZOOM_STEP,
   zoomAt,
 } from '../../lib/canvas-camera'
-import { arrangedCanvas, resetCanvas, savedPositions, withViewports } from '../../lib/canvas-file'
+import { arrangedCanvas, resetCanvas, savedPositions, withReady, withViewports } from '../../lib/canvas-file'
 import { arrowDirection, type CanvasFrameBox, type CanvasSection, layoutCanvas } from '../../lib/canvas-layout'
 import { FRAME_HEIGHT, VIEWPORT_WIDTH } from '../../lib/constants'
 import type { FrameSize } from '../../lib/device-frame'
+import { exportPng, pngFileName } from '../../lib/export-png'
 import { cardSizeAround, type Drawing, drawFlow, edgeKey, MISSING_SIZE, NOTHING_DRAWN } from '../../lib/flow-drawing'
 import {
   buildFlowGraph,
@@ -809,6 +812,28 @@ export function CanvasView({
     [onPin]
   )
 
+  // Ready for dev, per screen state, kept in canvas.json next to the layout.
+  const readyStates = useMemo(() => new Set(prototype.canvas?.ready ?? []), [prototype.canvas?.ready])
+  const toggleReady = () => {
+    if (selectedKey !== undefined) {
+      save(withReady(prototype.canvas, selectedKey, !readyStates.has(selectedKey)))
+    }
+  }
+
+  // The picked frame's screen, saved as a PNG at twice its size. It needs no server.
+  const [exportError, setExportError] = useState<string | undefined>(undefined)
+  const exportPicked = () => {
+    const mount = selectedKey === undefined ? undefined : mounts.current.get(selectedKey)
+    const node = selectedKey === undefined ? undefined : nodeByKey.get(selectedKey)
+    if (mount === undefined || node === undefined) {
+      return
+    }
+    setExportError(undefined)
+    exportPng(mount, pngFileName(prototype.slug, node.screen.id, node.screen.variant)).catch((thrown: unknown) =>
+      setExportError(thrown instanceof Error ? thrown.message : String(thrown))
+    )
+  }
+
   if (prototype.screens.length === 0) {
     return (
       <p className='self-center text-muted-foreground text-sm'>
@@ -932,6 +957,34 @@ export function CanvasView({
             Reset layout
           </Button>
         )}
+        {canArrange && (
+          <Button
+            variant={selectedKey !== undefined && readyStates.has(selectedKey) ? 'light' : 'ghost'}
+            size='sm'
+            aria-pressed={selectedKey !== undefined && readyStates.has(selectedKey)}
+            disabled={selectedNode === undefined}
+            title='Mark the picked screen state ready for an engineer to build'
+            onClick={toggleReady}
+          >
+            <BadgeCheck />
+            Ready for dev
+          </Button>
+        )}
+        <Button
+          variant='ghost'
+          size='sm'
+          disabled={selectedKey === undefined || !pickedDrawn}
+          title='Save the picked frame as a PNG'
+          onClick={exportPicked}
+        >
+          <Download />
+          PNG
+        </Button>
+        {exportError !== undefined && (
+          <p role='alert' className='text-destructive text-xs'>
+            The PNG was not saved: {exportError}
+          </p>
+        )}
         {arrangeError !== undefined && (
           <p role='alert' className='text-destructive text-xs'>
             The layout was not saved: {arrangeError}
@@ -1005,6 +1058,7 @@ export function CanvasView({
                         ? {}
                         : { viewportLabel: VIEWPORT_LABEL[secondary ? second : (first ?? second)] })}
                       secondary={secondary}
+                      ready={!secondary && readyStates.has(node.key)}
                       {...(isLive === undefined ? {} : { live: isLive })}
                       {...(node.key === selectedKey && !secondary && isLive === undefined
                         ? { inspectable: inspecting, overlay: inspectOverlay }

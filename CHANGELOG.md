@@ -27,6 +27,14 @@ All notable changes to this package are recorded here. Versions follow
   token, flagging a value no token produces; its size in frame pixels; and **Measure** (Alt and
   hover, or `M` and the component tree) for the distances to another element. It works on the stage
   and in the picked frame of the canvas.
+- **Accessibility, snippet**: the Dev tab gives the role and accessible name (via
+  `dom-accessibility-api`), the text contrast against its background with pass or fail for AA, and
+  whether the keyboard reaches the element; under the dev server it also shows the element's JSX as
+  written, children collapsed, with a copy button.
+- **Ready for dev**: mark a screen state ready from the canvas; the marks are saved in `canvas.json`.
+- **PNG**: save the picked frame's screen as an image.
+- New dependencies: `dom-accessibility-api` (MIT), and `html-to-image` (MIT), loaded only when a PNG
+  is exported.
 - The canvas draws only the frames in view, a couple at a time, and holds new ones back while a pan
   is moving; below 20% a frame is a card with its title. A generated 60-state fixture,
   `example/prototypes/canvas-sixty`, measures it (`node scripts/generate-canvas-fixture.mjs` writes it).

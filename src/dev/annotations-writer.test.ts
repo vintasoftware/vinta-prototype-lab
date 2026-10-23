@@ -11,6 +11,7 @@ import {
   editAnnotations,
   fromTheViewer,
   nameElement,
+  readSnippet,
   servedBy,
   writeCanvas,
 } from './annotations-writer'
@@ -199,6 +200,30 @@ describe('writeCanvas', () => {
     expect(canvasPathFor(prototypesDir, 'billing/refunds')).toBe(
       path.join(prototypesDir, 'billing', 'refunds', 'canvas.json')
     )
+  })
+})
+
+describe('readSnippet', () => {
+  const screenFile = () => path.join(prototypesDir, 'booking', 'screens', '10-home.tsx')
+
+  it('answers with the JSX the stamp points at, read from the screen file', async () => {
+    await writeFile(
+      screenFile(),
+      "export default () => (\n  <div>\n    <button className='x'>Go</button>\n  </div>\n)\n"
+    )
+    const source = `${path.relative(root, screenFile())}:3:4:button`
+
+    expect(await readSnippet(root, source)).toEqual({
+      status: 200,
+      body: { snippet: "<button className='x'>\n  …\n</button>" },
+    })
+  })
+
+  it('refuses a file that is not a screen, and a stale position', async () => {
+    await writeFile(screenFile(), 'export default () => <div />\n')
+
+    expect((await readSnippet(root, 'package.json:1:0:div')).status).toBe(400)
+    expect((await readSnippet(root, `${path.relative(root, screenFile())}:9:0:div`)).status).toBe(409)
   })
 })
 

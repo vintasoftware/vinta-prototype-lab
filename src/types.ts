@@ -76,6 +76,8 @@ export interface CanvasFile {
   sections: Array<{ screen: string; x: number; y: number }>
   /** The viewports each state is drawn in, side by side. Left out, each screen keeps its own. */
   viewports?: ScreenViewport[]
+  /** Screen states marked ready for an engineer to build, as `screen/state`: `home/default`. */
+  ready?: string[]
 }
 
 export interface Prototype {

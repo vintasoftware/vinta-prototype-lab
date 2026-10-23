@@ -14,6 +14,7 @@ export const canvasFileSchema = z.object({
     .array(z.object({ screen: z.string().min(1), x: z.number().finite(), y: z.number().finite() }))
     .default([]),
   viewports: z.array(viewportSchema).max(2).optional(),
+  ready: z.array(z.string().min(1)).optional(),
 })
 
 export interface ParsedCanvasFile {
@@ -28,7 +29,12 @@ export interface ParsedCanvasFile {
  * A section for a screen that no longer exists is dropped with a line saying so: the screen was
  * renamed or removed, and the next arrangement saved writes the file without it.
  */
-export function parseCanvasFile(raw: unknown, source: string, screenIds: ReadonlySet<string>): ParsedCanvasFile {
+export function parseCanvasFile(
+  raw: unknown,
+  source: string,
+  screenIds: ReadonlySet<string>,
+  states: ReadonlySet<string> = new Set()
+): ParsedCanvasFile {
   const result = canvasFileSchema.safeParse(raw)
   if (!result.success) {
     return {
@@ -54,11 +60,20 @@ export function parseCanvasFile(raw: unknown, source: string, screenIds: Readonl
     sections.push(section)
   }
 
+  const ready = (result.data.ready ?? []).filter(state => {
+    if (states.has(state)) {
+      return true
+    }
+    issues.push(`${source}: "${state}" is marked ready for dev, but no screen state has that name, so it was dropped.`)
+    return false
+  })
+
   return {
     canvas: {
       version: CANVAS_FILE_VERSION,
       sections,
       ...(result.data.viewports === undefined ? {} : { viewports: result.data.viewports }),
+      ...(result.data.ready === undefined ? {} : { ready }),
     },
     issues,
   }
@@ -81,17 +96,39 @@ export function arrangedCanvas(
     version: CANVAS_FILE_VERSION,
     sections: positions.map(({ screen, x, y }) => ({ screen, x: Math.round(x), y: Math.round(y) })),
     ...(canvas?.viewports === undefined ? {} : { viewports: canvas.viewports }),
+    ...(canvas?.ready === undefined ? {} : { ready: canvas.ready }),
   }
 }
 
-/** The file with the layout reset: no section placed, the viewports kept. */
+/** The file with the layout reset: no section placed, the viewports and the ready states kept. */
 export function resetCanvas(canvas: CanvasFile | undefined): CanvasFile {
   return arrangedCanvas(canvas, [])
 }
 
 /** The file with other viewports, the sections kept. */
 export function withViewports(canvas: CanvasFile | undefined, viewports: readonly ScreenViewport[]): CanvasFile {
-  return { version: CANVAS_FILE_VERSION, sections: canvas?.sections ?? [], viewports: [...viewports] }
+  return {
+    version: CANVAS_FILE_VERSION,
+    sections: canvas?.sections ?? [],
+    viewports: [...viewports],
+    ...(canvas?.ready === undefined ? {} : { ready: canvas.ready }),
+  }
+}
+
+/** The file with one screen state marked ready for dev, or no longer, everything else kept. */
+export function withReady(canvas: CanvasFile | undefined, state: string, ready: boolean): CanvasFile {
+  const current = new Set(canvas?.ready ?? [])
+  if (ready) {
+    current.add(state)
+  } else {
+    current.delete(state)
+  }
+  return {
+    version: CANVAS_FILE_VERSION,
+    sections: canvas?.sections ?? [],
+    ...(canvas?.viewports === undefined ? {} : { viewports: canvas.viewports }),
+    ready: [...current].sort(),
+  }
 }
 
 /** How the file is written: two-space JSON and a final newline, so a hand edit and a save diff cleanly. */

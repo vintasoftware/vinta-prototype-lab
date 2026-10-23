@@ -427,6 +427,16 @@ belong to the first frame of each pair. "One size" goes back to a single frame p
 the device toolbar or the screen's own viewport. The choice is saved in `canvas.json` under the dev
 server; a built copy keeps it for the page only.
 
+### Ready for dev, and PNG
+
+**Ready for dev** in the canvas toolbar marks the picked screen state as ready for an engineer to
+build; its frame says so on its title. The marks are saved in `canvas.json` next to the layout
+(`"ready": ["home/default"]`), so they are reviewed in the pull request too, and a mark for a state
+that no longer exists is dropped with a line in Problems. A built copy shows the marks.
+
+**PNG** saves the picked frame's screen as an image at twice its size, named after the prototype,
+screen and state. It works in a built copy too.
+
 ### Arranging it
 
 Under `prototype-lab dev` you can arrange the canvas your own way:
@@ -516,14 +526,24 @@ canvas, Inspect works in the picked frame: its screen takes the pointer while In
   no utility set is matched against the page's tokens, and every token of that value is named;
   a value no token produces is flagged **not a token**. A token is never guessed.
 - **Size** in the frame's own pixels, whatever the zoom.
+- **Snippet**: the element's JSX as written in the screen file, its tag and props with the children
+  collapsed, read through the dev server, with a copy button. An element inside a component shows the
+  component's JSX in the screen.
+- **Accessibility**: the role and accessible name, computed the way assistive technology computes
+  them (with `dom-accessibility-api`); the text's contrast against the background it sits on, with
+  pass or fail for WCAG AA (4.5:1, or 3:1 for large text); and whether the keyboard reaches it, or
+  why not: out of the Tab order, not focusable, inside an `inert` region, or hidden. Background images
+  and gradients are not read, and a colour in a form the viewer cannot read makes the contrast
+  "unknown" rather than a guess.
 - **Measure**: hold Alt and point at another element to see the distances to it, as design tools
   draw them, in the frame's own pixels. With nothing picked, Alt shows an element's padding and
   margin. From the keyboard, turn Measure on (`M`) and move through the component tree: each row in
   focus is measured against the picked element. The tab lists the distances, and the picked element's
   padding and margin by side.
 
-Under `prototype-lab build` the tab still reads components, tokens and sizes; there is no source to
-open, since the dev server is what records where each element was written.
+Under `prototype-lab build` the tab still reads components, tokens, sizes and accessibility; there
+is no source to open and no snippet, since the dev server is what records where each element was
+written.
 
 ## Using the viewer
 
