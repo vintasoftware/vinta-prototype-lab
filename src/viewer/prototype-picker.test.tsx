@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { Prototype } from '../types'
-import { groupPrototypes, PrototypePicker } from './prototype-picker'
+import { groupPrototypes, PrototypePicker, scrollToCurrent } from './prototype-picker'
 
 function prototype(slug: string, title: string, summary?: string): Prototype {
   return {
@@ -34,7 +34,32 @@ describe('groupPrototypes', () => {
   })
 })
 
+describe('scrollToCurrent', () => {
+  it('scrolls the list so the current item sits in its middle', () => {
+    const list = document.createElement('div')
+    list.innerHTML = '<div></div><div data-current></div>'
+    const item = list.lastElementChild as HTMLElement
+    Object.defineProperty(list, 'clientHeight', { value: 300 })
+    Object.defineProperty(item, 'offsetHeight', { value: 32 })
+    list.getBoundingClientRect = () => ({ top: 100 }) as DOMRect
+    item.getBoundingClientRect = () => ({ top: 700 }) as DOMRect
+
+    scrollToCurrent(list)
+
+    // 600 down the list, less half of what the list shows around the item.
+    expect(list.scrollTop).toBe(600 - (300 - 32) / 2)
+  })
+})
+
 describe('PrototypePicker', () => {
+  it('opens on the prototype that is open now', async () => {
+    render(<PrototypePicker prototypes={PROTOTYPES} slug='billing/checkout' onOpenPrototype={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Prototype' }))
+
+    expect(screen.getByRole('option', { name: /Checkout/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('shows the open prototype and lists every group', async () => {
     render(<PrototypePicker prototypes={PROTOTYPES} slug='patient-booking' onOpenPrototype={() => {}} />)
 

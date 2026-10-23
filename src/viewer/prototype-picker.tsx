@@ -59,6 +59,16 @@ export interface PrototypePickerProps {
   onOpenPrototype: (slug: string) => void
 }
 
+/** Scrolls a list so its current item sits in the middle, or as near as the list's ends allow. */
+export function scrollToCurrent(list: HTMLElement | null) {
+  const item = list?.querySelector<HTMLElement>('[data-current]')
+  if (list === null || item === null || item === undefined) {
+    return
+  }
+  const offset = item.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop
+  list.scrollTop = offset - (list.clientHeight - item.offsetHeight) / 2
+}
+
 /** The header's prototype switcher: a searchable list, grouped by the folders under `prototypes/`. */
 export function PrototypePicker({ prototypes, slug, onOpenPrototype }: PrototypePickerProps) {
   const [open, setOpen] = useState(false)
@@ -81,9 +91,10 @@ export function PrototypePicker({ prototypes, slug, onOpenPrototype }: Prototype
         </Button>
       </PopoverTrigger>
       <PopoverContent align='start' className='w-72 p-0'>
-        <Command filter={matchesSearch}>
+        {/* Opens on the prototype that is open now, highlighted and scrolled to the middle of the list. */}
+        <Command filter={matchesSearch} defaultValue={slug}>
           <CommandInput placeholder='Search prototypes…' />
-          <CommandList>
+          <CommandList ref={scrollToCurrent}>
             <CommandEmpty>No prototype matches.</CommandEmpty>
             {groups.map(group => (
               <CommandGroup key={group.heading} heading={group.heading === '' ? undefined : group.heading}>
@@ -92,6 +103,7 @@ export function PrototypePicker({ prototypes, slug, onOpenPrototype }: Prototype
                     key={prototype.slug}
                     // The slug is unique where titles may not be; the rest is what a search matches.
                     value={prototype.slug}
+                    data-current={prototype.slug === slug ? '' : undefined}
                     keywords={[prototype.doc.title, prototype.doc.summary ?? '', ...prototype.group]}
                     onSelect={() => {
                       onOpenPrototype(prototype.slug)
