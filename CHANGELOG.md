@@ -55,6 +55,8 @@ All notable changes to this package are recorded here. Versions follow
   picker is a little narrower, and the compact header starts below 1200px.
 - The prototype picker opens on the prototype that is open now, highlighted, and scrolled to it once when it is out of view.
 - The header shows Vinta's mark beside "Prototype Lab", on windows wide enough for the title.
+- The side panels slide in and out over 200ms on the stage, and the prototype picker grows out of its
+  button. Both are instant with reduced motion, and the panels stay instant on the canvas.
 
 ### Fixed
 

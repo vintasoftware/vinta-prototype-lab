@@ -378,7 +378,7 @@ describe('PrototypeLabApp', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Hide the doc panel' }))
 
     expect(screen.queryByRole('tab', { name: 'Doc' })).not.toBeInTheDocument()
-    expect(screen.queryByText('How a patient books a visit.')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('How a patient books a visit.')).not.toBeInTheDocument())
     expect(screen.getByRole('heading', { name: 'Good morning' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Show the doc panel' }))

@@ -49,6 +49,7 @@ import { DevPanel } from './dev-panel'
 import { EmptyLab } from './empty-lab'
 import { PresentingStage } from './presenting-stage'
 import { type PanelTab, SidePanel } from './side-panel'
+import { SlidePanel } from './slide-panel'
 import { ViewerHeader } from './viewer-header'
 import { ViewerSidebar } from './viewer-sidebar'
 
@@ -561,7 +562,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
       />
 
       <div className='flex min-h-0 flex-1'>
-        {toggles.screens && (
+        <SlidePanel open={toggles.screens} side='left' widthClass='w-64' animate={!toggles.canvas}>
           <ViewerSidebar
             prototype={prototype}
             screenId={state.current.screenId}
@@ -590,7 +591,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
               ...(namingError === undefined ? {} : { namingError }),
             }}
           />
-        )}
+        </SlidePanel>
 
         <main
           ref={stageRef}
@@ -683,7 +684,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
           )}
         </main>
 
-        {toggles.doc && (
+        <SlidePanel open={toggles.doc} side='right' widthClass='w-96' animate={!toggles.canvas}>
           <SidePanel
             prototype={prototype}
             tab={panelTab}
@@ -711,7 +712,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
             dev={devPanel}
             {...(saveError === undefined ? {} : { saveError })}
           />
-        )}
+        </SlidePanel>
       </div>
     </div>
   )
