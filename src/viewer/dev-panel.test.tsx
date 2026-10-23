@@ -27,8 +27,19 @@ afterEach(() => {
 
 function renderPanel(props: Partial<DevPanelProps> = {}) {
   const onToggleMeasure = vi.fn()
-  render(<DevPanel canOpenSource measuring={false} onToggleMeasure={onToggleMeasure} measurements={[]} {...props} />)
-  return { onToggleMeasure }
+  const onToggleInspect = vi.fn()
+  render(
+    <DevPanel
+      canOpenSource
+      inspecting={false}
+      onToggleInspect={onToggleInspect}
+      measuring={false}
+      onToggleMeasure={onToggleMeasure}
+      measurements={[]}
+      {...props}
+    />
+  )
+  return { onToggleMeasure, onToggleInspect }
 }
 
 function picked(html: string): Element {
@@ -41,6 +52,21 @@ describe('DevPanel', () => {
     renderPanel()
 
     expect(screen.getByText(/Turn on Inspect \(I\) and pick an element/)).toBeInTheDocument()
+  })
+
+  it('turns Inspect on from its own button, so the key is not the only way', async () => {
+    const { onToggleInspect } = renderPanel()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Inspect' }))
+
+    expect(onToggleInspect).toHaveBeenCalled()
+  })
+
+  it('says to click an element once Inspect is on, and shows the button pressed', () => {
+    renderPanel({ inspecting: true })
+
+    expect(screen.getByText(/Click an element on the stage/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Inspecting' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('names the component, its path, its id and where it was written', () => {

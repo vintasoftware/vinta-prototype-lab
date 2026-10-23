@@ -353,6 +353,17 @@ describe('CanvasView', () => {
     expect(content().style.transform).toBe(before)
   })
 
+  it('turns Inspect on and off from its button in the toolbar', async () => {
+    const onToggleInspect = vi.fn()
+    renderCanvas({ onToggleInspect, inspecting: true })
+
+    const inspect = screen.getByRole('button', { name: 'Inspect' })
+    expect(inspect).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(inspect)
+
+    expect(onToggleInspect).toHaveBeenCalled()
+  })
+
   it('turns the arrow layer off from its button', async () => {
     const { onToggleArrows } = renderCanvas({ arrows: false })
 

@@ -918,6 +918,19 @@ describe('PrototypeLabApp', () => {
       expect(within(screen.getByRole('tabpanel')).getByText('CardTitle')).toBeInTheDocument()
     })
 
+    it('turns Inspect on from the Dev tab, the same as the I key', async () => {
+      await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.click(screen.getByRole('tab', { name: 'Dev' }))
+
+      await userEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Inspect' }))
+
+      expect(within(screen.getByRole('banner')).getByRole('button', { name: 'Inspect' })).toHaveAttribute(
+        'data-variant',
+        'light'
+      )
+      expect(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Inspecting' })).toBeInTheDocument()
+    })
+
     it('turns measuring on and off with M', async () => {
       await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
       await userEvent.click(

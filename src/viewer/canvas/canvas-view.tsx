@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BadgeCheck,
+  Crosshair,
   Download,
   ExternalLink,
   LayoutGrid,
@@ -96,6 +97,8 @@ export interface CanvasViewProps {
   onArrange: (canvas: CanvasFile) => Promise<void>
   /** Inspect is on: the picked frame takes the pointer, so its elements can be picked. */
   inspecting?: boolean
+  /** Turns Inspect on or off, from the canvas toolbar. */
+  onToggleInspect?: () => void
   /**
    * Told which element the picked frame's screen renders into, as it is drawn and undrawn. The
    * viewer reads its component tree and inspects it there, as it does on the stage.
@@ -192,6 +195,7 @@ export function CanvasView({
   canArrange,
   onArrange,
   inspecting = false,
+  onToggleInspect,
   onInspectRoot,
   inspectOverlay,
 }: CanvasViewProps) {
@@ -859,7 +863,8 @@ export function CanvasView({
         }
       }}
     >
-      <div className='flex shrink-0 items-center gap-1 border-border border-b bg-card px-3 py-1.5'>
+      {/* One row: a narrow stage scrolls it sideways, and the hint gives way first. */}
+      <div className='flex shrink-0 items-center gap-1 overflow-x-auto whitespace-nowrap border-border border-b bg-card px-3 py-1.5 *:shrink-0'>
         <Button
           variant='ghost'
           size='icon-sm'
@@ -921,6 +926,18 @@ export function CanvasView({
           <ExternalLink />
           Open
         </Button>
+        {onToggleInspect !== undefined && (
+          <Button
+            variant={inspecting ? 'light' : 'ghost'}
+            size='sm'
+            aria-pressed={inspecting}
+            title='Inspect (I): a click in the picked frame picks an element'
+            onClick={onToggleInspect}
+          >
+            <Crosshair />
+            Inspect
+          </Button>
+        )}
         <Button
           variant={liveOnDoubleClick ? 'light' : 'ghost'}
           size='sm'
@@ -990,7 +1007,7 @@ export function CanvasView({
             The layout was not saved: {arrangeError}
           </p>
         )}
-        <p className='ml-auto hidden text-muted-foreground text-xs lg:block'>
+        <p className='ml-auto hidden min-w-0 shrink! truncate text-muted-foreground text-xs lg:block'>
           Drag or scroll to pan. Ctrl or Cmd and scroll to zoom. Tab or arrows to move between frames.
         </p>
       </div>

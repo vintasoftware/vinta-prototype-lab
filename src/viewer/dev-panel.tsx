@@ -1,4 +1,4 @@
-import { BookOpen, Check, Copy, ExternalLink, Ruler, TriangleAlert } from 'lucide-react'
+import { BookOpen, Check, Copy, Crosshair, ExternalLink, Ruler, TriangleAlert } from 'lucide-react'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { type AccessibilityReading, type KeyboardReach, readAccessibility } from '../lib/accessibility'
 import { measureAnchor } from '../lib/anchor-rect'
@@ -22,6 +22,9 @@ export interface DevPanelProps {
   storybookLink?: StorybookLink
   /** Off in a built copy: there is no dev server to open the editor. */
   canOpenSource: boolean
+  /** Inspect mode is on: a click on the screen picks an element. */
+  inspecting: boolean
+  onToggleInspect: () => void
   /** Measuring is on: hovering another element shows the distances to it. */
   measuring: boolean
   onToggleMeasure: () => void
@@ -148,6 +151,8 @@ export function DevPanel({
   anchorId,
   storybookLink,
   canOpenSource,
+  inspecting,
+  onToggleInspect,
   measuring,
   onToggleMeasure,
   measurements,
@@ -166,9 +171,14 @@ export function DevPanel({
 
   if (element === undefined || readings === undefined) {
     return (
-      <p className='text-muted-foreground text-sm'>
-        Turn on Inspect (I) and pick an element, on the stage or the canvas, to see how it is built.
-      </p>
+      <div className='flex flex-col items-start gap-3'>
+        <p className='text-muted-foreground text-sm'>
+          {inspecting
+            ? 'Click an element on the stage or in the picked frame of the canvas to see how it is built.'
+            : 'Turn on Inspect (I) and pick an element, on the stage or the canvas, to see how it is built.'}
+        </p>
+        <InspectButton inspecting={inspecting} onToggle={onToggleInspect} />
+      </div>
     )
   }
 
@@ -176,6 +186,8 @@ export function DevPanel({
 
   return (
     <div className='flex flex-col gap-4 text-sm'>
+      <InspectButton inspecting={inspecting} onToggle={onToggleInspect} />
+
       <Section title='Element'>
         <dl className='grid grid-cols-[6rem_1fr] gap-x-2 gap-y-1'>
           <dt className='text-muted-foreground'>Component</dt>
@@ -475,5 +487,22 @@ function AccessibilityView({ reading }: { reading: AccessibilityReading }) {
       <dt className='text-muted-foreground'>Keyboard</dt>
       <dd className={cn(!reach.good && 'text-warning')}>{reach.text}</dd>
     </dl>
+  )
+}
+
+/** Turns Inspect on or off from the tab that needs it, for whoever has not found the `I` key. */
+function InspectButton({ inspecting, onToggle }: { inspecting: boolean; onToggle: () => void }) {
+  return (
+    <Button
+      variant={inspecting ? 'light' : 'outline'}
+      size='sm'
+      className='self-start'
+      aria-pressed={inspecting}
+      title='Inspect (I): a click on the screen picks an element instead of following it'
+      onClick={onToggle}
+    >
+      <Crosshair />
+      {inspecting ? 'Inspecting' : 'Inspect'}
+    </Button>
   )
 }

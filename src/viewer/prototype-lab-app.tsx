@@ -513,6 +513,8 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
       {...(pickedNode?.anchorId === undefined ? {} : { anchorId: pickedNode.anchorId })}
       {...(pickedStory === undefined ? {} : { storybookLink: pickedStory })}
       canOpenSource={canEditAnnotations()}
+      inspecting={toggles.inspect}
+      onToggleInspect={() => toggle('inspect')}
       measuring={measuring}
       onToggleMeasure={() => setMeasureOn(on => !on)}
       measurements={measurements}
@@ -633,6 +635,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
               canArrange={canEditAnnotations()}
               onArrange={arrangeCanvas}
               inspecting={toggles.inspect}
+              onToggleInspect={() => toggle('inspect')}
               onInspectRoot={onInspectRoot}
               inspectOverlay={inspectOverlay}
             />
