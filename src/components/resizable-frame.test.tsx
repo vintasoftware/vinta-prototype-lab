@@ -65,4 +65,12 @@ describe('ResizableFrame', () => {
 
     expect(onReset).toHaveBeenCalled()
   })
+
+  it('resizes from the keyboard on a focused handle', () => {
+    const { onResize } = renderFrame()
+
+    fireEvent.keyDown(screen.getByRole('separator', { name: 'Drag to change the width' }), { key: 'ArrowRight' })
+
+    expect(onResize).toHaveBeenLastCalledWith({ width: 410, height: 800 })
+  })
 })

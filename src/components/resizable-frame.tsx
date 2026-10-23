@@ -1,5 +1,6 @@
 import { type ReactNode, type PointerEvent as ReactPointerEvent, useRef, useState } from 'react'
-import { draggedSize, type FrameSize, type ResizeAxis } from '../lib/device-frame'
+import { MAX_FRAME_SIDE, MIN_FRAME_SIDE } from '../lib/constants'
+import { draggedSize, type FrameSize, nudgedSize, type ResizeAxis } from '../lib/device-frame'
 import { cn } from '../ui'
 
 export interface ResizableFrameProps {
@@ -35,7 +36,7 @@ const HANDLES: readonly { axis: ResizeAxis; label: string; className: string }[]
 /**
  * The frame at a set size, drawn at `scale`, with handles on its right edge, bottom edge and corner
  * to drag it to any size, as in Chrome's responsive mode. Widths snap to the breakpoints; a double
- * click on a handle goes back to the device's own size.
+ * click on a handle goes back to the device's own size. A focused handle moves with the arrow keys.
  */
 export function ResizableFrame({ size, scale, caption, onResize, onReset, children }: ResizableFrameProps) {
   const sizerRef = useRef<HTMLDivElement>(null)
@@ -94,16 +95,31 @@ export function ResizableFrame({ size, scale, caption, onResize, onReset, childr
       </div>
 
       {HANDLES.map(({ axis, label, className }) => (
-        // biome-ignore lint/a11y/useSemanticElements: an <hr> cannot be dragged or hold a grip; this is a resize handle.
+        // A focusable separator is the ARIA pattern for a splitter a person moves; an <hr> cannot be.
+        // biome-ignore lint/a11y/useSemanticElements: an <hr> takes no focus, pointer drag, or children.
         <div
           key={axis}
           role='separator'
+          tabIndex={0}
           aria-label={label}
           aria-orientation={axis === 'y' ? 'horizontal' : 'vertical'}
-          title='Drag to resize. Double-click to reset.'
-          className={cn('absolute flex touch-none select-none items-center justify-center', className)}
+          aria-valuenow={axis === 'y' ? size.height : size.width}
+          aria-valuemin={MIN_FRAME_SIDE}
+          aria-valuemax={MAX_FRAME_SIDE}
+          title='Drag or use the arrow keys to resize. Double-click to reset.'
+          className={cn(
+            'absolute flex touch-none select-none items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            className
+          )}
           onPointerDown={startDrag(axis)}
           onDoubleClick={onReset}
+          onKeyDown={event => {
+            const next = nudgedSize(size, axis, event.key, event.shiftKey)
+            if (next !== undefined) {
+              event.preventDefault()
+              onResize(next)
+            }
+          }}
         >
           {axis !== 'xy' && <span className={cn('rounded-full bg-border', axis === 'x' ? 'h-10 w-1' : 'h-1 w-10')} />}
         </div>

@@ -62,6 +62,24 @@ export function draggedSize({ axis, start, dx, dy, scale, centered }: DragInput)
   return { width, height }
 }
 
+/** How far an arrow key moves a focused handle, and how far with Shift held. */
+const NUDGE = { small: 10, large: 50 }
+
+/**
+ * The frame's size after an arrow key on a focused handle, or `undefined` for a key the handle does
+ * not use. The side handle takes left and right, the bottom handle up and down, the corner all four.
+ */
+export function nudgedSize(size: FrameSize, axis: ResizeAxis, key: string, large: boolean): FrameSize | undefined {
+  const step = large ? NUDGE.large : NUDGE.small
+  if (axis !== 'y' && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+    return { ...size, width: clampFrameSide(size.width + (key === 'ArrowRight' ? step : -step)) }
+  }
+  if (axis !== 'x' && (key === 'ArrowUp' || key === 'ArrowDown')) {
+    return { ...size, height: clampFrameSide(size.height + (key === 'ArrowDown' ? step : -step)) }
+  }
+  return undefined
+}
+
 /** Room the stage keeps around the frame: its padding, and the line of text above the frame. */
 const STAGE_GUTTER = { x: 80, y: 88 }
 

@@ -6,6 +6,7 @@ import {
   fitScale,
   frameCaption,
   frameScale,
+  nudgedSize,
   readDeviceSettings,
   snapWidth,
   viewportOfWidth,
@@ -72,6 +73,22 @@ describe('draggedSize', () => {
 
   it('snaps the width to a breakpoint it passes close to', () => {
     expect(draggedSize({ axis: 'x', start, dx: 245, dy: 0, scale: 1, centered: false }).width).toBe(640)
+  })
+})
+
+describe('nudgedSize', () => {
+  const size = { width: 400, height: 800 }
+
+  it('moves the side the handle owns', () => {
+    expect(nudgedSize(size, 'x', 'ArrowRight', false)).toEqual({ width: 410, height: 800 })
+    expect(nudgedSize(size, 'y', 'ArrowUp', true)).toEqual({ width: 400, height: 750 })
+    expect(nudgedSize(size, 'xy', 'ArrowLeft', false)).toEqual({ width: 390, height: 800 })
+  })
+
+  it('ignores keys the handle does not use', () => {
+    expect(nudgedSize(size, 'x', 'ArrowDown', false)).toBeUndefined()
+    expect(nudgedSize(size, 'y', 'ArrowLeft', false)).toBeUndefined()
+    expect(nudgedSize(size, 'xy', 'Enter', false)).toBeUndefined()
   })
 })
 
