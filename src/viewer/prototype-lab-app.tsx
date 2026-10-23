@@ -635,7 +635,6 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
               canArrange={canEditAnnotations()}
               onArrange={arrangeCanvas}
               inspecting={toggles.inspect}
-              onToggleInspect={() => toggle('inspect')}
               onInspectRoot={onInspectRoot}
               inspectOverlay={inspectOverlay}
             />

@@ -1,7 +1,6 @@
 import {
   AlertTriangle,
   BadgeCheck,
-  Crosshair,
   Download,
   ExternalLink,
   LayoutGrid,
@@ -97,8 +96,6 @@ export interface CanvasViewProps {
   onArrange: (canvas: CanvasFile) => Promise<void>
   /** Inspect is on: the picked frame takes the pointer, so its elements can be picked. */
   inspecting?: boolean
-  /** Turns Inspect on or off, from the canvas toolbar. */
-  onToggleInspect?: () => void
   /**
    * Told which element the picked frame's screen renders into, as it is drawn and undrawn. The
    * viewer reads its component tree and inspects it there, as it does on the stage.
@@ -195,7 +192,6 @@ export function CanvasView({
   canArrange,
   onArrange,
   inspecting = false,
-  onToggleInspect,
   onInspectRoot,
   inspectOverlay,
 }: CanvasViewProps) {
@@ -926,18 +922,6 @@ export function CanvasView({
           <ExternalLink />
           Open
         </Button>
-        {onToggleInspect !== undefined && (
-          <Button
-            variant={inspecting ? 'light' : 'ghost'}
-            size='sm'
-            aria-pressed={inspecting}
-            title='Inspect (I): a click in the picked frame picks an element'
-            onClick={onToggleInspect}
-          >
-            <Crosshair />
-            Inspect
-          </Button>
-        )}
         <Button
           variant={liveOnDoubleClick ? 'light' : 'ghost'}
           size='sm'

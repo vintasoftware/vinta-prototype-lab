@@ -512,8 +512,8 @@ variants) over `md:` and other media query variants.
 ## Dev tools
 
 The **Dev** tab of the right panel says how the picked element is built, on the stage and on the
-canvas. Turn on Inspect (`i`, the crosshair in the header, or the **Inspect** button in the Dev tab or
-the canvas toolbar) and click an element, or pick its row in the component tree. On the
+canvas. Turn on Inspect (`i`, the crosshair in the header, or the **Inspect** button in the Dev tab)
+and click an element, or pick its row in the component tree. On the
 canvas, Inspect works in the picked frame: its screen takes the pointer while Inspect is on.
 
 - **Element**: the component's name and path, as the tree shows them, its semantic id, its
