@@ -15,6 +15,7 @@ import {
 import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
 import type { Prototype, ScreenViewport } from '../types'
 import { Badge, Button, SegmentedToggle } from '../ui'
+import { BranchPicker } from './branch-picker'
 import { DeviceToolbar, type DeviceToolbarProps } from './device-toolbar'
 import { PrototypePicker } from './prototype-picker'
 import { VintaLogo } from './vinta-logo'
@@ -50,6 +51,8 @@ export interface ViewerHeaderProps {
   device?: DeviceToolbarProps
   /** Shows the Present button, which gives the screen the whole window. */
   onPresent?: () => void
+  /** Shows the branch picker, which asks the dev server for the project's branches. */
+  showBranches?: boolean
 }
 
 /** A button's text, dropped on a window too narrow for it; the icon and tooltip stay. */
@@ -71,6 +74,7 @@ export function ViewerHeader({
   onRestart,
   device,
   onPresent,
+  showBranches = false,
 }: ViewerHeaderProps) {
   return (
     // One row always: a narrower window drops the labels first, then the title and the size fields,
@@ -91,6 +95,7 @@ export function ViewerHeader({
       />
 
       <PrototypePicker prototypes={prototypes} slug={slug} onOpenPrototype={onOpenPrototype} />
+      {showBranches && <BranchPicker />}
 
       <div className='flex items-center gap-1'>
         <Button variant='outline' size='icon-sm' aria-label='Back' title='Back' onClick={onBack} disabled={!canGoBack}>

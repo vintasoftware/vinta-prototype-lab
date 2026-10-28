@@ -7,6 +7,8 @@ import { PrototypeLabApp } from './prototype-lab-app'
 export interface ViewerOptions {
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
   storybook?: StorybookOptions | false
+  /** Shows the branch picker. Only the dev server passes it, and only when the project turns it on. */
+  branches?: boolean
 }
 
 /**
@@ -27,6 +29,7 @@ export function mountViewer(
       <PrototypeLabApp
         prototypes={buildPrototypes(sources)}
         {...(options.storybook === undefined ? {} : { storybook: options.storybook })}
+        {...(options.branches === true ? { branches: true } : {})}
       />
     </StrictMode>
   )

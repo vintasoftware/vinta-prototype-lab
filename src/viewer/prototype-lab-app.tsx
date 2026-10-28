@@ -20,6 +20,7 @@ import { useWindowViewport } from '../hooks/use-window-viewport'
 import { type AnnotationEdit, annotationId } from '../lib/annotation-edit'
 import { annotationsForScreen } from '../lib/annotations'
 import { canEditAnnotations, nameElement, saveAnnotationEdit, saveCanvas } from '../lib/annotations-api'
+import { canSwitchBranches } from '../lib/branches-api'
 import { componentSelector, resolveComponentSelector } from '../lib/component-link'
 import { ancestorPaths, nearestNodePath } from '../lib/component-tree'
 import { DEFAULT_VARIANT, FRAME_HEIGHT, VIEWPORT_WIDTH } from '../lib/constants'
@@ -57,6 +58,8 @@ export interface PrototypeLabAppProps {
   prototypes: Prototype[]
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
   storybook?: StorybookOptions | false
+  /** Shows the branch picker. The dev server sets it when the project turns `branchSwitch` on. */
+  branches?: boolean
 }
 
 const AUTHOR_KEY = 'prototype-lab.author'
@@ -77,7 +80,11 @@ function rememberedAuthor(): string {
  * closes, so the screen can have the window to itself. The stage can give way to the canvas,
  * which shows every screen and where each control leads.
  */
-export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOptions }: PrototypeLabAppProps) {
+export function PrototypeLabApp({
+  prototypes: loaded,
+  storybook: storybookOptions,
+  branches = false,
+}: PrototypeLabAppProps) {
   const [prototypes, setPrototypes] = useState(loaded)
   const session = usePrototypeSession(prototypes)
   const { prototype, screen, state } = session
@@ -573,6 +580,7 @@ export function PrototypeLabApp({ prototypes: loaded, storybook: storybookOption
           onZoom: setFrameZoom,
         }}
         onPresent={() => setPresenting(true)}
+        showBranches={branches && canSwitchBranches()}
       />
 
       <div className='flex min-h-0 flex-1'>
