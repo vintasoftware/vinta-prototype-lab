@@ -3,6 +3,30 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## [Unreleased]
+
+### Added
+
+- A device toolbar beside the Mobile / Tablet / Desktop switcher: a device list of twelve phones,
+  tablets and desktops, plus Responsive and the viewport's default size; width and height fields;
+  rotate; and zoom (Fit, 100%, 75%, 50%). The browser remembers the device and zoom under
+  `vinta-prototype-lab:device` in `localStorage`. Picking a viewport in the switcher goes back to
+  its default size. `viewportSwitcher: false` still hides only the switcher.
+- The frame resizes by dragging its right edge, bottom edge or corner, snapping the width to 640,
+  768, 1024 and 1280 px, or with the arrow keys on a focused handle. A double click goes back to the
+  default size, and a caption above the frame gives its size, device and zoom. A turned device is
+  named with its orientation, e.g. `iPad Air landscape`.
+- Presenting (`p`, the header button, or `?present` in the address): only the screen, filling the
+  window at its own size, with links between screens working and comments, hotspots and inspect off.
+  `Esc` or the corner button goes back.
+
+### Fixed
+
+- Comment pins and inspect outlines stay on their elements when the frame is zoomed out.
+- On a tablet the viewer fills only the visible part of the page and the page itself no longer
+  scrolls, so browser bars and the on-screen keyboard no longer make the screen scroll twice, and Fit
+  keeps its zoom while the keyboard is open.
+
 ## [0.3.1] - 2026-11-04
 
 ### Added

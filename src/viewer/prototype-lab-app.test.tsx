@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { anchor } from '../components/anchor'
 import { ScreenLink } from '../components/screen-link'
 import { type AnnotationEdit, applyAnnotationEdit } from '../lib/annotation-edit'
@@ -279,6 +279,117 @@ describe('PrototypeLabApp', () => {
 
     expect(screen.queryByRole('tab', { name: 'Mobile' })).not.toBeInTheDocument()
     expect(container.querySelector('[data-viewport]')).toHaveAttribute('data-viewport', 'desktop')
+  })
+
+  describe('the device toolbar', () => {
+    const frameOf = (container: HTMLElement) => container.querySelector<HTMLElement>('[data-viewport]')
+
+    it('sizes the frame to a device and remembers it on the next visit', async () => {
+      const first = render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Device' }), 'iPad Air')
+
+      expect(frameOf(first.container)).toHaveAttribute('data-viewport', 'tablet')
+      expect(frameOf(first.container)?.style.width).toBe('820px')
+      expect(screen.getByText('820 × 1180 · iPad Air · 100%')).toBeInTheDocument()
+      first.unmount()
+
+      const next = render(<PrototypeLabApp prototypes={prototypes} />)
+
+      expect(screen.getByRole('combobox', { name: 'Device' })).toHaveValue('ipad-air')
+      expect(frameOf(next.container)?.style.width).toBe('820px')
+    })
+
+    it("goes back to the screen's default size on a double click on a frame handle", async () => {
+      const { container } = render(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Device' }), 'iPhone SE')
+      expect(frameOf(container)).toHaveAttribute('data-viewport', 'mobile')
+
+      await userEvent.dblClick(screen.getByRole('separator', { name: 'Frame width' }))
+
+      expect(screen.getByRole('combobox', { name: 'Device' })).toHaveValue('default')
+      expect(frameOf(container)).toHaveAttribute('data-viewport', 'desktop')
+      expect(frameOf(container)?.style.width).toBe('1280px')
+      expect(screen.getByText('1280 × 820 · desktop default · 100%')).toBeInTheDocument()
+    })
+
+    it('names a turned device by its orientation', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Device' }), 'iPad Air')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Rotate' }))
+
+      expect(screen.getByText('1180 × 820 · iPad Air landscape · 100%')).toBeInTheDocument()
+    })
+
+    it('works beside the viewport switcher, each following the other', async () => {
+      const { container } = render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Device' }), 'iPad Mini')
+      expect(screen.getByRole('tab', { name: 'Tablet' })).toHaveAttribute('aria-selected', 'true')
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Mobile' }))
+      expect(screen.getByRole('combobox', { name: 'Device' })).toHaveValue('default')
+      expect(screen.getByRole('option', { name: 'Mobile default' })).toBeInTheDocument()
+      expect(frameOf(container)?.style.width).toBe('390px')
+    })
+
+    it('shows without the viewport switcher too', () => {
+      render(<PrototypeLabApp prototypes={prototypes} viewportSwitcher={false} />)
+
+      expect(screen.getByRole('combobox', { name: 'Device' })).toBeInTheDocument()
+    })
+  })
+
+  describe('presenting', () => {
+    afterEach(() => window.history.replaceState(null, '', '/'))
+
+    it('shows only the screen on P, and puts the viewer back on Esc', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.keyboard('p')
+
+      expect(screen.getByRole('heading', { name: 'Good morning' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Stop presenting' })).toBeInTheDocument()
+      expect(screen.queryByRole('combobox', { name: 'Device' })).not.toBeInTheDocument()
+      expect(window.location.search).toBe('?present')
+
+      await userEvent.keyboard('{Escape}')
+
+      expect(screen.queryByRole('button', { name: 'Stop presenting' })).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Device' })).toBeInTheDocument()
+      expect(window.location.search).toBe('')
+    })
+
+    it('starts from the header button and keeps the links between screens working', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Present the screen' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Book a visit' }))
+
+      expect(screen.getByRole('heading', { name: 'Review your visit' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Stop presenting' })).toBeInTheDocument()
+    })
+
+    it('opens straight into presenting with ?present in the address', () => {
+      window.history.replaceState(null, '', '/?present')
+
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      expect(screen.getByRole('heading', { name: 'Good morning' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Stop presenting' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
+    })
+
+    it('shows none of the viewer around the screen', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.keyboard('p')
+
+      expect(screen.queryByRole('navigation', { name: 'Screens' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('tab', { name: /Comments/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('separator', { name: 'Frame width' })).not.toBeInTheDocument()
+    })
   })
 
   it('shows the flow map and opens a screen from one of its cards', async () => {
