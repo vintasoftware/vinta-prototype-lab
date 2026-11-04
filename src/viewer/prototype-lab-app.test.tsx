@@ -361,6 +361,27 @@ describe('PrototypeLabApp', () => {
       expect(window.location.search).toBe('')
     })
 
+    it("leaves the viewer's other keys alone while presenting", async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.keyboard('pf{Escape}')
+
+      expect(screen.getByRole('heading', { name: 'Good morning' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Home' })).not.toBeInTheDocument()
+    })
+
+    it('keeps presenting on an Esc the screen used for itself, as a dialog closing does', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.keyboard('p')
+      // Radix dialogs, popovers and selects take Esc on the document first and cancel it.
+      const closeDialog = (event: KeyboardEvent) => event.preventDefault()
+      document.addEventListener('keydown', closeDialog, { capture: true, once: true })
+
+      await userEvent.keyboard('{Escape}')
+
+      expect(screen.getByRole('button', { name: 'Stop presenting' })).toBeInTheDocument()
+    })
+
     it('starts from the header button and keeps the links between screens working', async () => {
       render(<PrototypeLabApp prototypes={prototypes} />)
 

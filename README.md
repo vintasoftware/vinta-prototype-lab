@@ -76,7 +76,7 @@ export default defineConfig({
 | `dir`       | `prototypes`     | Where the prototype folders live, from the root. The folder must be named `prototypes`.   |
 | `css`       | package default  | The project's stylesheets, loaded after the viewer's. See [Styles](#styles).              |
 | `storybook` | `{}`             | `url` of the project's Storybook and an optional `marker` section; `false` turns links off. |
-| `viewportSwitcher` | `true`    | Shows the Mobile / Tablet / Desktop switcher. `false` hides it for a single form factor, and every screen draws in its own `viewport`. The device toolbar beside it stays. |
+| `viewportSwitcher` | `true`    | Shows the Mobile / Tablet / Desktop switcher. `false` hides it for a single form factor, and every screen draws in its own `viewport` unless a size is chosen in the device toolbar, which stays. |
 | `title`     | `Prototype Lab`  | The page title.                                                                           |
 | `root`      | current folder   | The project root the paths are relative to. Set it when the config sets Vite's `root`.   |
 | `react`     | `true`           | Adds `@vitejs/plugin-react`. Pass `false` when the config already adds it.                |
@@ -190,8 +190,9 @@ import type { ScreenMeta } from 'vinta-prototype-lab'
 export const screen: Partial<ScreenMeta> = { title: 'Choose time', variantLabel: 'No availability', viewport: 'mobile' }
 ```
 
-`viewport` is `mobile`, `tablet` or `desktop`; it sets the frame the screen opens in, and the viewer's
-switcher overrides it while you look.
+`viewport` is `mobile`, `tablet` or `desktop`; it sets the frame the screen opens in. The viewer's
+switcher overrides it while you look, and so does a device or size chosen in the device toolbar,
+which this browser remembers for later visits.
 
 Build screens out of the project's own components — the prototype should be wrong in the ways the
 design is wrong, not in the ways a mock is wrong. A screen may import a real feature module too;
@@ -444,7 +445,9 @@ accessibility bug it is.
 - **Presenting.** The button beside the doc panel's, or `p`, shows only the screen, filling the
   page at the window's own size with no zoom, as the finished app would. Its media queries match
   too. Links between screens keep working; comments, hotspots and inspect are off. A round button
-  in the top right corner, or `Esc`, goes back; it hides after a moment and comes back on any touch.
+  in the top right corner, or `Esc`, goes back; the button hides after a moment and comes back on
+  any touch. An `Esc` the screen takes itself, in a text field or to close its own dialog, stays in
+  the screen, and the viewer's other keys do nothing while presenting.
   `?present` in the address, before the `#`, opens the viewer straight into presenting:
   `http://localhost:6007/?present#/p/patient-booking/home`. To open it from a tablet on the same
   network, start the server with `--host`. On a tablet the viewer fills only the visible part of

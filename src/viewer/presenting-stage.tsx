@@ -1,5 +1,5 @@
 import { Minimize } from 'lucide-react'
-import { type ReactNode, type RefObject, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import type { VisibleBox } from '../hooks/use-visible-box'
 import type { ScreenViewport } from '../types'
 import { Button, cn } from '../ui'
@@ -7,7 +7,6 @@ import { Button, cn } from '../ui'
 export interface PresentingStageProps {
   /** The window's own viewport: presenting draws at the window's size, with no frame or zoom. */
   viewport: ScreenViewport
-  frameRef: RefObject<HTMLDivElement | null>
   /** The part of the page the person can see, which the stage fills. */
   box: VisibleBox
   onExit: () => void
@@ -20,9 +19,9 @@ export const EXIT_BUTTON_DELAY_MS = 2500
 /**
  * Presenting: only the screen, filling the window, with none of the viewer around it. The way out
  * is a small button in the corner that hides after a moment and comes back on any touch or pointer
- * move, or Esc.
+ * move. The viewer's own key handler takes Esc.
  */
-export function PresentingStage({ viewport, frameRef, box, onExit, children }: PresentingStageProps) {
+export function PresentingStage({ viewport, box, onExit, children }: PresentingStageProps) {
   const [exitShown, setExitShown] = useState(true)
 
   useEffect(() => {
@@ -32,29 +31,18 @@ export function PresentingStage({ viewport, frameRef, box, onExit, children }: P
       window.clearTimeout(timer)
       timer = window.setTimeout(() => setExitShown(false), EXIT_BUTTON_DELAY_MS)
     }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onExit()
-      }
-    }
     window.addEventListener('pointerdown', show, true)
     window.addEventListener('pointermove', show, true)
-    window.addEventListener('keydown', onKeyDown)
     return () => {
       window.clearTimeout(timer)
       window.removeEventListener('pointerdown', show, true)
       window.removeEventListener('pointermove', show, true)
-      window.removeEventListener('keydown', onKeyDown)
     }
-  }, [onExit])
+  }, [])
 
   return (
     <div className='fixed inset-x-0 bg-background' style={{ top: box.top, height: box.height }}>
-      <div
-        ref={frameRef}
-        data-viewport={viewport}
-        className='relative size-full overflow-auto overscroll-contain bg-background'
-      >
+      <div data-viewport={viewport} className='relative size-full overflow-auto overscroll-contain bg-background'>
         {children}
       </div>
       <Button

@@ -1,11 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { createRef } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { EXIT_BUTTON_DELAY_MS, PresentingStage } from './presenting-stage'
 
 function renderStage(onExit = vi.fn()) {
   const view = render(
-    <PresentingStage viewport='tablet' frameRef={createRef()} box={{ top: 20, height: 700 }} onExit={onExit}>
+    <PresentingStage viewport='tablet' box={{ top: 20, height: 700 }} onExit={onExit}>
       <h1>Visit note</h1>
     </PresentingStage>
   )
@@ -23,13 +22,12 @@ describe('PresentingStage', () => {
     expect(container.querySelector('[data-viewport]')).toHaveAttribute('data-viewport', 'tablet')
   })
 
-  it('stops presenting from its button or Esc', () => {
+  it('stops presenting from its button', () => {
     const { onExit } = renderStage()
 
     fireEvent.click(screen.getByRole('button', { name: 'Stop presenting' }))
-    fireEvent.keyDown(window, { key: 'Escape' })
 
-    expect(onExit).toHaveBeenCalledTimes(2)
+    expect(onExit).toHaveBeenCalledOnce()
   })
 
   it('hides the button after a moment and brings it back on a touch', () => {

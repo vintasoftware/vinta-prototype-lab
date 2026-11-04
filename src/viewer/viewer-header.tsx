@@ -13,17 +13,17 @@ import {
   Workflow,
 } from 'lucide-react'
 import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
+import { VIEWPORT_LABEL } from '../lib/constants'
 import type { Prototype, ScreenViewport } from '../types'
 import { Badge, Button, SegmentedToggle } from '../ui'
 import { DeviceToolbar, type DeviceToolbarProps } from './device-toolbar'
 import { PrototypePicker } from './prototype-picker'
 import { VintaWordmark } from './vinta-wordmark'
 
-const VIEWPORT_OPTIONS = [
-  { value: 'mobile' as const, label: 'Mobile' },
-  { value: 'tablet' as const, label: 'Tablet' },
-  { value: 'desktop' as const, label: 'Desktop' },
-]
+const VIEWPORT_OPTIONS = (['mobile', 'tablet', 'desktop'] as const).map(value => ({
+  value,
+  label: VIEWPORT_LABEL[value],
+}))
 
 /** The toggles the header shows as named buttons, in the order they sit. */
 const MODES: readonly { name: ViewToggle; label: string; Icon: LucideIcon }[] = [

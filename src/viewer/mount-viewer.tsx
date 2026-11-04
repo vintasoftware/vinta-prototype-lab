@@ -7,7 +7,10 @@ import { PrototypeLabApp } from './prototype-lab-app'
 export interface ViewerOptions {
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
   storybook?: StorybookOptions | false
-  /** Shows the Mobile / Tablet / Desktop switcher; `false` draws every screen in its own viewport. */
+  /**
+   * Shows the Mobile / Tablet / Desktop switcher; `false` draws every screen in its own viewport,
+   * unless a size is chosen in the device toolbar, which shows either way.
+   */
   viewportSwitcher?: boolean
 }
 

@@ -2,14 +2,14 @@ import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useElementSize } from './use-element-size'
 
-/** Captures the observer the hook makes, so the test can say when the element resized. */
-let resized: (() => void) | undefined
+/** Captures the observer the hook makes, so the test can report a size the way a browser does. */
+let report: ((size: { width: number; height: number }) => void) | undefined
 class FakeResizeObserver {
-  constructor(callback: () => void) {
-    resized = callback
+  constructor(callback: (entries: { contentRect: { width: number; height: number } }[]) => void) {
+    report = contentRect => callback([{ contentRect }])
   }
   observe() {}
-  disconnect = vi.fn()
+  disconnect() {}
 }
 
 function Probe() {
@@ -21,25 +21,21 @@ function Probe() {
   )
 }
 
-function sizeBox(element: HTMLElement, width: number, height: number) {
-  Object.defineProperty(element, 'clientWidth', { configurable: true, value: width })
-  Object.defineProperty(element, 'clientHeight', { configurable: true, value: height })
-}
-
 describe('useElementSize', () => {
   afterEach(() => {
-    resized = undefined
+    report = undefined
   })
 
-  it('measures the element and measures again when it resizes', () => {
+  it("follows the element's content box as the observer reports it", () => {
     vi.stubGlobal('ResizeObserver', FakeResizeObserver)
     render(<Probe />)
     const box = screen.getByTestId('box')
     expect(box).toHaveTextContent('0 × 0')
 
-    sizeBox(box, 900, 600)
-    act(() => resized?.())
-
+    act(() => report?.({ width: 900, height: 600 }))
     expect(box).toHaveTextContent('900 × 600')
+
+    act(() => report?.({ width: 700, height: 600 }))
+    expect(box).toHaveTextContent('700 × 600')
   })
 })

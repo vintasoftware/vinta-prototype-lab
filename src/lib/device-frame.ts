@@ -28,9 +28,6 @@ export const ZOOM_LEVELS: readonly number[] = [1, 0.75, 0.5]
 /** Which handle of the frame is moving: its right edge, its bottom edge, or the corner. */
 export type ResizeAxis = 'x' | 'y' | 'xy'
 
-/** Room the stage keeps around the frame: its padding, the caption above and the handles beside. */
-const STAGE_GUTTER = { width: 24 + 40 + 16, height: 32 + 40 + 16 }
-
 /** The frame never draws smaller than this, so a huge frame in a small window stays findable. */
 const MIN_SCALE = 0.1
 
@@ -95,18 +92,15 @@ export function nudgedSize(size: FrameSize, axis: ResizeAxis, key: string, shift
 }
 
 /**
- * The scale that fits the frame in the stage, never above 100%. `keyboardInset` is the height an
- * on-screen keyboard covers: counting it back in keeps the screen from shrinking while someone types.
+ * The scale that fits the frame in the stage's content box, never above 100%. The caption and the
+ * handles sit in the stage's padding. `keyboardInset` is the height an on-screen keyboard covers:
+ * counting it back in keeps the screen from shrinking while someone types.
  */
 export function fitScale(stage: FrameSize, frame: FrameSize, keyboardInset = 0): number {
   if (stage.width <= 0 || stage.height <= 0) {
     return 1
   }
-  return Math.min(
-    1,
-    (stage.width - STAGE_GUTTER.width) / frame.width,
-    (stage.height + keyboardInset - STAGE_GUTTER.height) / frame.height
-  )
+  return Math.min(1, stage.width / frame.width, (stage.height + keyboardInset) / frame.height)
 }
 
 /** The scale the frame is drawn at for a zoom choice. */
@@ -151,8 +145,9 @@ export function frameCaption(size: FrameSize, name: string, scale: number): stri
 export const DEVICE_SETTINGS_KEY = 'vinta-prototype-lab:device'
 
 export interface DeviceSettings {
+  /** `undefined` for the viewport's own size. */
   frame?: DeviceFrame | undefined
-  zoom?: FrameZoom | undefined
+  zoom: FrameZoom
 }
 
 function isSide(value: unknown): value is number {
@@ -179,33 +174,30 @@ function parseZoom(value: unknown): FrameZoom | undefined {
   return typeof value === 'number' && ZOOM_LEVELS.includes(value) ? value : undefined
 }
 
-/** The frame and zoom saved on an earlier visit. Anything unreadable counts as nothing saved. */
+const NOTHING_SAVED: DeviceSettings = { zoom: 'fit' }
+
+/**
+ * The frame and zoom saved on an earlier visit, checked as they come out of storage: anything
+ * unreadable counts as nothing saved, the viewport's own size at Fit.
+ */
 export function readDeviceSettings(): DeviceSettings {
   try {
     const stored: unknown = JSON.parse(window.localStorage.getItem(DEVICE_SETTINGS_KEY) ?? '{}')
     if (typeof stored !== 'object' || stored === null) {
-      return {}
+      return NOTHING_SAVED
     }
     const { frame, zoom } = stored as Record<string, unknown>
-    const settings: DeviceSettings = {}
     const parsedFrame = parseFrame(frame)
-    const parsedZoom = parseZoom(zoom)
-    if (parsedFrame !== undefined) {
-      settings.frame = parsedFrame
-    }
-    if (parsedZoom !== undefined) {
-      settings.zoom = parsedZoom
-    }
-    return settings
+    return { ...(parsedFrame === undefined ? {} : { frame: parsedFrame }), zoom: parseZoom(zoom) ?? 'fit' }
   } catch {
-    return {}
+    return NOTHING_SAVED
   }
 }
 
-/** Saves part of the settings; a key set to `undefined` is forgotten. */
-export function writeDeviceSettings(patch: DeviceSettings): void {
+/** Saves the settings for the next visit. */
+export function writeDeviceSettings(settings: DeviceSettings): void {
   try {
-    window.localStorage.setItem(DEVICE_SETTINGS_KEY, JSON.stringify({ ...readDeviceSettings(), ...patch }))
+    window.localStorage.setItem(DEVICE_SETTINGS_KEY, JSON.stringify(settings))
   } catch {
     // A browser that refuses storage still sizes the frame; it only forgets it on the next visit.
   }

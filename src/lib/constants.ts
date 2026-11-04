@@ -8,6 +8,13 @@ export const VIEWPORT_WIDTH = {
   desktop: 1280,
 } as const
 
+/** What the viewer calls each viewport. */
+export const VIEWPORT_LABEL = {
+  mobile: 'Mobile',
+  tablet: 'Tablet',
+  desktop: 'Desktop',
+} as const
+
 /** Heights of those shells. A phone is taller than it is wide; the other two are landscape. */
 export const FRAME_HEIGHT = {
   mobile: 844,

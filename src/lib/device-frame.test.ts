@@ -106,9 +106,9 @@ describe('nudgedSize', () => {
 })
 
 describe('fitScale', () => {
-  it('shrinks a frame to the room the stage leaves for it', () => {
-    // 880 - 80 of gutter leaves 800 for a 1600 frame.
-    expect(fitScale({ width: 880, height: 2000 }, { width: 1600, height: 800 })).toBe(0.5)
+  it("shrinks a frame to the stage's content box", () => {
+    expect(fitScale({ width: 800, height: 2000 }, { width: 1600, height: 800 })).toBe(0.5)
+    expect(fitScale({ width: 2000, height: 200 }, { width: 1600, height: 800 })).toBe(0.25)
   })
 
   it('never draws a frame larger than its own size', () => {
@@ -116,8 +116,9 @@ describe('fitScale', () => {
   })
 
   it('keeps the scale while a keyboard covers part of the stage', () => {
-    const open = fitScale({ width: 2000, height: 488 }, { width: 800, height: 800 }, 400)
-    expect(open).toBe(fitScale({ width: 2000, height: 888 }, { width: 800, height: 800 }))
+    const open = fitScale({ width: 2000, height: 400 }, { width: 800, height: 1600 }, 400)
+    expect(open).toBe(fitScale({ width: 2000, height: 800 }, { width: 800, height: 1600 }))
+    expect(open).toBe(0.5)
   })
 
   it('draws at full size before the stage has been measured', () => {
@@ -178,23 +179,22 @@ describe('frameCaption', () => {
 
 describe('device settings', () => {
   it('reads back what was written', () => {
-    writeDeviceSettings({ frame: { deviceId: 'ipad-air', width: 820, height: 1180 } })
-    writeDeviceSettings({ zoom: 0.5 })
+    writeDeviceSettings({ frame: { deviceId: 'ipad-air', width: 820, height: 1180 }, zoom: 0.5 })
 
     expect(readDeviceSettings()).toEqual({ frame: { deviceId: 'ipad-air', width: 820, height: 1180 }, zoom: 0.5 })
   })
 
-  it('forgets a key written as undefined', () => {
-    writeDeviceSettings({ frame: { width: 900, height: 700 }, zoom: 'fit' })
-    writeDeviceSettings({ frame: undefined })
+  it("reads the viewport's own size at Fit when nothing was saved", () => {
+    expect(readDeviceSettings()).toEqual({ zoom: 'fit' })
 
+    writeDeviceSettings({ frame: undefined, zoom: 'fit' })
     expect(readDeviceSettings()).toEqual({ zoom: 'fit' })
   })
 
   it('reads nothing from storage that is not JSON', () => {
     localStorage.setItem(DEVICE_SETTINGS_KEY, '{not json')
 
-    expect(readDeviceSettings()).toEqual({})
+    expect(readDeviceSettings()).toEqual({ zoom: 'fit' })
   })
 
   it('drops what is not a frame or a zoom, and keeps sides in range', () => {
@@ -203,7 +203,7 @@ describe('device settings', () => {
       JSON.stringify({ frame: { width: 99999, height: 50, deviceId: 'unknown' }, zoom: 3 })
     )
 
-    expect(readDeviceSettings()).toEqual({ frame: { width: 2560, height: 240 } })
+    expect(readDeviceSettings()).toEqual({ frame: { width: 2560, height: 240 }, zoom: 'fit' })
   })
 
   it('reads nothing when storage is refused, and writing does not throw', () => {
@@ -213,7 +213,7 @@ describe('device settings', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(refuse)
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse)
 
-    expect(readDeviceSettings()).toEqual({})
+    expect(readDeviceSettings()).toEqual({ zoom: 'fit' })
     expect(() => writeDeviceSettings({ zoom: 0.5 })).not.toThrow()
   })
 })

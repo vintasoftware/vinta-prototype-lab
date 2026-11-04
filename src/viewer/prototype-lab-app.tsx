@@ -20,10 +20,10 @@ import { annotationsForScreen } from '../lib/annotations'
 import { canEditAnnotations, nameElement, saveAnnotationEdit } from '../lib/annotations-api'
 import { componentSelector, resolveComponentSelector } from '../lib/component-link'
 import { ancestorPaths, nearestNodePath } from '../lib/component-tree'
-import { FRAME_HEIGHT, VIEWPORT_WIDTH } from '../lib/constants'
+import { FRAME_HEIGHT, VIEWPORT_LABEL, VIEWPORT_WIDTH } from '../lib/constants'
 import {
   type DeviceFrame,
-  type FrameZoom,
+  type DeviceSettings,
   fitScale,
   frameCaption,
   frameName,
@@ -51,8 +51,8 @@ export interface PrototypeLabAppProps {
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
   storybook?: StorybookOptions | false
   /**
-   * Shows the Mobile / Tablet / Desktop switcher; `false` draws every screen in its own viewport.
-   * The device toolbar beside it shows either way.
+   * Shows the Mobile / Tablet / Desktop switcher; `false` draws every screen in its own viewport,
+   * unless a size is chosen in the device toolbar, which shows either way.
    */
   viewportSwitcher?: boolean
 }
@@ -84,17 +84,10 @@ export function PrototypeLabApp({
 
   const [viewportOverride, setViewportOverride] = useState<ScreenViewport | undefined>(undefined)
   // The device toolbar's frame and zoom, remembered between visits in this browser.
-  const [saved] = useState(readDeviceSettings)
-  const [deviceFrame, setDeviceFrameState] = useState<DeviceFrame | undefined>(saved.frame)
-  const [frameZoom, setFrameZoomState] = useState<FrameZoom>(saved.zoom ?? 'fit')
-  const setDeviceFrame = useCallback((frame: DeviceFrame | undefined) => {
-    setDeviceFrameState(frame)
-    writeDeviceSettings({ frame })
-  }, [])
-  const setFrameZoom = useCallback((zoom: FrameZoom) => {
-    setFrameZoomState(zoom)
-    writeDeviceSettings({ zoom })
-  }, [])
+  const [device, setDevice] = useState<DeviceSettings>(readDeviceSettings)
+  useEffect(() => writeDeviceSettings(device), [device])
+  const deviceFrame = device.frame
+  const setDeviceFrame = (frame: DeviceFrame | undefined) => setDevice(current => ({ ...current, frame }))
 
   const [presenting, setPresentingState] = useState(() => presentingIn(window.location.search))
   const setPresenting = useCallback((on: boolean) => {
@@ -348,11 +341,19 @@ export function PrototypeLabApp({
   }, [revision])
 
   const canPresent = screen !== undefined
+  const presentingScreen = presenting && canPresent
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       const typing = target !== null && target.closest('input, textarea, select, [contenteditable]') !== null
       if (event.metaKey || event.ctrlKey || typing) {
+        return
+      }
+      // Presenting takes only Esc, and not one the screen used to close its own dialog or menu.
+      if (presentingScreen) {
+        if (event.key === 'Escape' && !event.defaultPrevented) {
+          stopPresenting()
+        }
         return
       }
       const named = TOGGLE_KEYS[event.key]
@@ -369,21 +370,23 @@ export function PrototypeLabApp({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [canPresent, clearComponent, setPresenting, toggle])
+  }, [canPresent, clearComponent, presentingScreen, setPresenting, stopPresenting, toggle])
 
   if (prototype === undefined) {
     return <EmptyLab />
   }
 
-  // The switcher picks a viewport and its default size; a size from the device toolbar wins over it.
-  const screenViewport = viewportOverride ?? screen?.viewport ?? 'desktop'
-  const viewport = deviceFrame === undefined ? screenViewport : viewportOfWidth(deviceFrame.width)
-  const defaultFrameSize = { width: VIEWPORT_WIDTH[screenViewport], height: FRAME_HEIGHT[screenViewport] }
+  // The frame takes the default viewport's size (the switcher's pick, or the screen's own) until the
+  // device toolbar sets one; then the viewport is the one that size's width belongs to.
+  const defaultViewport = viewportOverride ?? screen?.viewport ?? 'desktop'
+  const chosenViewport = deviceFrame === undefined ? viewportOverride : viewportOfWidth(deviceFrame.width)
+  const viewport = chosenViewport ?? defaultViewport
+  const defaultFrameSize = { width: VIEWPORT_WIDTH[defaultViewport], height: FRAME_HEIGHT[defaultViewport] }
+  const defaultName = `${VIEWPORT_LABEL[defaultViewport]} default`
   const frameSize = deviceFrame ?? defaultFrameSize
   // An on-screen keyboard covers the stage without changing the zoom, so typing never shrinks the screen.
   const keyboardInset = Math.max(0, window.innerHeight - visibleBox.height)
-  const scale = frameScale(frameZoom, fitScale(stageSize, frameSize, keyboardInset))
-  const defaultName = `${screenViewport[0]?.toUpperCase()}${screenViewport.slice(1)} default`
+  const scale = frameScale(device.zoom, fitScale(stageSize, frameSize, keyboardInset))
 
   const navigation: ScreenNavigation = {
     screenId: state.current.screenId,
@@ -401,9 +404,9 @@ export function PrototypeLabApp({
     showHotspots: toggles.hotspots,
   }
 
-  if (presenting && screen !== undefined) {
+  if (presentingScreen) {
     return (
-      <PresentingStage viewport={windowViewport} frameRef={frameRef} box={visibleBox} onExit={stopPresenting}>
+      <PresentingStage viewport={windowViewport} box={visibleBox} onExit={stopPresenting}>
         <PrototypeRuntime value={{ ...navigation, showHotspots: false }}>
           <screen.Component />
         </PrototypeRuntime>
@@ -435,8 +438,8 @@ export function PrototypeLabApp({
           onFrame: setDeviceFrame,
           defaultSize: defaultFrameSize,
           defaultName,
-          zoom: frameZoom,
-          onZoom: setFrameZoom,
+          zoom: device.zoom,
+          onZoom: zoom => setDevice(current => ({ ...current, zoom })),
         }}
         {...(canPresent ? { onPresent: () => setPresenting(true) } : {})}
         toggles={toggles}
@@ -493,11 +496,7 @@ export function PrototypeLabApp({
               prototype={prototype}
               flow={flow}
               showHotspots={toggles.hotspots}
-              {...(deviceFrame !== undefined
-                ? { viewport }
-                : viewportOverride === undefined
-                  ? {}
-                  : { viewport: viewportOverride })}
+              {...(chosenViewport === undefined ? {} : { viewport: chosenViewport })}
               onOpenScreen={(screenId, variant) => navigation.goToScreen(screenId, { variant })}
             />
           ) : screen === undefined ? (

@@ -9,9 +9,11 @@ All notable changes to this package are recorded here. Versions follow
 
 - A device toolbar beside the Mobile / Tablet / Desktop switcher: a device list of twelve phones,
   tablets and desktops, plus Responsive and the viewport's default size; width and height fields;
-  rotate; and zoom (Fit, 100%, 75%, 50%). The browser remembers the device and zoom under
-  `vinta-prototype-lab:device` in `localStorage`. Picking a viewport in the switcher goes back to
-  its default size. `viewportSwitcher: false` still hides only the switcher.
+  rotate; and zoom (Fit, 100%, 75%, 50%), with comment pins and inspect outlines staying on their
+  elements at every zoom. The browser remembers the device and zoom under
+  `vinta-prototype-lab:device` in `localStorage`, and a chosen size overrides a screen's own
+  `viewport` until the default size is picked again. Picking a viewport in the switcher goes back
+  to its default size. `viewportSwitcher: false` still hides only the switcher.
 - The frame resizes by dragging its right edge, bottom edge or corner, snapping the width to 640,
   768, 1024 and 1280 px, or with the arrow keys on a focused handle. A double click goes back to the
   default size, and a caption above the frame gives its size, device and zoom. A turned device is
@@ -22,7 +24,6 @@ All notable changes to this package are recorded here. Versions follow
 
 ### Fixed
 
-- Comment pins and inspect outlines stay on their elements when the frame is zoomed out.
 - On a tablet the viewer fills only the visible part of the page and the page itself no longer
   scrolls, so browser bars and the on-screen keyboard no longer make the screen scroll twice, and Fit
   keeps its zoom while the keyboard is open.
