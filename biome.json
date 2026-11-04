@@ -18,7 +18,8 @@
       "!**/dist",
       "!**/example-dist",
       "!**/prototype-lab-dist",
-      "!**/coverage"
+      "!**/coverage",
+      "!**/docs"
     ]
   },
   "formatter": {

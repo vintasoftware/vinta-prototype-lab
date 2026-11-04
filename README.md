@@ -3,6 +3,8 @@
 [![npm](https://img.shields.io/npm/v/vinta-prototype-lab)](https://www.npmjs.com/package/vinta-prototype-lab)
 [![CI](https://github.com/vintasoftware/vinta-prototype-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/vintasoftware/vinta-prototype-lab/actions/workflows/ci.yml)
 
+**[vintasoftware.github.io/vinta-prototype-lab](https://vintasoftware.github.io/vinta-prototype-lab/)**
+
 Clickable prototypes designers hand to engineers: real screens built from your project's own
 components, the flow between them, the states each screen can be in, the document that explains the
 intent, and the designer's comments pinned to the elements they are about.
