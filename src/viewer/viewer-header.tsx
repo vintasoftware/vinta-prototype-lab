@@ -15,6 +15,7 @@ import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
 import type { Prototype, ScreenViewport } from '../types'
 import { Badge, Button, SegmentedToggle } from '../ui'
 import { PrototypePicker } from './prototype-picker'
+import { VintaWordmark } from './vinta-wordmark'
 
 const VIEWPORT_OPTIONS = [
   { value: 'mobile' as const, label: 'Mobile' },
@@ -61,7 +62,10 @@ export function ViewerHeader({
 }: ViewerHeaderProps) {
   return (
     <header className='flex shrink-0 flex-wrap items-center gap-3 border-border border-b bg-card px-4 py-2'>
-      <span className='font-semibold text-sm'>Prototype Lab</span>
+      <span className='flex shrink-0 items-center gap-2'>
+        <VintaWordmark className='h-[19px] w-auto shrink-0 text-primary' />
+        <span className='font-semibold text-sm'>Prototype Lab</span>
+      </span>
 
       <PanelButton
         open={toggles.screens}
@@ -84,7 +88,7 @@ export function ViewerHeader({
         </Button>
       </div>
 
-      <div className='ml-auto flex items-center gap-2'>
+      <div className='ml-auto flex flex-wrap items-center gap-2'>
         {viewport !== undefined && onViewportChange !== undefined && (
           <SegmentedToggle size='sm' options={VIEWPORT_OPTIONS} value={viewport} onValueChange={onViewportChange} />
         )}
