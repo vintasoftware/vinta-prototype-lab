@@ -4,7 +4,7 @@ import { EXIT_BUTTON_DELAY_MS, PresentingStage } from './presenting-stage'
 
 function renderStage(onExit = vi.fn()) {
   const view = render(
-    <PresentingStage viewport='tablet' box={{ top: 20, height: 700 }} onExit={onExit}>
+    <PresentingStage box={{ top: 20, height: 700 }} onExit={onExit}>
       <h1>Visit note</h1>
     </PresentingStage>
   )
@@ -12,14 +12,13 @@ function renderStage(onExit = vi.fn()) {
 }
 
 describe('PresentingStage', () => {
-  it("fills the visible part of the page with the screen, drawn in the window's viewport", () => {
+  it('fills the visible part of the page with the screen', () => {
     const { container } = renderStage()
     const stage = container.firstElementChild as HTMLElement
 
     expect(screen.getByRole('heading', { name: 'Visit note' })).toBeInTheDocument()
     expect(stage.style.top).toBe('20px')
     expect(stage.style.height).toBe('700px')
-    expect(container.querySelector('[data-viewport]')).toHaveAttribute('data-viewport', 'tablet')
   })
 
   it('stops presenting from its button', () => {

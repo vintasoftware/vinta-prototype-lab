@@ -14,7 +14,6 @@ import { usePrototypeSession } from '../hooks/use-prototype-session'
 import { useStorybookLinks } from '../hooks/use-storybook-links'
 import { TOGGLE_KEYS, useViewToggles } from '../hooks/use-view-toggles'
 import { useVisibleBox } from '../hooks/use-visible-box'
-import { useWindowViewport } from '../hooks/use-window-viewport'
 import { type AnnotationEdit, annotationId } from '../lib/annotation-edit'
 import { annotationsForScreen } from '../lib/annotations'
 import { canEditAnnotations, nameElement, saveAnnotationEdit } from '../lib/annotations-api'
@@ -95,7 +94,6 @@ export function PrototypeLabApp({
     writePresenting(on)
   }, [])
   const stopPresenting = useCallback(() => setPresenting(false), [setPresenting])
-  const windowViewport = useWindowViewport(presenting)
   const visibleBox = useVisibleBox()
   const [stageRef, stageSize] = useElementSize<HTMLElement>()
 
@@ -406,7 +404,7 @@ export function PrototypeLabApp({
 
   if (presentingScreen) {
     return (
-      <PresentingStage viewport={windowViewport} box={visibleBox} onExit={stopPresenting}>
+      <PresentingStage box={visibleBox} onExit={stopPresenting}>
         <PrototypeRuntime value={{ ...navigation, showHotspots: false }}>
           <screen.Component />
         </PrototypeRuntime>
