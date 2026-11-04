@@ -51,20 +51,25 @@ function viewportBox(element: Element, depth = 0): Box | undefined {
   return box
 }
 
-/** Measures one anchored element against the frame's own box. */
-export function measureAnchor(element: Element, frame: Element): AnchorRect | undefined {
+/**
+ * Measures one anchored element against the frame's own box, in the frame's own pixels. The frame
+ * can be drawn zoomed out with a CSS transform, which shrinks what the browser reports but not the
+ * coordinates the overlay draws in, so the measure is divided by the drawn scale.
+ */
+export function measureAnchor(element: Element, frame: HTMLElement): AnchorRect | undefined {
   const box = viewportBox(element)
   if (box === undefined) {
     return undefined
   }
 
   const origin = frame.getBoundingClientRect()
+  const scale = frame.offsetWidth > 0 && origin.width > 0 ? origin.width / frame.offsetWidth : 1
 
   return {
-    top: box.top - origin.top,
-    left: box.left - origin.left,
-    width: box.right - box.left,
-    height: box.bottom - box.top,
+    top: (box.top - origin.top) / scale,
+    left: (box.left - origin.left) / scale,
+    width: (box.right - box.left) / scale,
+    height: (box.bottom - box.top) / scale,
   }
 }
 
