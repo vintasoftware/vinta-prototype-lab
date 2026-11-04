@@ -3,6 +3,19 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## [0.3.1] - 2026-11-04
+
+### Added
+
+- The viewer header carries the Vinta wordmark before the title.
+- A landing page at [vintasoftware.github.io/vinta-prototype-lab](https://vintasoftware.github.io/vinta-prototype-lab/),
+  deployed from `docs/` by GitHub Pages.
+
+### Fixed
+
+- The header's Flow / Inspect / Hotspots / Comments row wraps in a narrow window instead of widening
+  the page.
+
 ## [0.3.0] - 2026-10-02
 
 ### Added
