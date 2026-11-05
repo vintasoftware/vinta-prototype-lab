@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { EXIT_BUTTON_DELAY_MS, PresentingStage } from './presenting-stage'
 
@@ -21,10 +22,10 @@ describe('PresentingStage', () => {
     expect(stage.style.height).toBe('700px')
   })
 
-  it('stops presenting from its button', () => {
+  it('stops presenting from its button', async () => {
     const { onExit } = renderStage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Stop presenting' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Stop presenting' }))
 
     expect(onExit).toHaveBeenCalledOnce()
   })
@@ -38,9 +39,8 @@ describe('PresentingStage', () => {
     act(() => vi.advanceTimersByTime(EXIT_BUTTON_DELAY_MS))
     expect(button).toHaveClass('opacity-0', 'pointer-events-none')
 
-    act(() => {
-      window.dispatchEvent(new PointerEvent('pointerdown'))
-    })
+    // userEvent never settles under fake timers here, so the touch is fired directly.
+    fireEvent.pointerDown(screen.getByRole('heading', { name: 'Visit note' }))
     expect(button).toHaveClass('opacity-90')
 
     act(() => vi.advanceTimersByTime(EXIT_BUTTON_DELAY_MS - 1))

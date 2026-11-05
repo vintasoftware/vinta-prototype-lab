@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ResizableFrame } from './resizable-frame'
@@ -20,7 +20,8 @@ function renderFrame(scale = 1) {
   return { ...view, onResize, onReset }
 }
 
-function pointer(type: string, clientX: number, clientY: number) {
+/** A pointer the browser reports to the window, as it does once the pointer leaves the handle. */
+function windowPointer(type: string, clientX: number, clientY: number) {
   window.dispatchEvent(new PointerEvent(type, { clientX, clientY, bubbles: true }))
 }
 
@@ -54,35 +55,42 @@ describe('ResizableFrame', () => {
     }
   })
 
-  it('resizes while a handle is dragged, following the pointer on the window', () => {
+  it('resizes while a handle is dragged, following the pointer on the window', async () => {
     const { onResize } = renderFrame()
 
-    fireEvent.pointerDown(screen.getByRole('separator', { name: 'Frame size' }), {
-      button: 0,
-      clientX: 100,
-      clientY: 100,
-    })
-    pointer('pointermove', 150, 130)
+    await userEvent.pointer([
+      {
+        keys: '[MouseLeft>]',
+        target: screen.getByRole('separator', { name: 'Frame size' }),
+        coords: { x: 100, y: 100 },
+      },
+      { coords: { x: 150, y: 130 } },
+    ])
 
     expect(onResize).toHaveBeenLastCalledWith({ width: 850, height: 630 })
   })
 
-  it('stops following the pointer once it is let go', () => {
+  it('stops following the pointer once it is let go', async () => {
     const { onResize } = renderFrame()
 
-    fireEvent.pointerDown(screen.getByRole('separator', { name: 'Frame width' }), { button: 0, clientX: 0, clientY: 0 })
-    pointer('pointerup', 0, 0)
-    pointer('pointermove', 300, 0)
+    await userEvent.pointer([
+      { keys: '[MouseLeft]', target: screen.getByRole('separator', { name: 'Frame width' }), coords: { x: 0, y: 0 } },
+      { coords: { x: 300, y: 0 } },
+    ])
 
     expect(onResize).not.toHaveBeenCalled()
   })
 
-  it('stops following the pointer when it goes away mid-drag', () => {
+  it('stops following the pointer when it goes away mid-drag', async () => {
     const { onResize, unmount } = renderFrame()
 
-    fireEvent.pointerDown(screen.getByRole('separator', { name: 'Frame width' }), { button: 0, clientX: 0, clientY: 0 })
+    await userEvent.pointer({
+      keys: '[MouseLeft>]',
+      target: screen.getByRole('separator', { name: 'Frame width' }),
+      coords: { x: 0, y: 0 },
+    })
     unmount()
-    pointer('pointermove', 300, 0)
+    windowPointer('pointermove', 300, 0)
 
     expect(onResize).not.toHaveBeenCalled()
   })

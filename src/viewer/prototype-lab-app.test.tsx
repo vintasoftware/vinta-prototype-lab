@@ -346,6 +346,7 @@ describe('PrototypeLabApp', () => {
 
     it('shows only the screen on P, and puts the viewer back on Esc', async () => {
       render(<PrototypeLabApp prototypes={prototypes} />)
+      const entries = window.history.length
 
       await userEvent.keyboard('p')
 
@@ -359,6 +360,7 @@ describe('PrototypeLabApp', () => {
       expect(screen.queryByRole('button', { name: 'Stop presenting' })).not.toBeInTheDocument()
       expect(screen.getByRole('combobox', { name: 'Device' })).toBeInTheDocument()
       expect(window.location.search).toBe('')
+      expect(window.history.length).toBe(entries)
     })
 
     it("leaves the viewer's other keys alone while presenting", async () => {

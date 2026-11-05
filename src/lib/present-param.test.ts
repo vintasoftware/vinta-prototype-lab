@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { presentingIn, withPresenting, writePresenting } from './present-param'
+// @vitest-environment node
+import { describe, expect, it } from 'vitest'
+import { presentingIn, withPresenting } from './present-param'
 
 describe('presentingIn', () => {
   it('finds the parameter bare, with a value, or among others', () => {
@@ -36,22 +37,5 @@ describe('withPresenting', () => {
 
   it('never adds the parameter twice', () => {
     expect(withPresenting('http://localhost:6007/?present', true)).toBe('http://localhost:6007/?present')
-  })
-})
-
-describe('writePresenting', () => {
-  afterEach(() => window.history.replaceState(null, '', '/'))
-
-  it('rewrites the address in place', () => {
-    window.history.replaceState(null, '', '/#/p/booking/home')
-    const entries = window.history.length
-
-    writePresenting(true)
-    expect(window.location.search).toBe('?present')
-    expect(window.location.hash).toBe('#/p/booking/home')
-
-    writePresenting(false)
-    expect(window.location.search).toBe('')
-    expect(window.history.length).toBe(entries)
   })
 })
