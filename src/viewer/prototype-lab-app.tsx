@@ -32,7 +32,7 @@ import {
   writeDeviceSettings,
 } from '../lib/device-frame'
 import { distinctScreens } from '../lib/discovery'
-import { presentingIn, writePresenting } from '../lib/present-param'
+import { type PresentMode, presentModeIn, writePresenting } from '../lib/present-param'
 import { SOURCE_ATTRIBUTE, suggestAnchorId } from '../lib/source-ref'
 import type { StorybookOptions } from '../lib/storybook-links'
 import type { Annotation, Prototype, ScreenViewport } from '../types'
@@ -88,12 +88,13 @@ export function PrototypeLabApp({
   const deviceFrame = device.frame
   const setDeviceFrame = (frame: DeviceFrame | undefined) => setDevice(current => ({ ...current, frame }))
 
-  const [presenting, setPresentingState] = useState(() => presentingIn(window.location.search))
-  const setPresenting = useCallback((on: boolean) => {
-    setPresentingState(on)
-    writePresenting(on)
+  // `undefined` when not presenting. The viewer's own way in keeps the frame; `?present=fill` fills the window.
+  const [presenting, setPresentingState] = useState(() => presentModeIn(window.location.search))
+  const setPresenting = useCallback((mode: PresentMode | undefined) => {
+    setPresentingState(mode)
+    writePresenting(mode)
   }, [])
-  const stopPresenting = useCallback(() => setPresenting(false), [setPresenting])
+  const stopPresenting = useCallback(() => setPresenting(undefined), [setPresenting])
   const visibleBox = useVisibleBox()
   const [stageRef, stageSize] = useElementSize<HTMLElement>()
 
@@ -110,7 +111,7 @@ export function PrototypeLabApp({
 
   const frameRef = useRef<HTMLDivElement>(null)
   // The stage leaves the DOM while the map is open, so what was measured on it has to go too.
-  const stage = presenting ? 'present' : toggles.flow ? 'flow' : 'stage'
+  const stage = presenting !== undefined ? 'present' : toggles.flow ? 'flow' : 'stage'
   const revision = `${state.slug}/${state.current.screenId}/${state.current.variant}/${stage}`
   const flow = useFlowLinks(prototype, toggles.flow)
 
@@ -237,7 +238,12 @@ export function PrototypeLabApp({
   )
 
   // Presenting shows the screen as the app would: clicks navigate, nothing is picked.
-  useInspectMode({ frameRef, enabled: toggles.inspect && !presenting, onPick: pickComponent, onHover: hoverComponent })
+  useInspectMode({
+    frameRef,
+    enabled: toggles.inspect && presenting === undefined,
+    onPick: pickComponent,
+    onHover: hoverComponent,
+  })
 
   const applyEdit = useCallback(
     async (edit: AnnotationEdit) => {
@@ -339,7 +345,7 @@ export function PrototypeLabApp({
   }, [revision])
 
   const canPresent = screen !== undefined
-  const presentingScreen = presenting && canPresent
+  const presentingScreen = presenting !== undefined && canPresent
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
@@ -359,7 +365,7 @@ export function PrototypeLabApp({
         toggle(named)
       }
       if (event.key === 'p' && canPresent) {
-        setPresenting(true)
+        setPresenting('frame')
       }
       if (event.key === 'Escape') {
         setSelectedNoteId(undefined)
@@ -404,7 +410,7 @@ export function PrototypeLabApp({
 
   if (presentingScreen) {
     return (
-      <PresentingStage box={visibleBox} onExit={stopPresenting}>
+      <PresentingStage box={visibleBox} size={presenting === 'fill' ? undefined : frameSize} onExit={stopPresenting}>
         <PrototypeRuntime value={{ ...navigation, showHotspots: false }}>
           <screen.Component />
         </PrototypeRuntime>
@@ -439,7 +445,7 @@ export function PrototypeLabApp({
           zoom: device.zoom,
           onZoom: zoom => setDevice(current => ({ ...current, zoom })),
         }}
-        {...(canPresent ? { onPresent: () => setPresenting(true) } : {})}
+        {...(canPresent ? { onPresent: () => setPresenting('frame') } : {})}
         toggles={toggles}
         onToggle={toggle}
         noteCount={notes.length}

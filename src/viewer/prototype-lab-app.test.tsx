@@ -404,6 +404,27 @@ describe('PrototypeLabApp', () => {
       expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
     })
 
+    it('presents at the size chosen in the viewer', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Mobile' }))
+      await userEvent.keyboard('p')
+
+      const frame = screen.getByTestId('presenting-frame')
+      expect(frame.style.width).toBe('390px')
+      expect(frame.style.height).toBe('844px')
+      expect(within(frame).getByRole('heading', { name: 'Good morning' })).toBeInTheDocument()
+    })
+
+    it('fills the window with ?present=fill in the address', () => {
+      window.history.replaceState(null, '', '/?present=fill')
+
+      render(<PrototypeLabApp prototypes={prototypes} />)
+
+      expect(screen.getByRole('heading', { name: 'Good morning' })).toBeInTheDocument()
+      expect(screen.queryByTestId('presenting-frame')).not.toBeInTheDocument()
+    })
+
     it('shows none of the viewer around the screen', async () => {
       render(<PrototypeLabApp prototypes={prototypes} />)
 

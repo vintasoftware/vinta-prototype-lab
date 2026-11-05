@@ -432,7 +432,8 @@ accessibility bug it is.
 - **Resizing the frame.** Drag its edges, or use the arrow keys on a focused handle. A double click
   resets it. `@media` queries still follow the browser window, not the frame.
 - **Presenting.** `p`, the header button, or `?present` in the URL shows only the screen, at the
-  window's size. `Esc` exits. Start the server with `--host` to open it from a tablet.
+  size chosen in the viewer, scaled down if the window is smaller. `?present=fill` fills the window
+  instead: start the server with `--host` and open that on a phone or tablet. `Esc` exits.
 - **Keys.** `c` toggles comments, `h` toggles hotspots, `i` toggles inspect mode, `f` toggles the
   flow map, `[` and `]` close the panels either side, `p` starts presenting, `Esc` clears the open
   note and the picked component, or stops presenting.

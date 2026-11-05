@@ -10,7 +10,9 @@ All notable changes to this package are recorded here. Versions follow
 - A device toolbar beside the viewport switcher: device presets, width and height fields, rotate,
   and zoom. The browser remembers the choice.
 - The frame resizes by dragging its edges or with the arrow keys, and a double click resets it.
-- Present mode (`p`, the header button or `?present`) shows only the screen. `Esc` exits.
+- Present mode (`p`, the header button or `?present`) shows only the screen, at the size chosen in
+  the viewer and scaled down to fit the window. `?present=fill` fills the window instead, for a
+  phone or tablet. `Esc` exits.
 
 ### Fixed
 
