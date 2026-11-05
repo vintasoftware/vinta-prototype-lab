@@ -325,7 +325,7 @@ describe('PrototypeLabApp', () => {
     it('works beside the viewport switcher, each following the other', async () => {
       const { container } = render(<PrototypeLabApp prototypes={prototypes} />)
 
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Device' }), 'iPad Mini')
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Device' }), 'iPad mini')
       expect(screen.getByRole('tab', { name: 'Tablet' })).toHaveAttribute('aria-selected', 'true')
 
       await userEvent.click(screen.getByRole('tab', { name: 'Mobile' }))

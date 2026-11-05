@@ -32,20 +32,22 @@ export interface DevicePreset {
 
 /**
  * Devices the frame can take, as in Chrome's device toolbar. Sizes are CSS pixels, portrait for
- * phones and tablets.
+ * phones and tablets: the current iPhones and iPads, a small iPhone and a small Android for the
+ * narrowest layouts, and the desktop sizes people browse at most. Checked in November 2026.
  */
 export const DEVICE_PRESETS: readonly DevicePreset[] = [
   { group: 'Phones', id: 'iphone-se', label: 'iPhone SE', width: 375, height: 667 },
-  { group: 'Phones', id: 'iphone-15', label: 'iPhone 15', width: 393, height: 852 },
-  { group: 'Phones', id: 'iphone-15-pro-max', label: 'iPhone 15 Pro Max', width: 430, height: 932 },
+  { group: 'Phones', id: 'iphone-17', label: 'iPhone 17', width: 402, height: 874 },
+  { group: 'Phones', id: 'iphone-17-pro-max', label: 'iPhone 17 Pro Max', width: 440, height: 956 },
   { group: 'Phones', id: 'pixel-7', label: 'Pixel 7', width: 412, height: 915 },
-  { group: 'Phones', id: 'galaxy-s20', label: 'Galaxy S20', width: 360, height: 800 },
-  { group: 'Tablets', id: 'ipad-mini', label: 'iPad Mini', width: 768, height: 1024 },
+  { group: 'Phones', id: 'android-small', label: 'Android small', width: 360, height: 800 },
+  { group: 'Tablets', id: 'ipad-mini', label: 'iPad mini', width: 744, height: 1133 },
   { group: 'Tablets', id: 'ipad-air', label: 'iPad Air', width: 820, height: 1180 },
-  { group: 'Tablets', id: 'ipad-pro-11', label: 'iPad Pro 11"', width: 834, height: 1194 },
-  { group: 'Tablets', id: 'ipad-pro-13', label: 'iPad Pro 12.9"', width: 1024, height: 1366 },
+  { group: 'Tablets', id: 'ipad-pro-11', label: 'iPad Pro 11"', width: 834, height: 1210 },
+  { group: 'Tablets', id: 'ipad-pro-13', label: 'iPad Pro 13"', width: 1032, height: 1376 },
   { group: 'Desktops', id: 'laptop', label: 'Laptop', width: 1280, height: 800 },
   { group: 'Desktops', id: 'desktop-1440', label: 'Desktop', width: 1440, height: 900 },
+  { group: 'Desktops', id: 'laptop-1080p', label: 'Laptop 1080p', width: 1536, height: 864 },
   { group: 'Desktops', id: 'full-hd', label: 'Full HD', width: 1920, height: 1080 },
 ]
 
