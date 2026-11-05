@@ -76,7 +76,7 @@ export default defineConfig({
 | `dir`       | `prototypes`     | Where the prototype folders live, from the root. The folder must be named `prototypes`.   |
 | `css`       | package default  | The project's stylesheets, loaded after the viewer's. See [Styles](#styles).              |
 | `storybook` | `{}`             | `url` of the project's Storybook and an optional `marker` section; `false` turns links off. |
-| `viewportSwitcher` | `true`    | Shows the Mobile / Tablet / Desktop switcher. `false` hides it for a single form factor, and every screen draws in its own `viewport` unless a size is chosen in the device toolbar, which stays. |
+| `viewportSwitcher` | `true`    | Shows the Mobile / Tablet / Desktop switcher. `false` hides it for a single form factor, and every screen draws in its own `viewport`. |
 | `title`     | `Prototype Lab`  | The page title.                                                                           |
 | `root`      | current folder   | The project root the paths are relative to. Set it when the config sets Vite's `root`.   |
 | `react`     | `true`           | Adds `@vitejs/plugin-react`. Pass `false` when the config already adds it.                |
@@ -190,9 +190,8 @@ import type { ScreenMeta } from 'vinta-prototype-lab'
 export const screen: Partial<ScreenMeta> = { title: 'Choose time', variantLabel: 'No availability', viewport: 'mobile' }
 ```
 
-`viewport` is `mobile`, `tablet` or `desktop`; it sets the frame the screen opens in. The viewer's
-switcher overrides it while you look, and so does a device or size chosen in the device toolbar,
-which this browser remembers for later visits.
+`viewport` is `mobile`, `tablet` or `desktop`; it sets the frame the screen opens in, and the viewer's
+switcher or device toolbar overrides it while you look.
 
 Build screens out of the project's own components — the prototype should be wrong in the ways the
 design is wrong, not in the ways a mock is wrong. A screen may import a real feature module too;
@@ -409,8 +408,7 @@ What the map shows:
 - **Click a card** to put that screen state on stage.
 
 The screens are laid out in columns by how many clicks they are from the entry, and the viewport
-switcher redraws every thumbnail in the chosen frame. A size from the device toolbar picks the
-frame by its width: an iPad Air draws every thumbnail as a tablet. Zoom with the toolbar; the map opens fitted.
+switcher redraws every thumbnail in the chosen frame. Zoom with the toolbar; the map opens fitted.
 
 Two things the map cannot see. A control that navigates later — from a timer, after an `await` — is
 read as leading nowhere, because only what happens during the click counts. And a `div` with an
@@ -429,29 +427,12 @@ accessibility bug it is.
 - **Deep links.** The URL carries the screen: `#/p/patient-booking/choose-time/no-slots`, and the
   picked component with it. Paste it into a ticket. In-prototype **Back** is the flow's own back, so
   the URL is replaced rather than pushed.
-- **Device toolbar.** Beside the Mobile / Tablet / Desktop switcher, as in Chrome's DevTools: a
-  device list (the viewport's default size, Responsive, and twelve phones, tablets and desktops),
-  the width and height (240 to 2560 px; Enter or leaving the field applies, `Esc` puts it back), a
-  rotate button, and the zoom (Fit, which shrinks the frame to the stage but never enlarges it,
-  100%, 75%, 50%). The caption above the frame reads `820 × 1180 · iPad Air · 73%`. Picking a
-  viewport in the switcher goes back to its default size. This browser remembers the device and
-  zoom between visits.
-- **Resizing the frame.** Drag its right edge, bottom edge or corner. A dragged width snaps to 640,
-  768, 1024 and 1280 px. A focused handle takes the arrow keys, 10 px a press and 50 with Shift, and
-  a double click on any handle goes back to the default size. The frame changes the screen's width,
-  but CSS media queries still follow the browser window: a screen that changes layout with
-  container queries, or by measuring itself, responds to the frame; one that relies only on
-  `@media` does not.
-- **Presenting.** The button beside the doc panel's, or `p`, shows only the screen, filling the
-  page at the window's own size with no zoom, as the finished app would. Its media queries match
-  too. Links between screens keep working; comments, hotspots and inspect are off. A round button
-  in the top right corner, or `Esc`, goes back; the button hides after a moment and comes back on
-  any touch. An `Esc` the screen takes itself, in a text field or to close its own dialog, stays in
-  the screen, and the viewer's other keys do nothing while presenting.
-  `?present` in the address, before the `#`, opens the viewer straight into presenting:
-  `http://localhost:6007/?present#/p/patient-booking/home`. To open it from a tablet on the same
-  network, start the server with `--host`. On a tablet the viewer fills only the visible part of
-  the page, so the browser bars and the on-screen keyboard never make the whole page scroll.
+- **Device toolbar.** Beside the viewport switcher: device presets, width and height, rotate, and
+  zoom. The browser remembers the choice.
+- **Resizing the frame.** Drag its edges, or use the arrow keys on a focused handle. A double click
+  resets it. `@media` queries still follow the browser window, not the frame.
+- **Presenting.** `p`, the header button, or `?present` in the URL shows only the screen, at the
+  window's size. `Esc` exits. Start the server with `--host` to open it from a tablet.
 - **Keys.** `c` toggles comments, `h` toggles hotspots, `i` toggles inspect mode, `f` toggles the
   flow map, `[` and `]` close the panels either side, `p` starts presenting, `Esc` clears the open
   note and the picked component, or stops presenting.
