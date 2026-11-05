@@ -191,7 +191,7 @@ export const screen: Partial<ScreenMeta> = { title: 'Choose time', variantLabel:
 ```
 
 `viewport` is `mobile`, `tablet` or `desktop`; it sets the frame the screen opens in, and the viewer's
-switcher overrides it while you look.
+switcher or device toolbar overrides it while you look.
 
 Build screens out of the project's own components — the prototype should be wrong in the ways the
 design is wrong, not in the ways a mock is wrong. A screen may import a real feature module too;
@@ -427,9 +427,16 @@ accessibility bug it is.
 - **Deep links.** The URL carries the screen: `#/p/patient-booking/choose-time/no-slots`, and the
   picked component with it. Paste it into a ticket. In-prototype **Back** is the flow's own back, so
   the URL is replaced rather than pushed.
+- **Device toolbar.** Beside the viewport switcher: device presets, width and height, rotate, and
+  zoom. The browser remembers the choice.
+- **Resizing the frame.** Drag its edges, or use the arrow keys on a focused handle. A double click
+  resets it. `@media` queries still follow the browser window, not the frame.
+- **Presenting.** `p`, the header button, or `?present` in the URL shows only the screen, at the
+  size chosen in the viewer, scaled down if the window is smaller. `?present=fill` fills the window
+  instead: start the server with `--host` and open that on a phone or tablet. `Esc` exits.
 - **Keys.** `c` toggles comments, `h` toggles hotspots, `i` toggles inspect mode, `f` toggles the
-  flow map, `[` and `]` close the panels either side, `Esc` clears the open note and the picked
-  component.
+  flow map, `[` and `]` close the panels either side, `p` starts presenting, `Esc` clears the open
+  note and the picked component, or stops presenting.
 
 ## What this is not
 

@@ -3,6 +3,21 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## [Unreleased]
+
+### Added
+
+- A device toolbar beside the viewport switcher: device presets, width and height fields, rotate,
+  and zoom. The browser remembers the choice.
+- The frame resizes by dragging its edges or with the arrow keys, and a double click resets it.
+- Present mode (`p`, the header button or `?present`) shows only the screen, at the size chosen in
+  the viewer and scaled down to fit the window. `?present=fill` fills the window instead, for a
+  phone or tablet. `Esc` exits.
+
+### Fixed
+
+- On a tablet, the page no longer scrolls behind the viewer.
+
 ## [0.3.1] - 2026-11-04
 
 ### Added

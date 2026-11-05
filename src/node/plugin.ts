@@ -36,7 +36,8 @@ export interface PrototypeLabOptions {
   storybook?: StorybookOptions | false
   /**
    * Shows the Mobile / Tablet / Desktop switcher in the header. Pass `false` for a project that
-   * targets one form factor: the switcher goes, and every screen draws in its own `viewport`.
+   * targets one form factor: the switcher goes, and every screen draws in its own `viewport`
+   * unless a size is chosen in the device toolbar, which stays.
    */
   viewportSwitcher?: boolean
   /** The page title. Defaults to `Prototype Lab`. */

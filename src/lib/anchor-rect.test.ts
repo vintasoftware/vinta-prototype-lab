@@ -44,6 +44,16 @@ describe('measureAnchor', () => {
     expect(measureAnchor(wrapper, frameWith([wrapper]))).toEqual({ top: 100, left: 50, width: 100, height: 30 })
   })
 
+  it("reports the box in the frame's own pixels when the frame is drawn zoomed out", () => {
+    // A 400px frame drawn at half size: the browser reports 200px; the overlay draws in 400.
+    const element = withRect(document.createElement('button'), { top: 130, left: 60, width: 100, height: 20 })
+    const frame = withRect(document.createElement('div'), { top: 100, left: 50, width: 200, height: 400 })
+    Object.defineProperty(frame, 'offsetWidth', { value: 400 })
+    frame.append(element)
+
+    expect(measureAnchor(element, frame)).toEqual({ top: 60, left: 20, width: 200, height: 40 })
+  })
+
   it('reports nothing for an element with no box anywhere inside it', () => {
     const empty = withRect(document.createElement('span'), { top: 0, left: 0, width: 0, height: 0 })
 

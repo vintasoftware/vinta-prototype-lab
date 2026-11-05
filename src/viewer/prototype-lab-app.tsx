@@ -3,20 +3,36 @@ import { AnnotationOverlay, type NumberedAnnotation } from '../components/annota
 import { InspectOverlay } from '../components/inspect-overlay'
 import { PrototypeFrame } from '../components/prototype-frame'
 import { PrototypeRuntime, type ScreenNavigation } from '../components/prototype-runtime'
+import { ResizableFrame } from '../components/resizable-frame'
 import { useAnchorRects } from '../hooks/use-anchor-rects'
 import { useComponentTree } from '../hooks/use-component-tree'
+import { useElementSize } from '../hooks/use-element-size'
 import { useFlowLinks } from '../hooks/use-flow-links'
 import { useInspectMode } from '../hooks/use-inspect-mode'
 import { useInspectRects } from '../hooks/use-inspect-rects'
 import { usePrototypeSession } from '../hooks/use-prototype-session'
 import { useStorybookLinks } from '../hooks/use-storybook-links'
 import { TOGGLE_KEYS, useViewToggles } from '../hooks/use-view-toggles'
+import { useVisibleBox } from '../hooks/use-visible-box'
 import { type AnnotationEdit, annotationId } from '../lib/annotation-edit'
 import { annotationsForScreen } from '../lib/annotations'
 import { canEditAnnotations, nameElement, saveAnnotationEdit } from '../lib/annotations-api'
 import { componentSelector, resolveComponentSelector } from '../lib/component-link'
 import { ancestorPaths, nearestNodePath } from '../lib/component-tree'
+import { FRAME_HEIGHT, VIEWPORT_LABEL, VIEWPORT_WIDTH } from '../lib/constants'
+import {
+  type DeviceFrame,
+  type DeviceSettings,
+  fitScale,
+  frameCaption,
+  frameName,
+  frameScale,
+  readDeviceSettings,
+  viewportOfWidth,
+  writeDeviceSettings,
+} from '../lib/device-frame'
 import { distinctScreens } from '../lib/discovery'
+import { type PresentMode, presentModeIn, writePresenting } from '../lib/present-param'
 import { SOURCE_ATTRIBUTE, suggestAnchorId } from '../lib/source-ref'
 import type { StorybookOptions } from '../lib/storybook-links'
 import type { Annotation, Prototype, ScreenViewport } from '../types'
@@ -24,6 +40,7 @@ import { cn } from '../ui'
 import { type CommentDraft, chosenName } from './comment-composer'
 import { EmptyLab } from './empty-lab'
 import { FlowMap } from './flow-map'
+import { PresentingStage } from './presenting-stage'
 import { SidePanel } from './side-panel'
 import { ViewerHeader } from './viewer-header'
 import { ViewerSidebar } from './viewer-sidebar'
@@ -32,7 +49,10 @@ export interface PrototypeLabAppProps {
   prototypes: Prototype[]
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
   storybook?: StorybookOptions | false
-  /** Shows the Mobile / Tablet / Desktop switcher; `false` draws every screen in its own viewport. */
+  /**
+   * Shows the Mobile / Tablet / Desktop switcher; `false` draws every screen in its own viewport,
+   * unless a size is chosen in the device toolbar, which shows either way.
+   */
   viewportSwitcher?: boolean
 }
 
@@ -62,6 +82,22 @@ export function PrototypeLabApp({
   const { prototype, screen, state } = session
 
   const [viewportOverride, setViewportOverride] = useState<ScreenViewport | undefined>(undefined)
+  // The device toolbar's frame and zoom, remembered between visits in this browser.
+  const [device, setDevice] = useState<DeviceSettings>(readDeviceSettings)
+  useEffect(() => writeDeviceSettings(device), [device])
+  const deviceFrame = device.frame
+  const setDeviceFrame = (frame: DeviceFrame | undefined) => setDevice(current => ({ ...current, frame }))
+
+  // `undefined` when not presenting. The viewer's own way in keeps the frame; `?present=fill` fills the window.
+  const [presenting, setPresentingState] = useState(() => presentModeIn(window.location.search))
+  const setPresenting = useCallback((mode: PresentMode | undefined) => {
+    setPresentingState(mode)
+    writePresenting(mode)
+  }, [])
+  const stopPresenting = useCallback(() => setPresenting(undefined), [setPresenting])
+  const visibleBox = useVisibleBox()
+  const [stageRef, stageSize] = useElementSize<HTMLElement>()
+
   const { toggles, toggle, setToggle } = useViewToggles()
   const [selectedNoteId, setSelectedNoteId] = useState<string | undefined>(undefined)
   const [hoveredPath, setHoveredPath] = useState<string | undefined>(undefined)
@@ -75,7 +111,8 @@ export function PrototypeLabApp({
 
   const frameRef = useRef<HTMLDivElement>(null)
   // The stage leaves the DOM while the map is open, so what was measured on it has to go too.
-  const revision = `${state.slug}/${state.current.screenId}/${state.current.variant}/${toggles.flow ? 'flow' : 'stage'}`
+  const stage = presenting !== undefined ? 'present' : toggles.flow ? 'flow' : 'stage'
+  const revision = `${state.slug}/${state.current.screenId}/${state.current.variant}/${stage}`
   const flow = useFlowLinks(prototype, toggles.flow)
 
   const notes: NumberedAnnotation[] = useMemo(() => {
@@ -200,7 +237,13 @@ export function PrototypeLabApp({
     [tree]
   )
 
-  useInspectMode({ frameRef, enabled: toggles.inspect, onPick: pickComponent, onHover: hoverComponent })
+  // Presenting shows the screen as the app would: clicks navigate, nothing is picked.
+  useInspectMode({
+    frameRef,
+    enabled: toggles.inspect && presenting === undefined,
+    onPick: pickComponent,
+    onHover: hoverComponent,
+  })
 
   const applyEdit = useCallback(
     async (edit: AnnotationEdit) => {
@@ -301,6 +344,8 @@ export function PrototypeLabApp({
     setNamingError(undefined)
   }, [revision])
 
+  const canPresent = screen !== undefined
+  const presentingScreen = presenting !== undefined && canPresent
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
@@ -308,9 +353,19 @@ export function PrototypeLabApp({
       if (event.metaKey || event.ctrlKey || typing) {
         return
       }
+      // Presenting takes only Esc, and not one the screen used to close its own dialog or menu.
+      if (presentingScreen) {
+        if (event.key === 'Escape' && !event.defaultPrevented) {
+          stopPresenting()
+        }
+        return
+      }
       const named = TOGGLE_KEYS[event.key]
       if (named !== undefined) {
         toggle(named)
+      }
+      if (event.key === 'p' && canPresent) {
+        setPresenting('frame')
       }
       if (event.key === 'Escape') {
         setSelectedNoteId(undefined)
@@ -319,13 +374,23 @@ export function PrototypeLabApp({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [clearComponent, toggle])
+  }, [canPresent, clearComponent, presentingScreen, setPresenting, stopPresenting, toggle])
 
   if (prototype === undefined) {
     return <EmptyLab />
   }
 
-  const viewport = viewportOverride ?? screen?.viewport ?? 'desktop'
+  // The frame takes the default viewport's size (the switcher's pick, or the screen's own) until the
+  // device toolbar sets one; then the viewport is the one that size's width belongs to.
+  const defaultViewport = viewportOverride ?? screen?.viewport ?? 'desktop'
+  const chosenViewport = deviceFrame === undefined ? viewportOverride : viewportOfWidth(deviceFrame.width)
+  const viewport = chosenViewport ?? defaultViewport
+  const defaultFrameSize = { width: VIEWPORT_WIDTH[defaultViewport], height: FRAME_HEIGHT[defaultViewport] }
+  const defaultName = `${VIEWPORT_LABEL[defaultViewport]} default`
+  const frameSize = deviceFrame ?? defaultFrameSize
+  // An on-screen keyboard covers the stage without changing the zoom, so typing never shrinks the screen.
+  const keyboardInset = Math.max(0, window.innerHeight - visibleBox.height)
+  const scale = frameScale(device.zoom, fitScale(stageSize, frameSize, keyboardInset))
 
   const navigation: ScreenNavigation = {
     screenId: state.current.screenId,
@@ -343,8 +408,18 @@ export function PrototypeLabApp({
     showHotspots: toggles.hotspots,
   }
 
+  if (presentingScreen) {
+    return (
+      <PresentingStage box={visibleBox} size={presenting === 'fill' ? undefined : frameSize} onExit={stopPresenting}>
+        <PrototypeRuntime value={{ ...navigation, showHotspots: false }}>
+          <screen.Component />
+        </PrototypeRuntime>
+      </PresentingStage>
+    )
+  }
+
   return (
-    <div className='flex h-screen flex-col bg-muted'>
+    <div className='fixed inset-x-0 flex flex-col bg-muted' style={{ top: visibleBox.top, height: visibleBox.height }}>
       <ViewerHeader
         prototypes={prototypes}
         slug={prototype.slug}
@@ -353,7 +428,24 @@ export function PrototypeLabApp({
           setSelectedNoteId(undefined)
           session.openPrototype(slug)
         }}
-        {...(viewportSwitcher ? { viewport, onViewportChange: setViewportOverride } : {})}
+        {...(viewportSwitcher
+          ? {
+              viewport,
+              onViewportChange: (next: ScreenViewport) => {
+                setViewportOverride(next)
+                setDeviceFrame(undefined)
+              },
+            }
+          : {})}
+        device={{
+          frame: deviceFrame,
+          onFrame: setDeviceFrame,
+          defaultSize: defaultFrameSize,
+          defaultName,
+          zoom: device.zoom,
+          onZoom: zoom => setDevice(current => ({ ...current, zoom })),
+        }}
+        {...(canPresent ? { onPresent: () => setPresenting('frame') } : {})}
         toggles={toggles}
         onToggle={toggle}
         noteCount={notes.length}
@@ -395,48 +487,63 @@ export function PrototypeLabApp({
         )}
 
         <main
-          className={cn('flex min-h-0 flex-1 justify-center', toggles.flow ? 'overflow-hidden' : 'overflow-auto p-6')}
+          ref={stageRef}
+          className={cn(
+            'flex min-h-0 flex-1',
+            // The frame centres itself with auto margins, which, unlike `justify-center`, leave a
+            // frame wider than the stage scrollable from its left edge.
+            toggles.flow ? 'justify-center overflow-hidden' : 'overflow-auto overscroll-contain pt-8 pr-10 pb-10 pl-6'
+          )}
         >
           {toggles.flow ? (
             <FlowMap
               prototype={prototype}
               flow={flow}
               showHotspots={toggles.hotspots}
-              {...(viewportOverride === undefined ? {} : { viewport: viewportOverride })}
+              {...(chosenViewport === undefined ? {} : { viewport: chosenViewport })}
               onOpenScreen={(screenId, variant) => navigation.goToScreen(screenId, { variant })}
             />
           ) : screen === undefined ? (
-            <p className='self-center text-muted-foreground text-sm'>
+            <p className='mx-auto self-center text-muted-foreground text-sm'>
               This prototype has no screens yet. The Problems tab lists what is missing.
             </p>
           ) : (
-            <PrototypeFrame
-              viewport={viewport}
-              frameRef={frameRef}
-              inspecting={toggles.inspect}
-              overlay={
-                <>
-                  <InspectOverlay
-                    {...inspectRects}
-                    {...(selectedPath === undefined
-                      ? {}
-                      : { label: tree.nodeByPath.get(selectedPath)?.label ?? selectedPath })}
-                  />
-                  {toggles.notes && (
-                    <AnnotationOverlay
-                      notes={notes}
-                      rects={rects}
-                      {...(selectedNoteId === undefined ? {} : { selectedId: selectedNoteId })}
-                      onSelect={setSelectedNoteId}
-                    />
-                  )}
-                </>
-              }
+            <ResizableFrame
+              size={frameSize}
+              scale={scale}
+              caption={frameCaption(frameSize, frameName(deviceFrame, defaultName.toLowerCase()), scale)}
+              onResize={size => setDeviceFrame(size)}
+              onReset={() => setDeviceFrame(undefined)}
             >
-              <PrototypeRuntime value={navigation}>
-                <screen.Component />
-              </PrototypeRuntime>
-            </PrototypeFrame>
+              <PrototypeFrame
+                viewport={viewport}
+                frameRef={frameRef}
+                size={frameSize}
+                inspecting={toggles.inspect}
+                overlay={
+                  <>
+                    <InspectOverlay
+                      {...inspectRects}
+                      {...(selectedPath === undefined
+                        ? {}
+                        : { label: tree.nodeByPath.get(selectedPath)?.label ?? selectedPath })}
+                    />
+                    {toggles.notes && (
+                      <AnnotationOverlay
+                        notes={notes}
+                        rects={rects}
+                        {...(selectedNoteId === undefined ? {} : { selectedId: selectedNoteId })}
+                        onSelect={setSelectedNoteId}
+                      />
+                    )}
+                  </>
+                }
+              >
+                <PrototypeRuntime value={navigation}>
+                  <screen.Component />
+                </PrototypeRuntime>
+              </PrototypeFrame>
+            </ResizableFrame>
           )}
         </main>
 

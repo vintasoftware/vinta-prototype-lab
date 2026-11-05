@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   Crosshair,
   type LucideIcon,
+  Maximize,
   MessageSquare,
   PanelLeft,
   PanelLeftClose,
@@ -12,16 +13,17 @@ import {
   Workflow,
 } from 'lucide-react'
 import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
+import { VIEWPORT_LABEL } from '../lib/constants'
 import type { Prototype, ScreenViewport } from '../types'
 import { Badge, Button, SegmentedToggle } from '../ui'
+import { DeviceToolbar, type DeviceToolbarProps } from './device-toolbar'
 import { PrototypePicker } from './prototype-picker'
 import { VintaWordmark } from './vinta-wordmark'
 
-const VIEWPORT_OPTIONS = [
-  { value: 'mobile' as const, label: 'Mobile' },
-  { value: 'tablet' as const, label: 'Tablet' },
-  { value: 'desktop' as const, label: 'Desktop' },
-]
+const VIEWPORT_OPTIONS = (['mobile', 'tablet', 'desktop'] as const).map(value => ({
+  value,
+  label: VIEWPORT_LABEL[value],
+}))
 
 /** The toggles the header shows as named buttons, in the order they sit. */
 const MODES: readonly { name: ViewToggle; label: string; Icon: LucideIcon }[] = [
@@ -45,6 +47,10 @@ export interface ViewerHeaderProps {
   canGoBack: boolean
   onBack: () => void
   onRestart: () => void
+  /** The device list, size, rotate and zoom, beside the viewport switcher. */
+  device: DeviceToolbarProps
+  /** Shows the screen alone, without the viewer; left out when there is no screen to show. */
+  onPresent?: () => void
 }
 
 export function ViewerHeader({
@@ -59,6 +65,8 @@ export function ViewerHeader({
   canGoBack,
   onBack,
   onRestart,
+  device,
+  onPresent,
 }: ViewerHeaderProps) {
   return (
     <header className='flex shrink-0 flex-wrap items-center gap-3 border-border border-b bg-card px-4 py-2'>
@@ -93,6 +101,8 @@ export function ViewerHeader({
           <SegmentedToggle size='sm' options={VIEWPORT_OPTIONS} value={viewport} onValueChange={onViewportChange} />
         )}
 
+        <DeviceToolbar {...device} />
+
         {MODES.map(({ name, label, Icon }) => (
           <Button key={name} variant={toggles[name] ? 'light' : 'ghost'} size='sm' onClick={() => onToggle(name)}>
             <Icon />
@@ -100,6 +110,18 @@ export function ViewerHeader({
             {name === 'notes' && noteCount > 0 && <Badge variant='neutral'>{noteCount}</Badge>}
           </Button>
         ))}
+
+        {onPresent !== undefined && (
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            aria-label='Present the screen'
+            title='Present: only the screen, without the viewer (P)'
+            onClick={onPresent}
+          >
+            <Maximize />
+          </Button>
+        )}
 
         <PanelButton
           open={toggles.doc}
