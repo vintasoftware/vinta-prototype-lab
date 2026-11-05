@@ -121,6 +121,13 @@ describe('fitScale', () => {
     expect(open).toBe(0.5)
   })
 
+  it('keeps the drawn frame inside a stage measured in fractions of a pixel', () => {
+    const scale = fitScale({ width: 785.4, height: 553.6 }, { width: 390, height: 844 })
+
+    expect(844 * scale).toBeLessThanOrEqual(553)
+    expect(scale).toBe(0.655)
+  })
+
   it('draws at full size before the stage has been measured', () => {
     expect(fitScale({ width: 0, height: 0 }, { width: 1600, height: 800 })).toBe(1)
   })

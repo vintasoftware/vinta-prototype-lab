@@ -94,13 +94,16 @@ export function nudgedSize(size: FrameSize, axis: ResizeAxis, key: string, shift
 /**
  * The scale that fits the frame in the stage's content box, never above 100%. The caption and the
  * handles sit in the stage's padding. `keyboardInset` is the height an on-screen keyboard covers:
- * counting it back in keeps the screen from shrinking while someone types.
+ * counting it back in keeps the screen from shrinking while someone types. The stage's measured
+ * size has fractions of a pixel, so both it and the scale are rounded down: a frame drawn exactly
+ * as tall as the stage can land a hair past it once scaled, and the stage then shows a scrollbar.
  */
 export function fitScale(stage: FrameSize, frame: FrameSize, keyboardInset = 0): number {
   if (stage.width <= 0 || stage.height <= 0) {
     return 1
   }
-  return Math.min(1, stage.width / frame.width, (stage.height + keyboardInset) / frame.height)
+  const fit = Math.min(Math.floor(stage.width) / frame.width, Math.floor(stage.height + keyboardInset) / frame.height)
+  return Math.min(1, Math.floor(fit * 1000) / 1000)
 }
 
 /** The scale the frame is drawn at for a zoom choice. */
