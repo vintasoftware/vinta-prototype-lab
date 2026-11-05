@@ -65,7 +65,7 @@
     .app .mono { font-family: var(--mono); }
     .app svg { width: 14px; height: 14px; flex: none; }
 
-    .app-top { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 12px; border-bottom: 1px solid var(--ds-border); background: var(--ds-card); }
+    .app-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-height: 46px; padding: 7px 12px; border-bottom: 1px solid var(--ds-border); background: var(--ds-card); }
     .app .app-wordmark { height: 16px; width: auto; color: var(--ds-logo, var(--ds-fg)); margin-left: 2px; }
     .app-title { font-weight: 600; font-size: 13px; white-space: nowrap; }
     .pick { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--ds-input); color: var(--ds-fg); font-weight: 500; white-space: nowrap; }
@@ -76,7 +76,12 @@
     .tog { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid transparent; color: var(--ds-muted); font-size: 12px; white-space: nowrap; }
     .tog kbd { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--ds-input); color: var(--ds-muted); }
     .tog.on { border-color: var(--ds-input); background: var(--ds-muted-bg); color: var(--ds-fg); }
-    .app-top .right { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+    .app-top .right { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+    .devbar { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; padding-right: 8px; border-right: 1px solid var(--ds-border); }
+    .dsel, .dnum { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--ds-input); font-size: 12px; color: var(--ds-fg); white-space: nowrap; }
+    .dsel svg { width: 12px; height: 12px; color: var(--ds-muted); }
+    .dnum { font-family: var(--mono); font-size: 11.5px; width: 44px; justify-content: flex-end; }
+    @media (max-width: 760px) { .devbar { display: none; } }
     .ib { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: var(--ds-muted); }
     @media (max-width: 760px) { .app-top .seg, .app-top .tog:not(.keep) { display: none; } }
 
@@ -98,7 +103,7 @@
     .tree li .ico { display: inline-flex; width: 14px; height: 14px; align-items: center; justify-content: center; color: var(--ds-muted); }
     .tree .i1 { padding-left: 24px; } .tree .i2 { padding-left: 40px; } .tree .i3 { padding-left: 56px; }
 
-    .stage { position: relative; background: var(--ds-bg); display: grid; place-items: start center; padding: 24px 20px; overflow: hidden;
+    .stage { position: relative; background: var(--ds-bg); display: flex; flex-direction: column; align-items: center; padding: 18px 20px 24px; overflow: hidden;
       background-image: radial-gradient(var(--ds-border) 1px, transparent 1px); background-size: 18px 18px; }
     .frame { position: relative; width: 320px; height: 472px; border-radius: 22px; border: 1px solid var(--screen-border); background: var(--screen-bg); color: var(--screen-fg); overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.35); font-size: 12.5px; line-height: 1.45; }
     .screen { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -122,6 +127,7 @@
     @keyframes pinpulse { 0% { box-shadow: 0 0 0 2px var(--screen-card), 0 0 0 2px color-mix(in oklch, var(--pin-spec) 60%, transparent); } 70% { box-shadow: 0 0 0 2px var(--screen-card), 0 0 0 10px transparent; } 100% { box-shadow: 0 0 0 2px var(--screen-card), 0 0 0 0 transparent; } }
     .hot { position: absolute; inset: 0; border-radius: 8px; border: 1.5px dashed var(--pin-flow); background: color-mix(in oklch, var(--pin-flow) 14%, transparent); pointer-events: none; opacity: 0; transition: opacity .3s; }
     .shot.hotspots .hot { opacity: 1; }
+    .stage .fcap { font-family: var(--mono); font-size: 10.5px; color: var(--ds-muted); margin-bottom: 8px; }
     .stage .hint { position: absolute; left: 14px; bottom: 10px; font-size: 11px; color: var(--ds-muted); font-family: var(--mono); }
 
     .dock { border-left: 1px solid var(--ds-border); background: var(--ds-card); display: flex; flex-direction: column; min-width: 0; }
@@ -248,7 +254,7 @@
     <div class="hero-copy">
       <span class="eyebrow reveal"><i class="dot"></i> React 19 · any bundler, Vite comes along · MIT</span>
       <h1 class="reveal d1">Clickable prototypes designers <span class="grad">hand to engineers.</span></h1>
-      <p class="lede reveal d2">Real screens built from your project's own components, the flow between them, the states each screen can be in, the document that explains the intent, and the designer's comments pinned to the elements they are about. Storybook shows a component. A prototype here shows a <strong>decision</strong>: what the user clicks, what they see next, and what the engineer has to get right.</p>
+      <p class="lede reveal d2">Real screens built from your project's own components, the flow between them, the states each screen can be in, the document that explains the intent, and the designer's comments pinned to the elements they are about. Click through it at the size of a real device, present just the screen in a call, and hand the folder to the engineer. Storybook shows a component. A prototype here shows a <strong>decision</strong>: what the user clicks, what they see next, and what the engineer has to get right.</p>
       <div class="cta-row reveal d3">
         <button class="btn btn-primary btn-copy" data-copy="npm install --save-dev vinta-prototype-lab"><span class="ico">⌘</span> npm install --save-dev vinta-prototype-lab</button>
         <a class="btn" href="https://github.com/vintasoftware/vinta-prototype-lab#readme">Read the README</a>
@@ -265,10 +271,17 @@
         <span class="tog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg> Back</span>
         <span class="seg" id="seg"><span class="on">Mobile</span><span>Tablet</span><span>Desktop</span></span>
         <span class="right">
+          <span class="devbar" aria-label="Device toolbar">
+            <span class="dsel">Mobile default <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>
+            <span class="dnum">390</span><span class="dnum">844</span>
+            <span class="ib" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span>
+            <span class="dsel">Fit <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>
+          </span>
           <span class="tog" id="t-flow">Flow <kbd>f</kbd></span>
           <span class="tog" id="t-inspect">Inspect <kbd>i</kbd></span>
           <span class="tog" id="t-hot">Hotspots <kbd>h</kbd></span>
           <span class="tog on keep" id="t-com">Comments <kbd>c</kbd></span>
+          <span class="ib" title="Present (p)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></span>
           <span class="ib" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></span>
         </span>
       </div>
@@ -302,6 +315,7 @@
         </aside>
 
         <div class="stage">
+          <span class="fcap">390 × 844 · Mobile default · 82%</span>
           <div class="frame">
             <div class="screen">
               <header>
@@ -465,7 +479,7 @@
       <div class="card reveal d1">
         <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
         <h3>States of a screen</h3>
-        <p><code>20-choose-time.no-slots.tsx</code> is the empty week. States group under their screen in the rail, so a designer flips between filled, empty and error without leaving the screen.</p>
+        <p><code>20-choose-time.no-slots.tsx</code> is the empty week. States group under their screen in the rail, so a designer flips between filled, empty and error without leaving the screen, at whichever device the toolbar has picked.</p>
       </div>
       <div class="card reveal d2">
         <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
@@ -502,14 +516,30 @@
         <h3>Never fails to start</h3>
         <p>A missing default export, a note pointing at a screen that is gone, an entry screen that is not there: the Problems panel lists them, and the rest of the folder still works.</p>
       </div>
+      <div class="card reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
+        <h3>Device toolbar</h3>
+        <p>Beside Mobile / Tablet / Desktop: the current iPhones and iPads, common desktop sizes, or <code>Responsive</code>. Type a width and height, rotate, zoom to Fit, 100, 75 or 50%. The browser remembers the choice.</p>
+      </div>
+      <div class="card reveal d1">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3h-6M21 3v6M21 3l-7 7M3 21h6M3 21v-6M3 21l7-7"/></svg></div>
+        <h3>Resizable frame</h3>
+        <p>Drag the frame's right edge, bottom edge or corner, and the width snaps to 640, 768, 1024 and 1280 on the way. The handles take the arrow keys too, and a double click resets the size.</p>
+      </div>
+      <div class="card reveal d2">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></div>
+        <h3>Present mode</h3>
+        <p>Press <code>p</code>, or open <code>?present</code>, and only the screen is shown, at the size chosen in the viewer and scaled to fit the window, so a desktop can present a phone in a call. <code>?present=fill</code> fills a real phone or tablet instead.</p>
+      </div>
     </div>
     <div class="keys reveal d2">
       <span><kbd>c</kbd> comments</span>
       <span><kbd>h</kbd> hotspots</span>
       <span><kbd>i</kbd> inspect</span>
       <span><kbd>f</kbd> flow map</span>
+      <span><kbd>p</kbd> present</span>
       <span><kbd>[</kbd> <kbd>]</kbd> close either side</span>
-      <span><kbd>Esc</kbd> clear the pick</span>
+      <span><kbd>Esc</kbd> clear the pick, stop presenting</span>
     </div>
   </div>
 </section>
@@ -660,6 +690,7 @@
       <div class="cmd reveal d1"><code><span class="p">$</span> prototype-lab build</code><p>Writes a static, read-only copy to <code>prototype-lab-dist/</code> to deploy anywhere. It shows comments without offering to write them, and links to Storybook only when the config names a deployed one.</p></div>
       <div class="cmd reveal d2"><code><span class="p">$</span> prototype-lab preview</code><p>Serves that copy.</p></div>
       <div class="cmd reveal d3"><code><span class="p">$</span> prototype-lab install-skill</code><p>Copies the <code>build-prototype</code> skill into <code>.claude/skills</code>, or <code>--target</code> wherever your agent reads them.</p></div>
+      <div class="cmd reveal d3"><code><span class="p">$</span> prototype-lab dev --host</code><p>Serves the viewer on the network. Open <code>?present=fill</code> on a phone or tablet and the screen fills its window, with no viewer around it.</p></div>
       <div class="cmd reveal d4"><code><span class="p">$</span> prototype-lab dev --css ./src/styles.css --storybook http://localhost:6006</code><p>Every command takes <code>--dir</code>, <code>--css</code>, <code>--storybook</code>, <code>--no-storybook</code>, <code>--no-viewport-switcher</code>, <code>--port</code>, <code>--host</code>, <code>--open</code> and <code>--out-dir</code>.</p></div>
     </div>
     <div class="panel reveal d2" style="margin-top: 24px">
