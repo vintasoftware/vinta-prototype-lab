@@ -3,7 +3,7 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
-## [Unreleased]
+## [0.3.2] - 2026-11-05
 
 ### Added
 
@@ -17,6 +17,7 @@ All notable changes to this package are recorded here. Versions follow
 ### Fixed
 
 - On a tablet, the page no longer scrolls behind the viewer.
+- The landing page's folder tree and code blocks keep their colours in light mode.
 
 ## [0.3.1] - 2026-11-04
 
