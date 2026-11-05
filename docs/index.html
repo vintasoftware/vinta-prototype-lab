@@ -157,10 +157,15 @@
 
     /* ---------- folder tree ---------- */
     .tree-code { font-family: var(--mono); font-size: 13px; line-height: 1.8; }
-    .tree-code .d { color: var(--accent-2); }
-    .tree-code .f { color: var(--text); }
-    .tree-code .c { color: var(--dim); }
-    .tree-code .n { color: var(--ok); }
+    /* Code blocks stay dark in both themes, so these are the dark palette, not the page's tokens. */
+    pre.code .p, .cmd code .p, .step pre .p { color: var(--vinta-300); }
+    pre.code .k { color: var(--violet-300); }
+    pre.code .s { color: var(--green-300); }
+    pre.code .cm { color: var(--slate-500); }
+    .tree-code .d { color: var(--vinta-300); }
+    .tree-code .f { color: var(--slate-100); }
+    .tree-code .c { color: var(--slate-500); }
+    .tree-code .n { color: var(--green-300); }
 
     /* ---------- flow map mock ---------- */
     .fmap { position: relative; padding: 28px; min-height: 380px; overflow: hidden; }
