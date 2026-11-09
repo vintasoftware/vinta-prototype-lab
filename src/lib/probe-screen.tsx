@@ -1,6 +1,11 @@
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { NO_NAVIGATION as NO_LINKS, PrototypeRuntime, type ScreenNavigation } from '../components/prototype-runtime'
+import {
+  NO_NAVIGATION as NO_LINKS,
+  PrototypeRuntime,
+  type RuntimeVersion,
+  type ScreenNavigation,
+} from '../components/prototype-runtime'
 import type { Prototype, PrototypeScreen } from '../types'
 import { FRAME_HEIGHT, VIEWPORT_WIDTH } from './constants'
 import { type FlowControl, type FlowLink, type FlowNodeKey, flowNodeKey, type ScreenLinks } from './flow-graph'
@@ -143,7 +148,7 @@ function describe(thrown: unknown): string {
  * A control that navigates later, from a timer or after an await, is not seen: only what happens
  * during the click counts.
  */
-export function probeScreen(screen: PrototypeScreen, doc: Document = document): ScreenLinks {
+export function probeScreen(screen: PrototypeScreen, doc: Document = document, version?: RuntimeVersion): ScreenLinks {
   const frameHeight = FRAME_HEIGHT[screen.viewport]
   const host = doc.createElement('div')
   host.setAttribute('aria-hidden', 'true')
@@ -199,6 +204,7 @@ export function probeScreen(screen: PrototypeScreen, doc: Document = document): 
     },
     canGoBack: true,
     showHotspots: false,
+    ...(version === undefined ? {} : { version }),
   }
 
   const root = createRoot(mount, {
@@ -260,7 +266,8 @@ export function probeScreen(screen: PrototypeScreen, doc: Document = document): 
 export function measureScreenPage(
   screen: PrototypeScreen,
   size: { width: number; height: number },
-  doc: Document = document
+  doc: Document = document,
+  version?: RuntimeVersion
 ): number {
   const host = doc.createElement('div')
   host.setAttribute('aria-hidden', 'true')
@@ -273,7 +280,14 @@ export function measureScreenPage(
   try {
     flushSync(() => {
       root.render(
-        <PrototypeRuntime value={{ ...NO_LINKS, screenId: screen.id, variant: screen.variant }}>
+        <PrototypeRuntime
+          value={{
+            ...NO_LINKS,
+            screenId: screen.id,
+            variant: screen.variant,
+            ...(version === undefined ? {} : { version }),
+          }}
+        >
           <screen.Component />
         </PrototypeRuntime>
       )
@@ -288,10 +302,14 @@ export function measureScreenPage(
 }
 
 /** Reads the links of every screen state in the prototype. */
-export function probePrototype(prototype: Prototype, doc: Document = document): Map<FlowNodeKey, ScreenLinks> {
+export function probePrototype(
+  prototype: Prototype,
+  doc: Document = document,
+  version?: RuntimeVersion
+): Map<FlowNodeKey, ScreenLinks> {
   const result = new Map<FlowNodeKey, ScreenLinks>()
   for (const screen of prototype.screens) {
-    result.set(flowNodeKey(screen.id, screen.variant), probeScreen(screen, doc))
+    result.set(flowNodeKey(screen.id, screen.variant), probeScreen(screen, doc, version))
   }
   return result
 }

@@ -1,5 +1,6 @@
 import { distinctScreens, variantsOf } from '../lib/discovery'
-import type { Prototype } from '../types'
+import { chipFor } from '../lib/version'
+import type { Prototype, PrototypeVersion } from '../types'
 import { Badge, cn } from '../ui'
 
 export interface ScreenListProps {
@@ -9,6 +10,20 @@ export interface ScreenListProps {
   noteCountByScreen: Map<string, number>
   onSelectScreen: (screenId: string) => void
   onSelectVariant: (variant: string) => void
+  /**
+   * The prototype's versions, given only while All is picked: each state that is not in every
+   * version then gets a chip ("V2", "Until V1"). With a version picked, everything listed is in it.
+   */
+  chipVersions?: readonly PrototypeVersion[]
+}
+
+/** The small label after a state that is not in every version. */
+export function VersionChip({ label }: { label: string }) {
+  return (
+    <Badge variant='neutral' className='ml-1 shrink-0 px-1 py-0 font-normal text-[10px]'>
+      {label}
+    </Badge>
+  )
 }
 
 /** The prototype's screens, with the states of the open screen listed under it. */
@@ -19,6 +34,7 @@ export function ScreenList({
   noteCountByScreen,
   onSelectScreen,
   onSelectVariant,
+  chipVersions = [],
 }: ScreenListProps) {
   return (
     <nav aria-label='Screens' className='flex flex-col gap-1 p-3'>
@@ -28,6 +44,8 @@ export function ScreenList({
         const isOpen = screen.id === screenId
         const variants = variantsOf(prototype, screen.id)
         const notes = noteCountByScreen.get(screen.id) ?? 0
+        // A screen with one state shows that state's chip on its own row, as its states are not listed.
+        const screenChip = variants.length === 1 ? chipFor(chipVersions, screen) : undefined
 
         return (
           <div key={screen.id}>
@@ -39,25 +57,32 @@ export function ScreenList({
                 isOpen ? 'bg-primary-subtle font-medium text-primary' : 'hover:bg-muted'
               )}
             >
-              <span className='truncate'>{screen.title}</span>
+              <span className='flex min-w-0 items-center'>
+                <span className='truncate'>{screen.title}</span>
+                {screenChip !== undefined && <VersionChip label={screenChip} />}
+              </span>
               {notes > 0 && <Badge variant='neutral'>{notes}</Badge>}
             </button>
 
             {isOpen && variants.length > 1 && (
               <div className='mt-1 mb-1 ml-3 flex flex-col gap-0.5 border-border border-l pl-2'>
-                {variants.map(candidate => (
-                  <button
-                    key={candidate.variant}
-                    type='button'
-                    onClick={() => onSelectVariant(candidate.variant)}
-                    className={cn(
-                      'rounded px-2 py-1 text-left text-xs',
-                      candidate.variant === variant ? 'bg-muted font-medium' : 'text-muted-foreground hover:bg-muted'
-                    )}
-                  >
-                    {candidate.variantLabel}
-                  </button>
-                ))}
+                {variants.map(candidate => {
+                  const chip = chipFor(chipVersions, candidate)
+                  return (
+                    <button
+                      key={candidate.variant}
+                      type='button'
+                      onClick={() => onSelectVariant(candidate.variant)}
+                      className={cn(
+                        'rounded px-2 py-1 text-left text-xs',
+                        candidate.variant === variant ? 'bg-muted font-medium' : 'text-muted-foreground hover:bg-muted'
+                      )}
+                    >
+                      {candidate.variantLabel}
+                      {chip !== undefined && <VersionChip label={chip} />}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>

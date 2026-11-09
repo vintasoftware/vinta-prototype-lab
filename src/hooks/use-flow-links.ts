@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { RuntimeVersion } from '../components/prototype-runtime'
 import { type FlowNodeKey, flowNodeKey, type ScreenLinks } from '../lib/flow-graph'
 import { probeScreen } from '../lib/probe-screen'
 import type { Prototype } from '../types'
@@ -22,9 +23,9 @@ const NONE: ReadonlyMap<FlowNodeKey, ScreenLinks> = new Map()
  * an effect, so each screen is read in a task of its own. One task per screen also keeps the page
  * answering while a prototype with many states is read, and lets the canvas say how far along it
  * is. It runs again when the prototype object changes, which is what a reload of a screen file
- * produces.
+ * produces, and when the picked version changes, since a version can hide a screen's controls.
  */
-export function useFlowLinks(prototype: Prototype | undefined, enabled: boolean): FlowLinks {
+export function useFlowLinks(prototype: Prototype | undefined, enabled: boolean, version?: RuntimeVersion): FlowLinks {
   const [state, setState] = useState<FlowLinks>({ status: 'idle', linksByNode: NONE, read: 0, total: 0 })
 
   useEffect(() => {
@@ -45,7 +46,7 @@ export function useFlowLinks(prototype: Prototype | undefined, enabled: boolean)
           setState({ status: 'ready', linksByNode: found, read: screens.length, total: screens.length })
           return
         }
-        found.set(flowNodeKey(screen.id, screen.variant), probeScreen(screen))
+        found.set(flowNodeKey(screen.id, screen.variant), probeScreen(screen, document, version))
         setState(current => ({ ...current, read: index + 1 }))
         readNext(index + 1)
       }, 0)
@@ -53,7 +54,7 @@ export function useFlowLinks(prototype: Prototype | undefined, enabled: boolean)
     readNext(0)
 
     return () => clearTimeout(task)
-  }, [enabled, prototype])
+  }, [enabled, prototype, version])
 
   return state
 }

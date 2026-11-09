@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRuntimeVersion } from '../components/prototype-runtime'
 import type { FrameSize } from '../lib/device-frame'
 import { measureScreenPage } from '../lib/probe-screen'
 import type { PrototypeScreen } from '../types'
@@ -17,7 +18,7 @@ export interface PageHeights {
   ready: boolean
 }
 
-const cacheKey = (request: PageHeightRequest) => `${request.key}@${request.size.width}x${request.size.height}`
+const sizeKey = (request: PageHeightRequest) => `${request.key}@${request.size.width}x${request.size.height}`
 
 /**
  * Measures the full page height of screens drawn at a size other than their own, as the canvas
@@ -25,6 +26,9 @@ const cacheKey = (request: PageHeightRequest) => `${request.key}@${request.size.
  * screen per task, so the page keeps answering, and it remembers what it measured.
  */
 export function usePageHeights(requests: readonly PageHeightRequest[]): PageHeights {
+  // A version can hide parts of a screen, so each version is measured on its own.
+  const version = useRuntimeVersion()
+  const cacheKey = (request: PageHeightRequest) => `${sizeKey(request)}~${version?.selected ?? 'all'}`
   const cache = useRef(new Map<string, number>())
   const [measured, setMeasured] = useState(0)
   const signature = requests.map(cacheKey).join('|')
@@ -39,7 +43,7 @@ export function usePageHeights(requests: readonly PageHeightRequest[]): PageHeig
         return
       }
       task = setTimeout(() => {
-        cache.current.set(cacheKey(request), measureScreenPage(request.screen, request.size))
+        cache.current.set(cacheKey(request), measureScreenPage(request.screen, request.size, document, version))
         setMeasured(count => count + 1)
         measureNext(index + 1)
       }, 0)

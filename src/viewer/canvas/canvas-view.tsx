@@ -104,6 +104,11 @@ export interface CanvasViewProps {
   onInspectRoot?: (mount: HTMLElement | null) => void
   /** Drawn over the picked frame's screen: the inspect outlines and measurements. */
   inspectOverlay?: ReactNode
+  /**
+   * Asked before a live frame follows a link. Returning false keeps the frame where it is, as a link
+   * to a state outside the picked version does.
+   */
+  canOpen?: (screenId: string, variant: string | undefined) => boolean
 }
 
 /**
@@ -195,6 +200,7 @@ export function CanvasView({
   inspecting = false,
   onInspectRoot,
   inspectOverlay,
+  canOpen,
 }: CanvasViewProps) {
   const viewportRef = useRef<HTMLElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -482,15 +488,17 @@ export function CanvasView({
     return {
       screenId: live.session.current.screenId,
       variant: live.session.current.variant,
-      goToScreen: (screenId, options) =>
-        setLive(current =>
-          current === undefined ? current : liveGoTo(current, prototype, screenId, options?.variant)
-        ),
+      goToScreen: (screenId, options) => {
+        if (canOpen?.(screenId, options?.variant) === false) {
+          return
+        }
+        setLive(current => (current === undefined ? current : liveGoTo(current, prototype, screenId, options?.variant)))
+      },
       back: () => setLive(current => (current === undefined ? current : liveBack(current))),
       canGoBack: live.session.history.length > 0,
       showHotspots,
     }
-  }, [live, prototype, showHotspots])
+  }, [live, prototype, showHotspots, canOpen])
 
   const liveView = useMemo((): LiveView | undefined => {
     const screen = live === undefined ? undefined : liveScreen(live, prototype)

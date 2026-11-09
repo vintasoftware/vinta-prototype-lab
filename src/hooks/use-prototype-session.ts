@@ -7,17 +7,27 @@ import {
   navigateTo,
   type SessionState,
   selectComponent,
+  selectVersion,
   showScreen,
   showVariant,
   startSession,
 } from '../lib/session'
+import { resolveVersion } from '../lib/version'
 import type { Prototype, PrototypeScreen } from '../types'
 
 const EMPTY_STATE: SessionState = { slug: '', current: { screenId: '', variant: DEFAULT_VARIANT }, history: [] }
 
-/** Opening state for a prototype: the entry screen the doc names, in its default variant. */
-export function openingState(prototype: Prototype): SessionState {
-  return startSession(prototype.slug, { screenId: entryScreenId(prototype) ?? '', variant: DEFAULT_VARIANT })
+/**
+ * Opening state for a prototype: the entry screen the doc names, in its default variant. A version
+ * the prototype does not declare opens as All.
+ */
+export function openingState(prototype: Prototype, version?: string): SessionState {
+  return startSession(
+    prototype.slug,
+    { screenId: entryScreenId(prototype) ?? '', variant: DEFAULT_VARIANT },
+    undefined,
+    resolveVersion(prototype.doc.versions ?? [], version)
+  )
 }
 
 /** Reads a URL into a session, ignoring the parts of it that name nothing. */
@@ -42,7 +52,12 @@ export function stateFromRoute(prototypes: readonly Prototype[], route: HashRout
   // A pick belongs to one rendering of one screen, so it is dropped when either fallback fires.
   const honoured = route.screenId === screenId && (route.variant ?? DEFAULT_VARIANT) === variant
 
-  return startSession(prototype.slug, { screenId, variant }, honoured ? route.component : undefined)
+  return startSession(
+    prototype.slug,
+    { screenId, variant },
+    honoured ? route.component : undefined,
+    resolveVersion(prototype.doc.versions ?? [], route.version)
+  )
 }
 
 /** Reads the page's hash into a session. The slugs tell the parser where a grouped slug ends. */
@@ -63,6 +78,7 @@ function routeFor(state: SessionState): ScreenRoute {
     screenId: state.current.screenId,
     variant: state.current.variant,
     ...(state.component === undefined ? {} : { component: state.component }),
+    ...(state.version === undefined ? {} : { version: state.version }),
   }
 }
 
@@ -77,6 +93,8 @@ export interface PrototypeSession {
   showScreen: (screenId: string, variant: string) => void
   /** Picks a component on the screen, putting it in the URL so the view can be linked to. */
   pickComponent: (component: string | undefined) => void
+  /** Picks a version, or All with `undefined`, putting it in the URL. */
+  pickVersion: (version: string | undefined) => void
   back: () => void
   canGoBack: boolean
   restart: () => void
@@ -152,6 +170,10 @@ export function usePrototypeSession(prototypes: readonly Prototype[]): Prototype
     setState(current => selectComponent(current, component))
   }, [])
 
+  const pickVersion = useCallback((version: string | undefined) => {
+    setState(current => selectVersion(current, version))
+  }, [])
+
   const back = useCallback(() => {
     setState(goBack)
   }, [])
@@ -159,7 +181,7 @@ export function usePrototypeSession(prototypes: readonly Prototype[]): Prototype
   const restart = useCallback(() => {
     setState(current => {
       const target = prototypes.find(candidate => candidate.slug === current.slug)
-      return target === undefined ? current : openingState(target)
+      return target === undefined ? current : openingState(target, current.version)
     })
   }, [prototypes])
 
@@ -172,6 +194,7 @@ export function usePrototypeSession(prototypes: readonly Prototype[]): Prototype
     selectVariant,
     showScreen: showScreenState,
     pickComponent,
+    pickVersion,
     back,
     canGoBack: state.history.length > 0,
     restart,

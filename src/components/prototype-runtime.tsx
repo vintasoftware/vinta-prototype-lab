@@ -28,6 +28,27 @@ export interface ScreenNavigation {
 
 const ScreenNavigationContext = createContext<ScreenNavigation | undefined>(undefined)
 
+/**
+ * The picked version on its own, so a runtime that sets none (a canvas thumbnail, say) takes the one
+ * around it. The viewer sets it once for everything it renders.
+ */
+const VersionContext = createContext<RuntimeVersion | undefined>(undefined)
+
+export interface VersionProviderProps {
+  value: RuntimeVersion | undefined
+  children: ReactNode
+}
+
+/** The picked version as the viewer holds it, for code that renders a screen in a root of its own. */
+export function useRuntimeVersion(): RuntimeVersion | undefined {
+  return useContext(VersionContext)
+}
+
+/** Gives every runtime inside it the picked version, unless the runtime names its own. */
+export function VersionProvider({ value, children }: VersionProviderProps) {
+  return <VersionContext.Provider value={value}>{children}</VersionContext.Provider>
+}
+
 export interface PrototypeRuntimeProps {
   value: ScreenNavigation
   children: ReactNode
@@ -38,7 +59,8 @@ export interface PrototypeRuntimeProps {
  * a test that exercises one screen on its own renders it too.
  */
 export function PrototypeRuntime({ value, children }: PrototypeRuntimeProps) {
-  return <ScreenNavigationContext.Provider value={value}>{children}</ScreenNavigationContext.Provider>
+  const screen = <ScreenNavigationContext.Provider value={value}>{children}</ScreenNavigationContext.Provider>
+  return value.version === undefined ? screen : <VersionProvider value={value.version}>{screen}</VersionProvider>
 }
 
 /**
@@ -82,7 +104,7 @@ export const NO_NAVIGATION: ScreenNavigation = {
  * Outside a runtime (Storybook, tests), and for a prototype with no versions, it behaves as All.
  */
 export function useVersion(): VersionView {
-  const version = useContext(ScreenNavigationContext)?.version
+  const version = useContext(VersionContext)
   return useMemo(
     () => (version === undefined ? ALL_VERSION_VIEW : versionView(version.versions, version.selected)),
     [version]

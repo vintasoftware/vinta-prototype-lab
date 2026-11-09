@@ -3,7 +3,12 @@ import { AnnotationOverlay, type NumberedAnnotation } from '../components/annota
 import { InspectOverlay } from '../components/inspect-overlay'
 import { MeasureOverlay } from '../components/measure-overlay'
 import { PrototypeFrame } from '../components/prototype-frame'
-import { PrototypeRuntime, type ScreenNavigation } from '../components/prototype-runtime'
+import {
+  PrototypeRuntime,
+  type RuntimeVersion,
+  type ScreenNavigation,
+  VersionProvider,
+} from '../components/prototype-runtime'
 import { ResizableFrame } from '../components/resizable-frame'
 import { useAnchorRects } from '../hooks/use-anchor-rects'
 import { useComponentTree } from '../hooks/use-component-tree'
@@ -35,13 +40,14 @@ import {
   viewportOfWidth,
   writeDeviceSettings,
 } from '../lib/device-frame'
-import { distinctScreens } from '../lib/discovery'
-import { flowNodeKey } from '../lib/flow-graph'
+import { distinctScreens, resolveScreen } from '../lib/discovery'
+import { type FlowNodeKey, flowNodeKey, type ScreenLinks } from '../lib/flow-graph'
 import { boxModel, measureBetween } from '../lib/measure'
 import { readPresenting, writePresenting } from '../lib/present-param'
 import { titleize } from '../lib/screen-id'
 import { SOURCE_ATTRIBUTE, suggestAnchorId } from '../lib/source-ref'
 import { findStorybookLink, type StorybookOptions } from '../lib/storybook-links'
+import { linkToastText, listedIn, outOfVersion, statesForVersion } from '../lib/version'
 import type { Annotation, CanvasFile, Prototype, ScreenViewport } from '../types'
 import { cn } from '../ui'
 import { CanvasView } from './canvas/canvas-view'
@@ -51,6 +57,7 @@ import { EmptyLab } from './empty-lab'
 import { PresentingStage } from './presenting-stage'
 import { type PanelTab, SidePanel } from './side-panel'
 import { SlidePanel } from './slide-panel'
+import { VersionPlaceholder, ViewerToast } from './version-notices'
 import { ViewerHeader } from './viewer-header'
 import { ViewerSidebar } from './viewer-sidebar'
 
@@ -87,7 +94,55 @@ export function PrototypeLabApp({
 }: PrototypeLabAppProps) {
   const [prototypes, setPrototypes] = useState(loaded)
   const session = usePrototypeSession(prototypes)
-  const { prototype, screen, state } = session
+  const { prototype: fullPrototype, screen, state } = session
+
+  // The version picked in the header. The rest of the viewer works on `prototype`, which holds only
+  // the states and notes of that version; the session keeps the whole one, so a deep link to a
+  // state outside the version still resolves and shows the placeholder.
+  const versions = fullPrototype?.doc.versions
+  const runtimeVersion = useMemo(
+    (): RuntimeVersion | undefined =>
+      versions === undefined
+        ? undefined
+        : { versions, ...(state.version === undefined ? {} : { selected: state.version }) },
+    [versions, state.version]
+  )
+  const prototype = useMemo(() => {
+    if (fullPrototype === undefined || versions === undefined || state.version === undefined) {
+      return fullPrototype
+    }
+    return {
+      ...fullPrototype,
+      screens: statesForVersion(fullPrototype.screens, versions, state.version),
+      annotations: fullPrototype.annotations.filter(note => listedIn(versions, state.version, note)),
+    }
+  }, [fullPrototype, versions, state.version])
+  // Chips only in All: with a version picked, everything listed belongs to it.
+  const chipVersions = state.version === undefined ? versions : undefined
+  const screenMissing =
+    screen === undefined || versions === undefined ? undefined : outOfVersion(versions, state.version, screen)
+  const [toast, setToast] = useState<string | undefined>(undefined)
+  const dismissToast = useCallback(() => setToast(undefined), [])
+
+  /**
+   * Whether a link may open a state. One outside the picked version does not open: the toast says
+   * which version has it.
+   */
+  const canOpen = useCallback(
+    (screenId: string, variant: string | undefined) => {
+      if (fullPrototype === undefined || versions === undefined) {
+        return true
+      }
+      const target = resolveScreen(fullPrototype, { screenId, variant: variant ?? DEFAULT_VARIANT })
+      const missing = target === undefined ? undefined : outOfVersion(versions, state.version, target)
+      if (missing === undefined) {
+        return true
+      }
+      setToast(linkToastText(missing))
+      return false
+    },
+    [fullPrototype, versions, state.version]
+  )
 
   const [viewportOverride, setViewportOverride] = useState<ScreenViewport | undefined>(undefined)
   // The device toolbar's frame and zoom, remembered between visits in this browser.
@@ -138,7 +193,30 @@ export function PrototypeLabApp({
   const inspectRef: RefObject<HTMLElement | null> = toggles.canvas ? canvasMountRef : frameRef
   // The stage leaves the DOM while the canvas is open, so what was measured on it has to go too.
   const revision = `${state.slug}/${state.current.screenId}/${state.current.variant}/${toggles.canvas ? `canvas:${canvasMount}` : 'stage'}`
-  const flow = useFlowLinks(prototype, toggles.canvas)
+  const probed = useFlowLinks(prototype, toggles.canvas, runtimeVersion)
+  // A link to a state outside the version draws no arrow, rather than one to a missing card.
+  const flow = useMemo(() => {
+    if (fullPrototype === undefined || versions === undefined || state.version === undefined) {
+      return probed
+    }
+    const linksByNode = new Map<FlowNodeKey, ScreenLinks>()
+    for (const [key, links] of probed.linksByNode) {
+      linksByNode.set(key, {
+        ...links,
+        links: links.links.filter(link => {
+          if (link.kind !== 'screen') {
+            return true
+          }
+          const target = resolveScreen(fullPrototype, {
+            screenId: link.screenId,
+            variant: link.variant ?? DEFAULT_VARIANT,
+          })
+          return target === undefined || listedIn(versions, state.version, target)
+        }),
+      })
+    }
+    return { ...probed, linksByNode }
+  }, [probed, fullPrototype, versions, state.version])
   // How the canvas opens: `v` centres it on the screen open now; `f`, the old flow map key, fits it all.
   const [canvasOpening, setCanvasOpening] = useState<'fit' | 'selection'>('selection')
   const [panelTab, setPanelTab] = useState<PanelTab>('doc')
@@ -353,9 +431,12 @@ export function PrototypeLabApp({
       }
       setAuthor(draft.author)
 
-      const taken = prototype.annotations.map(note => note.id)
+      const taken = (fullPrototype ?? prototype).annotations.map(note => note.id)
       const note: Annotation = {
         id: composing === 'new' ? annotationId(draft.title, taken) : composing.id,
+        // An edit keeps the versions the note was written for.
+        ...(composing === 'new' || composing.since === undefined ? {} : { since: composing.since }),
+        ...(composing === 'new' || composing.until === undefined ? {} : { until: composing.until }),
         target,
         screen: state.current.screenId,
         kind: draft.kind,
@@ -381,7 +462,7 @@ export function PrototypeLabApp({
         await applyEdit({ op: 'save', note: { ...note, target: newName ?? target } })
       })()
     },
-    [applyEdit, composing, picked, pickedTarget, prototype, state.current.screenId]
+    [applyEdit, composing, picked, pickedTarget, prototype, fullPrototype, state.current.screenId]
   )
 
   /**
@@ -481,7 +562,7 @@ export function PrototypeLabApp({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [clearComponent, toggle, setPresenting, openFlow])
 
-  if (prototype === undefined) {
+  if (prototype === undefined || fullPrototype === undefined) {
     return <EmptyLab />
   }
 
@@ -499,6 +580,9 @@ export function PrototypeLabApp({
     screenId: state.current.screenId,
     variant: state.current.variant,
     goToScreen: (screenId, options) => {
+      if (!canOpen(screenId, options?.variant)) {
+        return
+      }
       setSelectedNoteId(undefined)
       setToggle('canvas', false)
       session.goToScreen(screenId, options)
@@ -509,6 +593,7 @@ export function PrototypeLabApp({
     },
     canGoBack: session.canGoBack,
     showHotspots: toggles.hotspots,
+    ...(runtimeVersion === undefined ? {} : { version: runtimeVersion }),
   }
 
   // The outlines and measurements drawn over the screen being inspected, on the stage or the canvas.
@@ -545,197 +630,232 @@ export function PrototypeLabApp({
 
   if (presenting && screen !== undefined) {
     return (
-      <PresentingStage viewport={windowViewport} frameRef={frameRef} onExit={stopPresenting} box={visibleBox}>
-        <PrototypeRuntime value={{ ...navigation, showHotspots: false }}>
-          <screen.Component />
-        </PrototypeRuntime>
-      </PresentingStage>
+      <>
+        <ViewerToast message={toast} onDismiss={dismissToast} />
+        <PresentingStage viewport={windowViewport} frameRef={frameRef} onExit={stopPresenting} box={visibleBox}>
+          {screenMissing === undefined ? (
+            <PrototypeRuntime value={{ ...navigation, showHotspots: false }}>
+              <screen.Component />
+            </PrototypeRuntime>
+          ) : (
+            <VersionPlaceholder
+              name={`${screen.title} · ${screen.variantLabel}`}
+              missing={screenMissing}
+              onSwitch={session.pickVersion}
+            />
+          )}
+        </PresentingStage>
+      </>
     )
   }
 
   return (
-    <div className='fixed inset-x-0 flex flex-col bg-muted' style={{ top: visibleBox.top, height: visibleBox.height }}>
-      <ViewerHeader
-        prototypes={prototypes}
-        slug={prototype.slug}
-        onOpenPrototype={slug => {
-          setViewportOverride(undefined)
-          setSelectedNoteId(undefined)
-          session.openPrototype(slug)
-        }}
-        viewport={viewport}
-        onViewportChange={setViewportOverride}
-        toggles={toggles}
-        onToggle={toggle}
-        noteCount={notes.length}
-        canGoBack={session.canGoBack}
-        onBack={navigation.back}
-        onRestart={session.restart}
-        device={{
-          frame: deviceFrame,
-          onFrame: setDeviceFrame,
-          defaultSize: defaultFrameSize,
-          defaultLabel: `${titleize(screenViewport)} ${defaultFrameSize.width} × ${defaultFrameSize.height}`,
-          zoom: frameZoom,
-          onZoom: setFrameZoom,
-        }}
-        onPresent={() => setPresenting(true)}
-        showBranches={branches && canSwitchBranches()}
-      />
+    <VersionProvider value={runtimeVersion}>
+      <div
+        className='fixed inset-x-0 flex flex-col bg-muted'
+        style={{ top: visibleBox.top, height: visibleBox.height }}
+      >
+        <ViewerToast message={toast} onDismiss={dismissToast} />
+        <ViewerHeader
+          prototypes={prototypes}
+          slug={prototype.slug}
+          onOpenPrototype={slug => {
+            setViewportOverride(undefined)
+            setSelectedNoteId(undefined)
+            session.openPrototype(slug)
+          }}
+          viewport={viewport}
+          onViewportChange={setViewportOverride}
+          toggles={toggles}
+          onToggle={toggle}
+          noteCount={notes.length}
+          canGoBack={session.canGoBack}
+          onBack={navigation.back}
+          onRestart={session.restart}
+          device={{
+            frame: deviceFrame,
+            onFrame: setDeviceFrame,
+            defaultSize: defaultFrameSize,
+            defaultLabel: `${titleize(screenViewport)} ${defaultFrameSize.width} × ${defaultFrameSize.height}`,
+            zoom: frameZoom,
+            onZoom: setFrameZoom,
+          }}
+          onPresent={() => setPresenting(true)}
+          showBranches={branches && canSwitchBranches()}
+          {...(versions === undefined ? {} : { versions })}
+          {...(state.version === undefined ? {} : { version: state.version })}
+          onVersionChange={session.pickVersion}
+        />
 
-      <div className='flex min-h-0 flex-1'>
-        <SlidePanel open={toggles.screens} side='left' widthClass='w-64' animate={!toggles.canvas}>
-          <ViewerSidebar
-            prototype={prototype}
-            screenId={state.current.screenId}
-            variant={state.current.variant}
-            noteCountByScreen={noteCountByScreen}
-            onSelectScreen={screenId =>
-              // On the canvas, picking a screen in the list picks its frame and stays on the canvas.
-              toggles.canvas ? session.showScreen(screenId, DEFAULT_VARIANT) : navigation.goToScreen(screenId)
-            }
-            onSelectVariant={session.selectVariant}
-            components={{
-              tree,
-              ...(selectedPath === undefined ? {} : { selectedPath }),
-              ...(hoveredPath === undefined ? {} : { hoveredPath }),
-              collapsed,
-              onSelect: selectPath,
-              onHover: setHoveredPath,
-              onToggle: toggleCollapsed,
-              storybookLinks: storybook.links,
-              storybookStatus: storybook.status,
-              storybookUrl: storybook.url,
-              ...(missingComponent === undefined ? {} : { missingComponent }),
-              ...(picked?.source === undefined || !canEditAnnotations() ? {} : { suggestedName: picked.suggestedName }),
-              onName: nameComponent,
-              naming,
-              ...(namingError === undefined ? {} : { namingError }),
-            }}
-          />
-        </SlidePanel>
-
-        <main
-          ref={stageRef}
-          className={cn(
-            'flex min-h-0 flex-1 justify-center',
-            toggles.canvas ? 'overflow-hidden' : 'overflow-auto overscroll-contain px-6 pt-8 pr-10 pb-10'
-          )}
-        >
-          {toggles.canvas ? (
-            <CanvasView
+        <div className='flex min-h-0 flex-1'>
+          <SlidePanel open={toggles.screens} side='left' widthClass='w-64' animate={!toggles.canvas}>
+            <ViewerSidebar
               prototype={prototype}
-              flow={flow}
-              showHotspots={toggles.hotspots}
-              showNotes={toggles.notes}
-              arrows={toggles.arrows}
-              onToggleArrows={() => toggle('arrows')}
-              {...(deviceFrame !== undefined
-                ? { frameSize: deviceFrame }
-                : viewportOverride === undefined
-                  ? {}
-                  : { frameSize: { width: VIEWPORT_WIDTH[viewportOverride], height: FRAME_HEIGHT[viewportOverride] } })}
-              selectedKey={screen === undefined ? undefined : flowNodeKey(screen.id, screen.variant)}
-              onSelect={session.showScreen}
-              onOpen={(screenId, variant) => {
-                session.showScreen(screenId, variant)
-                setToggle('canvas', false)
-              }}
-              selectedNoteId={selectedNoteId}
-              onPin={(screenId, variant, noteId) => {
-                const moving = screenId !== state.current.screenId || variant !== state.current.variant
-                if (moving) {
-                  keepNote.current = noteId
-                }
-                session.showScreen(screenId, variant)
-                setSelectedNoteId(noteId)
-                if (noteId !== undefined) {
-                  setPanelTab('notes')
-                  setToggle('doc', true)
-                }
-              }}
-              opening={canvasOpening}
-              canArrange={canEditAnnotations()}
-              onArrange={arrangeCanvas}
-              inspecting={toggles.inspect}
-              onInspectRoot={onInspectRoot}
-              inspectOverlay={inspectOverlay}
-            />
-          ) : screen === undefined ? (
-            <p className='self-center text-muted-foreground text-sm'>
-              This prototype has no screens yet. The Problems tab lists what is missing.
-            </p>
-          ) : (
-            <ResizableFrame
-              size={frameSize}
-              scale={scale}
-              caption={frameCaption(frameSize, deviceFrame, scale)}
-              onResize={setDeviceFrame}
-              onReset={() =>
-                setDeviceFrame(
-                  frameDevice === undefined
-                    ? undefined
-                    : { deviceId: frameDevice.id, width: frameDevice.width, height: frameDevice.height }
-                )
+              screenId={state.current.screenId}
+              variant={state.current.variant}
+              noteCountByScreen={noteCountByScreen}
+              onSelectScreen={screenId =>
+                // On the canvas, picking a screen in the list picks its frame and stays on the canvas.
+                toggles.canvas ? session.showScreen(screenId, DEFAULT_VARIANT) : navigation.goToScreen(screenId)
               }
-            >
-              <PrototypeFrame
-                viewport={viewport}
-                frameRef={frameRef}
-                size={frameSize}
+              onSelectVariant={session.selectVariant}
+              {...(chipVersions === undefined ? {} : { chipVersions })}
+              components={{
+                tree,
+                ...(selectedPath === undefined ? {} : { selectedPath }),
+                ...(hoveredPath === undefined ? {} : { hoveredPath }),
+                collapsed,
+                onSelect: selectPath,
+                onHover: setHoveredPath,
+                onToggle: toggleCollapsed,
+                storybookLinks: storybook.links,
+                storybookStatus: storybook.status,
+                storybookUrl: storybook.url,
+                ...(missingComponent === undefined ? {} : { missingComponent }),
+                ...(picked?.source === undefined || !canEditAnnotations()
+                  ? {}
+                  : { suggestedName: picked.suggestedName }),
+                onName: nameComponent,
+                naming,
+                ...(namingError === undefined ? {} : { namingError }),
+              }}
+            />
+          </SlidePanel>
+
+          <main
+            ref={stageRef}
+            className={cn(
+              'flex min-h-0 flex-1 justify-center',
+              toggles.canvas ? 'overflow-hidden' : 'overflow-auto overscroll-contain px-6 pt-8 pr-10 pb-10'
+            )}
+          >
+            {toggles.canvas ? (
+              <CanvasView
+                prototype={prototype}
+                flow={flow}
+                showHotspots={toggles.hotspots}
+                showNotes={toggles.notes}
+                arrows={toggles.arrows}
+                onToggleArrows={() => toggle('arrows')}
+                {...(deviceFrame !== undefined
+                  ? { frameSize: deviceFrame }
+                  : viewportOverride === undefined
+                    ? {}
+                    : {
+                        frameSize: { width: VIEWPORT_WIDTH[viewportOverride], height: FRAME_HEIGHT[viewportOverride] },
+                      })}
+                selectedKey={screen === undefined ? undefined : flowNodeKey(screen.id, screen.variant)}
+                onSelect={session.showScreen}
+                onOpen={(screenId, variant) => {
+                  session.showScreen(screenId, variant)
+                  setToggle('canvas', false)
+                }}
+                selectedNoteId={selectedNoteId}
+                onPin={(screenId, variant, noteId) => {
+                  const moving = screenId !== state.current.screenId || variant !== state.current.variant
+                  if (moving) {
+                    keepNote.current = noteId
+                  }
+                  session.showScreen(screenId, variant)
+                  setSelectedNoteId(noteId)
+                  if (noteId !== undefined) {
+                    setPanelTab('notes')
+                    setToggle('doc', true)
+                  }
+                }}
+                opening={canvasOpening}
+                canArrange={canEditAnnotations()}
+                onArrange={arrangeCanvas}
+                canOpen={canOpen}
                 inspecting={toggles.inspect}
-                overlay={
-                  <>
-                    {inspectOverlay}
-                    {toggles.notes && (
-                      <AnnotationOverlay
-                        notes={notes}
-                        rects={rects}
-                        {...(selectedNoteId === undefined ? {} : { selectedId: selectedNoteId })}
-                        onSelect={setSelectedNoteId}
-                      />
-                    )}
-                  </>
+                onInspectRoot={onInspectRoot}
+                inspectOverlay={inspectOverlay}
+              />
+            ) : screen === undefined ? (
+              <p className='self-center text-muted-foreground text-sm'>
+                This prototype has no screens yet. The Problems tab lists what is missing.
+              </p>
+            ) : (
+              <ResizableFrame
+                size={frameSize}
+                scale={scale}
+                caption={frameCaption(frameSize, deviceFrame, scale)}
+                onResize={setDeviceFrame}
+                onReset={() =>
+                  setDeviceFrame(
+                    frameDevice === undefined
+                      ? undefined
+                      : { deviceId: frameDevice.id, width: frameDevice.width, height: frameDevice.height }
+                  )
                 }
               >
-                <PrototypeRuntime value={navigation}>
-                  <screen.Component />
-                </PrototypeRuntime>
-              </PrototypeFrame>
-            </ResizableFrame>
-          )}
-        </main>
+                <PrototypeFrame
+                  viewport={viewport}
+                  frameRef={frameRef}
+                  size={frameSize}
+                  inspecting={toggles.inspect}
+                  overlay={
+                    <>
+                      {inspectOverlay}
+                      {toggles.notes && (
+                        <AnnotationOverlay
+                          notes={notes}
+                          rects={rects}
+                          {...(selectedNoteId === undefined ? {} : { selectedId: selectedNoteId })}
+                          onSelect={setSelectedNoteId}
+                        />
+                      )}
+                    </>
+                  }
+                >
+                  {screenMissing === undefined ? (
+                    <PrototypeRuntime value={navigation}>
+                      <screen.Component />
+                    </PrototypeRuntime>
+                  ) : (
+                    <VersionPlaceholder
+                      name={`${screen.title} · ${screen.variantLabel}`}
+                      missing={screenMissing}
+                      onSwitch={session.pickVersion}
+                    />
+                  )}
+                </PrototypeFrame>
+              </ResizableFrame>
+            )}
+          </main>
 
-        <SlidePanel open={toggles.doc} side='right' widthClass='w-96' animate={!toggles.canvas}>
-          <SidePanel
-            prototype={prototype}
-            tab={panelTab}
-            onTabChange={setPanelTab}
-            notes={notes}
-            // The canvas does not measure the open screen's targets, so it reports none as missing.
-            unanchored={toggles.canvas ? NONE_MISSING : unanchored}
-            {...(selectedNoteId === undefined ? {} : { selectedId: selectedNoteId })}
-            onSelect={setSelectedNoteId}
-            {...(pickedTarget === undefined ? {} : { target: pickedTarget })}
-            {...(picked?.source === undefined ? {} : { suggestedName: picked.suggestedName })}
-            canEdit={canEditAnnotations()}
-            {...(composing === undefined ? {} : { composing })}
-            onCompose={setComposing}
-            onSave={saveComment}
-            onDelete={note => void applyEdit({ op: 'delete', id: note.id })}
-            onToggleResolved={note =>
-              void applyEdit({
-                op: 'save',
-                note: { ...note, status: note.status === 'resolved' ? 'open' : 'resolved' },
-              })
-            }
-            author={author}
-            saving={saving}
-            dev={devPanel}
-            {...(saveError === undefined ? {} : { saveError })}
-          />
-        </SlidePanel>
+          <SlidePanel open={toggles.doc} side='right' widthClass='w-96' animate={!toggles.canvas}>
+            <SidePanel
+              prototype={fullPrototype}
+              tab={panelTab}
+              onTabChange={setPanelTab}
+              notes={notes}
+              // The canvas does not measure the open screen's targets, so it reports none as missing.
+              unanchored={toggles.canvas ? NONE_MISSING : unanchored}
+              {...(selectedNoteId === undefined ? {} : { selectedId: selectedNoteId })}
+              onSelect={setSelectedNoteId}
+              {...(pickedTarget === undefined ? {} : { target: pickedTarget })}
+              {...(picked?.source === undefined ? {} : { suggestedName: picked.suggestedName })}
+              canEdit={canEditAnnotations()}
+              {...(composing === undefined ? {} : { composing })}
+              onCompose={setComposing}
+              onSave={saveComment}
+              onDelete={note => void applyEdit({ op: 'delete', id: note.id })}
+              onToggleResolved={note =>
+                void applyEdit({
+                  op: 'save',
+                  note: { ...note, status: note.status === 'resolved' ? 'open' : 'resolved' },
+                })
+              }
+              author={author}
+              saving={saving}
+              dev={devPanel}
+              {...(chipVersions === undefined ? {} : { chipVersions })}
+              {...(saveError === undefined ? {} : { saveError })}
+            />
+          </SlidePanel>
+        </div>
       </div>
-    </div>
+    </VersionProvider>
   )
 }

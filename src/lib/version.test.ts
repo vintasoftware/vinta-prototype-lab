@@ -8,6 +8,8 @@ import {
   chipFor,
   firstVersionOf,
   includes,
+  linkToastText,
+  outOfVersion,
   readVersions,
   resolveVersion,
   statesForVersion,
@@ -181,5 +183,26 @@ describe('versionView', () => {
     expect(ALL_VERSION_VIEW.includes('v2')).toBe(true)
     expect(ALL_VERSION_VIEW.includes(undefined, 'v1')).toBe(false)
     expect(ALL_VERSION_VIEW.atLeast('v3')).toBe(true)
+  })
+})
+
+describe('outOfVersion and linkToastText', () => {
+  it('names the version a later state arrives in', () => {
+    const missing = outOfVersion(VERSIONS, 'v1', { since: 'v2' })
+
+    expect(missing).toEqual({ reason: 'arrives', version: VERSIONS[1] })
+    expect(missing && linkToastText(missing)).toBe('This screen arrives in V2. Switch to V2 or All to open it.')
+  })
+
+  it('names the last version of a replaced state', () => {
+    const missing = outOfVersion(VERSIONS, 'v3', { until: 'v1' })
+
+    expect(missing).toEqual({ reason: 'replaced', version: VERSIONS[0] })
+    expect(missing && linkToastText(missing)).toBe('This screen is replaced after V1. Switch to V1 or All to open it.')
+  })
+
+  it('finds nothing missing for a listed state or in All', () => {
+    expect(outOfVersion(VERSIONS, 'v2', { since: 'v2' })).toBeUndefined()
+    expect(outOfVersion(VERSIONS, undefined, { since: 'later', until: 'v1' })).toBeUndefined()
   })
 })

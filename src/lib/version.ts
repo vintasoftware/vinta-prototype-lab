@@ -181,3 +181,39 @@ export function versionView(versions: readonly PrototypeVersion[], selected: str
     includes: (since, until) => includes(versions, picked?.id, since, until),
   }
 }
+
+/** Why an item is not in the picked version, and the version that has it. */
+export interface OutOfVersion {
+  /** `arrives`: it starts in a later version. `replaced`: it ended in an earlier one. */
+  reason: 'arrives' | 'replaced'
+  /** The version to switch to so it shows: its `since`, or its `until`. */
+  version: PrototypeVersion
+}
+
+/**
+ * Why `item` is not listed in `selected`, or undefined when it is (All lists everything). Used for
+ * the toast on a link and the placeholder on a deep link.
+ */
+export function outOfVersion(
+  versions: readonly PrototypeVersion[],
+  selected: string | undefined,
+  item: { since?: string; until?: string }
+): OutOfVersion | undefined {
+  if (listedIn(versions, selected, item)) {
+    return undefined
+  }
+  const since = versions.find(version => version.id === item.since)
+  if (since !== undefined && !atLeast(versions, selected, since.id)) {
+    return { reason: 'arrives', version: since }
+  }
+  const until = versions.find(version => version.id === item.until)
+  return until === undefined ? undefined : { reason: 'replaced', version: until }
+}
+
+/** The toast a link to a state outside the picked version shows. */
+export function linkToastText(missing: OutOfVersion): string {
+  const { short } = missing.version
+  return missing.reason === 'arrives'
+    ? `This screen arrives in ${short}. Switch to ${short} or All to open it.`
+    : `This screen is replaced after ${short}. Switch to ${short} or All to open it.`
+}

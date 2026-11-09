@@ -13,11 +13,12 @@ import {
   SquareDashedMousePointer,
 } from 'lucide-react'
 import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
-import type { Prototype, ScreenViewport } from '../types'
+import type { Prototype, PrototypeVersion, ScreenViewport } from '../types'
 import { Badge, Button, SegmentedToggle } from '../ui'
 import { BranchPicker } from './branch-picker'
 import { DeviceToolbar, type DeviceToolbarProps } from './device-toolbar'
 import { PrototypePicker } from './prototype-picker'
+import { VersionPicker } from './version-picker'
 import { VintaLogo } from './vinta-logo'
 
 const VIEWPORT_OPTIONS = [
@@ -53,6 +54,11 @@ export interface ViewerHeaderProps {
   onPresent?: () => void
   /** Shows the branch picker, which asks the dev server for the project's branches. */
   showBranches?: boolean
+  /** The open prototype's versions. The version picker shows only when there are some. */
+  versions?: readonly PrototypeVersion[]
+  /** The picked version's id. Left out for All. */
+  version?: string
+  onVersionChange?: (version: string | undefined) => void
 }
 
 /** A button's text, dropped on a window too narrow for it; the icon and tooltip stay. */
@@ -75,6 +81,9 @@ export function ViewerHeader({
   device,
   onPresent,
   showBranches = false,
+  versions = [],
+  version,
+  onVersionChange = () => {},
 }: ViewerHeaderProps) {
   return (
     // One row always: a narrower window drops the labels first, then the title and the size fields,
@@ -95,6 +104,7 @@ export function ViewerHeader({
       />
 
       <PrototypePicker prototypes={prototypes} slug={slug} onOpenPrototype={onOpenPrototype} />
+      {versions.length > 0 && <VersionPicker versions={versions} selected={version} onSelect={onVersionChange} />}
       {showBranches && <BranchPicker />}
 
       <div className='flex items-center gap-1'>
