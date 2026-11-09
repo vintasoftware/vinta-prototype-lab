@@ -223,3 +223,91 @@ describe('variantsOf and distinctScreens', () => {
     })
   })
 })
+
+describe('versions', () => {
+  const versioned: PrototypeSources = {
+    docs: {
+      '../../prototypes/billing/prototype.md':
+        "---\ntitle: Billing\nversion-v1: 'V1: Send claims'\nversion-v2: 'V2: Resolve denials'\n---\n",
+    },
+    annotations: {
+      '../../prototypes/billing/annotations.json': {
+        notes: [
+          { id: 'n1', target: 'appeal', title: 'Appeal', since: 'v2' },
+          { id: 'n2', target: 'appeal', title: 'Typo', since: 'v4' },
+        ],
+      },
+    },
+    screens: {
+      '../../prototypes/billing/screens/10-queue.tsx': { default: Screen },
+      '../../prototypes/billing/screens/10-queue.denied.tsx': { default: Screen, screen: { since: 'v2' } },
+      '../../prototypes/billing/screens/10-queue.letter.tsx': { default: Screen, screen: { until: 'v1' } },
+      '../../prototypes/billing/screens/20-claim.tsx': { default: Screen, screen: { since: 'v4' } },
+    },
+  }
+
+  it('reads the versions the doc declares, in order', () => {
+    const [prototype] = buildPrototypes(versioned)
+
+    expect(prototype?.doc.versions).toEqual([
+      { id: 'v1', label: 'V1: Send claims', short: 'V1' },
+      { id: 'v2', label: 'V2: Resolve denials', short: 'V2' },
+    ])
+  })
+
+  it('keeps the since and until a screen declares', () => {
+    const [prototype] = buildPrototypes(versioned)
+
+    expect(prototype?.screens.map(screen => [screen.variant, screen.since, screen.until])).toEqual([
+      ['default', undefined, undefined],
+      ['denied', 'v2', undefined],
+      ['letter', undefined, 'v1'],
+      ['default', undefined, undefined],
+    ])
+    expect(prototype?.annotations[0]?.since).toBe('v2')
+  })
+
+  it('reports an unknown version id and treats the item as in every version', () => {
+    const [prototype] = buildPrototypes(versioned)
+
+    expect(prototype?.issues).toEqual([
+      "Unknown version 'v4' in 20-claim.tsx.",
+      'Unknown version \'v4\' in annotations.json note "n2".',
+    ])
+    expect(prototype?.screens[3]).not.toHaveProperty('since')
+    expect(prototype?.annotations[1]).not.toHaveProperty('since')
+  })
+
+  it('reports a since in a prototype that declares no versions', () => {
+    const [prototype] = buildPrototypes(
+      sources({
+        screens: {
+          '../../prototypes/booking/screens/10-home.tsx': { default: Screen, screen: { since: 'v2' } },
+          '../../prototypes/booking/screens/20-review.tsx': { default: Screen },
+        },
+      })
+    )
+
+    expect(prototype?.doc).not.toHaveProperty('versions')
+    expect(prototype?.issues).toEqual(["Unknown version 'v2' in 10-home.tsx."])
+  })
+
+  it('reports and drops a version named all', () => {
+    const [prototype] = buildPrototypes({
+      ...versioned,
+      docs: { '../../prototypes/billing/prototype.md': "---\nversion-v1: 'V1'\nversion-all: 'Everything'\n---\n" },
+      annotations: {},
+      screens: { '../../prototypes/billing/screens/10-queue.tsx': { default: Screen } },
+    })
+
+    expect(prototype?.doc.versions?.map(version => version.id)).toEqual(['v1'])
+    expect(prototype?.issues[0]).toContain('"version-all" is reserved')
+  })
+
+  it('leaves a prototype without versions as it was', () => {
+    const [prototype] = buildPrototypes(sources())
+
+    expect(prototype?.doc).not.toHaveProperty('versions')
+    expect(prototype?.screens.every(screen => !('since' in screen) && !('until' in screen))).toBe(true)
+  })
+})

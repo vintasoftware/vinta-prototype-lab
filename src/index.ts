@@ -5,9 +5,13 @@ export { PrototypeFrame } from './components/prototype-frame'
 export {
   NO_NAVIGATION,
   PrototypeRuntime,
+  type RuntimeVersion,
   type ScreenNavigation,
+  Since,
+  type SinceProps,
   useOptionalScreenNavigation,
   useScreenNavigation,
+  useVersion,
 } from './components/prototype-runtime'
 export { Hotspot, type HotspotArea, ScreenLink } from './components/screen-link'
 export { ScreenThumbnail } from './components/screen-thumbnail'
@@ -61,12 +65,28 @@ export {
   type StorybookLink,
   type StorybookOptions,
 } from './lib/storybook-links'
+export {
+  ALL_VERSION_VIEW,
+  ALL_VERSIONS,
+  atLeast,
+  atMost,
+  chipFor,
+  firstVersionOf,
+  includes,
+  listedIn,
+  readVersions,
+  resolveVersion,
+  statesForVersion,
+  type VersionView,
+  versionView,
+} from './lib/version'
 export type {
   Annotation,
   AnnotationKind,
   Prototype,
   PrototypeDoc,
   PrototypeScreen,
+  PrototypeVersion,
   ScreenMeta,
   ScreenModule,
   ScreenViewport,
