@@ -7,6 +7,13 @@ All notable changes to this package are recorded here. Versions follow
 
 ### Added
 
+- **Versions**: a prototype declares its versions with `version-<id>` lines in `prototype.md`, and
+  a picker after the prototype picker shows one at a time, or All. Screen states and comments take
+  `since` and `until`; screens hide parts with `<Since>` and read the pick with `useVersion()`. The
+  screen list, counters, canvas, arrows and comments follow the pick, which lives in `?v=`. All
+  marks states and comments not in every version with a chip. A link outside the version shows a
+  toast, and a deep link opens a placeholder. Unknown version ids are lines in Problems. Prototypes
+  without versions are unchanged.
 - **Canvas** (`v`): every screen state as a frame on one canvas you can pan and zoom, in a section
   per screen laid out in the flow's columns. Drag, Space and drag, or scroll to pan; Ctrl or Cmd and
   scroll, pinch, or `+` and `-` to zoom between 5% and 200%; `Shift+1` fits everything and

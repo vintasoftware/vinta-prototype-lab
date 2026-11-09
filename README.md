@@ -160,6 +160,7 @@ Front matter, then markdown. The viewer shows it in the Doc panel next to the sc
 | `status`  | Free text, e.g. `In review`. Shown as a chip.                 |
 | `owner`   | Who to ask. Shown as a chip.                                  |
 | `updated` | Free text date. Shown as a chip.                              |
+| `version-<id>` | One line per version, in order, e.g. `version-v1: 'V1: Send claims'`. See [Versions](#versions). |
 
 Write the body for the engineer who will build it: the flow step by step, the rules the screens
 cannot show (what happens on a second booking, which timezone the times are in), the open questions,
@@ -219,6 +220,49 @@ thing you are making clickable in a `relative` element and put the hotspot insid
 (`{ top, left, width, height }` as percentages) is for one case only: a region of something that
 scales as a single piece, such as a mock image. Percentages of a flex container drift away from the
 content as the frame grows.
+
+## Versions
+
+A prototype can show what ships when. Declare the versions in `prototype.md`, one line each, in
+order:
+
+```yaml
+version-v1: 'V1: Send claims'
+version-v2: 'V2: Resolve denials'
+version-later: 'Later: Money in'
+```
+
+The header then shows a version picker after the prototype picker, with each version and **All**
+(the default). The pick is in the URL (`#/p/billing/claims/work-queue?v=v1`) and stays as you change
+screens. A prototype with no `version-` lines shows no picker and works as before.
+
+Versions are cumulative: V2 shows V1 plus what V2 adds. Tag a screen state with the first version it
+exists in, or the last:
+
+```tsx
+export const screen: Partial<ScreenMeta> = { title: 'Claim detail', variantLabel: 'Denied', since: 'v2' }
+```
+
+`until: 'v1'` is for a state replaced after V1. Hide parts of a screen the same way:
+
+```tsx
+import { Since, useVersion } from 'vinta-prototype-lab'
+
+<Since version='v2'><MoneyFlowCard /></Since>
+<Since until='v1'><RecordLetterButton /></Since>
+
+const version = useVersion() // { id, label, isAll, atLeast(id), atMost(id), includes(since, until) }
+const rows = allRows.filter(row => version.includes(row.since, row.until))
+```
+
+With a version picked, the screen list, its counters, the canvas, the arrows and the comments show
+only that version. **All** renders like the last version and lists every state and comment, with a
+chip ("V2", "Until V1") on those not in every version. A link to a state outside the version shows a
+toast instead of opening, and a URL to one opens a placeholder with buttons to switch. Nothing about
+the version is drawn on a screen or in a PNG export. A comment takes `since` and `until` in
+`annotations.json` like a state, and an id no `version-` line declares is a line in Problems.
+
+Outside the viewer (Storybook, a test), `useVersion()` acts as **All**.
 
 ## Comments pinned to the UI
 
