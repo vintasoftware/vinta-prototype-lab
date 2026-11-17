@@ -93,7 +93,7 @@ export function ViewerHeader({
     <header className='flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-border border-b bg-card px-4 py-2 *:shrink-0 max-[1200px]:gap-1! max-[1200px]:px-2!'>
       <span className='max-[1200px]:hidden! flex items-center gap-2'>
         <VintaWordmark className='h-[19px] w-auto shrink-0 text-primary' />
-        <span className='font-semibold text-sm max-[1560px]:hidden!'>Prototype Lab</span>
+        <span className='max-[1560px]:hidden! font-semibold text-sm'>Prototype Lab</span>
       </span>
 
       <PanelButton

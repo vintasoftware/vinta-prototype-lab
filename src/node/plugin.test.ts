@@ -411,6 +411,13 @@ describe('the dev server and a built tour player', () => {
           player: { outDir, fileName: 'acme.html' },
         }),
       ],
+      // The package's own name, pointed at its source, so the test does not need a build.
+      resolve: {
+        alias: [
+          { find: /^vinta-prototype-lab$/, replacement: path.join(repo, 'src/index.ts') },
+          { find: /^vinta-prototype-lab\/(viewer|default)\.css$/, replacement: path.join(repo, 'src/$1.css') },
+        ],
+      },
     })
     await server.listen()
     origin = server.resolvedUrls?.local[0]?.replace(/\/$/, '') ?? ''
