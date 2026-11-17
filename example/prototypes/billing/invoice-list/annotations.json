@@ -24,6 +24,15 @@
       "kind": "question",
       "title": "Show cents when the balance is whole dollars?",
       "author": "Ana"
+    },
+    {
+      "id": "invoice-payment-receipt",
+      "screen": "invoice",
+      "target": "invoice-balance",
+      "kind": "spec",
+      "since": "v2",
+      "title": "A recorded payment sends the patient a receipt",
+      "author": "Ana"
     }
   ]
 }

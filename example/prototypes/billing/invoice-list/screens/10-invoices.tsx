@@ -31,6 +31,8 @@ export default function InvoicesScreen() {
             <ScreenLink
               key={invoice.number}
               to='invoice'
+              // A paid invoice opens its Paid state, which arrives in V2: in V1 the row shows the toast.
+              {...(invoice.status === 'Paid' ? { variant: 'paid' } : {})}
               className='grid grid-cols-[1fr_auto_auto] items-center gap-4 border-border border-t py-3 text-left text-sm hover:bg-muted'
             >
               <span className='flex flex-col'>

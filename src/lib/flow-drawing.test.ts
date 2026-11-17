@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { PrototypeScreen } from '../types'
-import { type Box, cardSize, drawFlow, edgeKey, type Measure, rowCount, thumbnailSize } from './flow-drawing'
+import {
+  type Box,
+  cardSize,
+  cardSizeAround,
+  drawFlow,
+  edgeKey,
+  type Measure,
+  rowCount,
+  thumbnailSize,
+} from './flow-drawing'
 import type { FlowEdge, FlowGraph, FlowLayout, FlowNode } from './flow-graph'
 
 const Blank = () => null
@@ -129,6 +138,24 @@ describe('drawFlow', () => {
     const forward = arrows.find(arrow => arrow.edge === homeToReview)
 
     expect(forward?.d.endsWith(' 500 120')).toBe(true)
+  })
+
+  it('takes the direction of an arrow from the canvas when it says where nodes sit', () => {
+    const { content, mounts, rows, measure } = canvas()
+
+    const { arrows } = drawFlow({
+      graph,
+      layout,
+      scale: 1,
+      sizeOf,
+      content,
+      mounts,
+      rows,
+      measure,
+      directionOf: () => 'backward',
+    })
+
+    expect(arrows.find(arrow => arrow.edge === homeToReview)?.backward).toBe(true)
   })
 
   it('draws an arrow back to an earlier column from the left edge of its control to the right edge of the target', () => {
@@ -321,6 +348,17 @@ describe('cardSize and rowCount', () => {
 
     expect(asDesktop.width).toBe(thumbnailSize('desktop').width + 20)
     expect(asDesktop.width).toBeGreaterThan(cardSize(node('home', 0), [], undefined).width)
+  })
+})
+
+describe('cardSizeAround', () => {
+  it('puts the header above and the rows below a screen of any size', () => {
+    const edges: FlowEdge[] = [{ from: 'home/default', to: 'review/default', controls: [] }]
+
+    expect(cardSizeAround(node('home', 0), edges, { width: 1280, height: 820 })).toEqual({
+      width: 1280 + 20,
+      height: 2 + 40 + 820 + 2 + 24 + 16,
+    })
   })
 })
 

@@ -52,6 +52,28 @@ describe('parseHash', () => {
     expect(parseHash('#/p/gone/home', ['billing/refunds'])).toEqual({ slug: 'gone', screenId: 'home' })
   })
 
+  it('reads the version picked in the header', () => {
+    expect(parseHash('#/p/billing/claims/work-queue?v=v1', ['billing/claims'])).toEqual({
+      slug: 'billing/claims',
+      screenId: 'work-queue',
+      version: 'v1',
+    })
+  })
+
+  it('reads the version next to a component', () => {
+    expect(parseHash('#/p/booking/home/empty?v=v2&component=card')).toEqual({
+      slug: 'booking',
+      screenId: 'home',
+      variant: 'empty',
+      component: 'card',
+      version: 'v2',
+    })
+  })
+
+  it('reads an empty version as All', () => {
+    expect(parseHash('#/p/booking/home?v=')).toEqual({ slug: 'booking', screenId: 'home' })
+  })
+
   it('returns nothing for a URL it does not own', () => {
     expect(parseHash('#/something-else')).toEqual({})
     expect(parseHash('')).toEqual({})
@@ -75,6 +97,28 @@ describe('formatHash', () => {
     const route = { slug: 'booking', screenId: 'home', variant: 'empty', component: 'Card~1/CardHeader' }
 
     expect(parseHash(formatHash(route))).toEqual(route)
+  })
+
+  it('writes the version before the component', () => {
+    expect(
+      formatHash({ slug: 'billing/claims', screenId: 'claim-detail', variant: 'denied', version: 'v2', component: 'x' })
+    ).toBe('#/p/billing/claims/claim-detail/denied?v=v2&component=x')
+  })
+
+  it('leaves the version out for All', () => {
+    expect(formatHash({ slug: 'billing/claims', screenId: 'work-queue', variant: 'default' })).toBe(
+      '#/p/billing/claims/work-queue'
+    )
+  })
+
+  it('round-trips a version', () => {
+    const route = { slug: 'billing/claims', screenId: 'work-queue', variant: 'default', version: 'later' }
+
+    expect(parseHash(formatHash(route), ['billing/claims'])).toEqual({
+      slug: 'billing/claims',
+      screenId: 'work-queue',
+      version: 'later',
+    })
   })
 
   it('leaves the default variant out', () => {

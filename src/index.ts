@@ -5,9 +5,13 @@ export { PrototypeFrame } from './components/prototype-frame'
 export {
   NO_NAVIGATION,
   PrototypeRuntime,
+  type RuntimeVersion,
   type ScreenNavigation,
+  Since,
+  type SinceProps,
   useOptionalScreenNavigation,
   useScreenNavigation,
+  useVersion,
 } from './components/prototype-runtime'
 export { Hotspot, type HotspotArea, ScreenLink } from './components/screen-link'
 export { ScreenThumbnail } from './components/screen-thumbnail'
@@ -61,16 +65,46 @@ export {
   type StorybookLink,
   type StorybookOptions,
 } from './lib/storybook-links'
+export {
+  ALL_VERSION_VIEW,
+  ALL_VERSIONS,
+  atLeast,
+  atMost,
+  chipFor,
+  firstVersionOf,
+  includes,
+  listedIn,
+  readVersions,
+  resolveVersion,
+  statesForVersion,
+  type VersionView,
+  versionView,
+} from './lib/version'
+export { mountPlayer, type PlayerOptions, type PlayerSources } from './player/mount-player'
+export { DEFAULT_PLAYER_TEXT, type PlayerText, playerText } from './player/player-text'
+export { CLICKABLE, checkStep, checkTours, type StepCheck } from './player/tour-check'
+export {
+  buildTours,
+  formatTourHash,
+  parseTourHash,
+  readingTimeMs,
+  screenForStep,
+  type Tour,
+  type TourStep,
+  type TourStepFile,
+  tourLengthMs,
+} from './player/tours'
 export type {
   Annotation,
   AnnotationKind,
   Prototype,
   PrototypeDoc,
   PrototypeScreen,
+  PrototypeVersion,
   ScreenMeta,
   ScreenModule,
   ScreenViewport,
 } from './types'
-export { FlowMap } from './viewer/flow-map'
+export { CanvasView, type CanvasViewProps } from './viewer/canvas/canvas-view'
 export { mountViewer, type ViewerOptions } from './viewer/mount-viewer'
 export { PrototypeLabApp, type PrototypeLabAppProps } from './viewer/prototype-lab-app'

@@ -2,14 +2,32 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { DEFAULT_VARIANT } from '../lib/constants'
 import { entryScreenId, resolveScreen } from '../lib/discovery'
 import { formatHash, type HashRoute, parseHash, type ScreenRoute } from '../lib/hash-route'
-import { goBack, navigateTo, type SessionState, selectComponent, showVariant, startSession } from '../lib/session'
+import {
+  goBack,
+  navigateTo,
+  type SessionState,
+  selectComponent,
+  selectVersion,
+  showScreen,
+  showVariant,
+  startSession,
+} from '../lib/session'
+import { resolveVersion } from '../lib/version'
 import type { Prototype, PrototypeScreen } from '../types'
 
 const EMPTY_STATE: SessionState = { slug: '', current: { screenId: '', variant: DEFAULT_VARIANT }, history: [] }
 
-/** Opening state for a prototype: the entry screen the doc names, in its default variant. */
-export function openingState(prototype: Prototype): SessionState {
-  return startSession(prototype.slug, { screenId: entryScreenId(prototype) ?? '', variant: DEFAULT_VARIANT })
+/**
+ * Opening state for a prototype: the entry screen the doc names, in its default variant. A version
+ * the prototype does not declare opens as All.
+ */
+export function openingState(prototype: Prototype, version?: string): SessionState {
+  return startSession(
+    prototype.slug,
+    { screenId: entryScreenId(prototype) ?? '', variant: DEFAULT_VARIANT },
+    undefined,
+    resolveVersion(prototype.doc.versions ?? [], version)
+  )
 }
 
 /** Reads a URL into a session, ignoring the parts of it that name nothing. */
@@ -34,7 +52,12 @@ export function stateFromRoute(prototypes: readonly Prototype[], route: HashRout
   // A pick belongs to one rendering of one screen, so it is dropped when either fallback fires.
   const honoured = route.screenId === screenId && (route.variant ?? DEFAULT_VARIANT) === variant
 
-  return startSession(prototype.slug, { screenId, variant }, honoured ? route.component : undefined)
+  return startSession(
+    prototype.slug,
+    { screenId, variant },
+    honoured ? route.component : undefined,
+    resolveVersion(prototype.doc.versions ?? [], route.version)
+  )
 }
 
 /** Reads the page's hash into a session. The slugs tell the parser where a grouped slug ends. */
@@ -55,6 +78,7 @@ function routeFor(state: SessionState): ScreenRoute {
     screenId: state.current.screenId,
     variant: state.current.variant,
     ...(state.component === undefined ? {} : { component: state.component }),
+    ...(state.version === undefined ? {} : { version: state.version }),
   }
 }
 
@@ -65,8 +89,12 @@ export interface PrototypeSession {
   openPrototype: (slug: string) => void
   goToScreen: (screenId: string, options?: { variant?: string }) => void
   selectVariant: (variant: string) => void
+  /** Shows a screen state without adding a step to the flow, as picking a frame on the canvas does. */
+  showScreen: (screenId: string, variant: string) => void
   /** Picks a component on the screen, putting it in the URL so the view can be linked to. */
   pickComponent: (component: string | undefined) => void
+  /** Picks a version, or All with `undefined`, putting it in the URL. */
+  pickVersion: (version: string | undefined) => void
   back: () => void
   canGoBack: boolean
   restart: () => void
@@ -134,8 +162,16 @@ export function usePrototypeSession(prototypes: readonly Prototype[]): Prototype
     setState(current => showVariant(current, variant))
   }, [])
 
+  const showScreenState = useCallback((screenId: string, variant: string) => {
+    setState(current => showScreen(current, { screenId, variant }))
+  }, [])
+
   const pickComponent = useCallback((component: string | undefined) => {
     setState(current => selectComponent(current, component))
+  }, [])
+
+  const pickVersion = useCallback((version: string | undefined) => {
+    setState(current => selectVersion(current, version))
   }, [])
 
   const back = useCallback(() => {
@@ -145,7 +181,7 @@ export function usePrototypeSession(prototypes: readonly Prototype[]): Prototype
   const restart = useCallback(() => {
     setState(current => {
       const target = prototypes.find(candidate => candidate.slug === current.slug)
-      return target === undefined ? current : openingState(target)
+      return target === undefined ? current : openingState(target, current.version)
     })
   }, [prototypes])
 
@@ -156,7 +192,9 @@ export function usePrototypeSession(prototypes: readonly Prototype[]): Prototype
     openPrototype,
     goToScreen,
     selectVariant,
+    showScreen: showScreenState,
     pickComponent,
+    pickVersion,
     back,
     canGoBack: state.history.length > 0,
     restart,

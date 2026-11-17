@@ -3,7 +3,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useScreenNavigation } from '../components/prototype-runtime'
 import { Hotspot, ScreenLink } from '../components/screen-link'
 import type { PrototypeScreen } from '../types'
-import { controlLabel, elementAtPath, elementPath, probeScreen } from './probe-screen'
+import {
+  controlLabel,
+  elementAtPath,
+  elementPath,
+  expandPage,
+  MAX_PAGE_FRAMES,
+  PAGE_ATTRIBUTE,
+  probeScreen,
+} from './probe-screen'
 
 function screenOf(Component: ComponentType, id = 'home'): PrototypeScreen {
   return {
@@ -108,7 +116,7 @@ describe('probeScreen', () => {
   })
 
   it('reads a screen with no controls as having no links', () => {
-    expect(probeScreen(screenOf(() => <p>Nothing here</p>))).toEqual({ links: [] })
+    expect(probeScreen(screenOf(() => <p>Nothing here</p>)).links).toEqual([])
   })
 })
 
@@ -156,5 +164,56 @@ describe('controlLabel', () => {
 
     expect(label).toHaveLength(40)
     expect(label.endsWith('…')).toBe(true)
+  })
+})
+
+describe('expandPage', () => {
+  /** happy-dom lays nothing out, so each test states how tall things are. */
+  function sized(element: HTMLElement, sizes: { scrollHeight: () => number; clientHeight?: number }) {
+    Object.defineProperty(element, 'clientHeight', { get: () => sizes.clientHeight ?? 0 })
+    Object.defineProperty(element, 'scrollHeight', { get: sizes.scrollHeight })
+    return element
+  }
+
+  function page(): { mount: HTMLElement; root: HTMLElement; main: HTMLElement } {
+    const mount = document.createElement('div')
+    const root = document.createElement('div')
+    const main = document.createElement('main')
+    main.style.overflowY = 'auto'
+    root.append(main)
+    mount.append(root)
+    document.body.append(mount)
+    return { mount, root, main }
+  }
+
+  afterEach(() => {
+    document.body.replaceChildren()
+  })
+
+  it('marks each scrolling area and what lies between it and the frame, and measures the page', () => {
+    const { mount, root, main } = page()
+    sized(main, { scrollHeight: () => (main.hasAttribute(PAGE_ATTRIBUTE) ? 0 : 1300), clientHeight: 0 })
+    sized(mount, { scrollHeight: () => (main.hasAttribute(PAGE_ATTRIBUTE) ? 1300 : 820) })
+
+    expect(expandPage(mount, 820)).toBe(1300)
+    expect(main.getAttribute(PAGE_ATTRIBUTE)).toBe('scroller')
+    expect(root.getAttribute(PAGE_ATTRIBUTE)).toBe('grow')
+    expect(mount.hasAttribute(PAGE_ATTRIBUTE)).toBe(false)
+  })
+
+  it('stops a page that keeps growing at six frames', () => {
+    const { mount, main } = page()
+    sized(main, { scrollHeight: () => 100_000 })
+    sized(mount, { scrollHeight: () => 100_000 })
+
+    expect(expandPage(mount, 800)).toBe(800 * MAX_PAGE_FRAMES)
+  })
+
+  it('keeps the frame height and marks nothing for a screen that fits', () => {
+    const { mount, main } = page()
+    sized(mount, { scrollHeight: () => 400 })
+
+    expect(expandPage(mount, 844)).toBe(844)
+    expect(main.hasAttribute(PAGE_ATTRIBUTE)).toBe(false)
   })
 })

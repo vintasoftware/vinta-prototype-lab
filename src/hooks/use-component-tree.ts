@@ -1,6 +1,27 @@
 import { type RefObject, useCallback, useEffect, useState } from 'react'
-import { buildComponentTree, type ComponentTree, EMPTY_COMPONENT_TREE, SLOT_ATTRIBUTE } from '../lib/component-tree'
+import {
+  buildComponentTree,
+  type ComponentTree,
+  EMPTY_COMPONENT_TREE,
+  OVERLAY_ATTRIBUTE,
+  SLOT_ATTRIBUTE,
+} from '../lib/component-tree'
 import { ANCHOR_ATTRIBUTE } from '../lib/source-ref'
+
+/** Whether a node is, or sits inside, one of the viewer's overlays. */
+function isOverlay(node: Node): boolean {
+  const element = node instanceof Element ? node : node.parentElement
+  return element?.closest(`[${OVERLAY_ATTRIBUTE}]`) != null
+}
+
+/** Whether a change touched only the viewer's overlays: inside one, or adding or removing one. */
+function onlyOverlay(record: MutationRecord): boolean {
+  if (isOverlay(record.target)) {
+    return true
+  }
+  const nodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)]
+  return record.type === 'childList' && nodes.length > 0 && nodes.every(isOverlay)
+}
 
 /**
  * The component tree of the screen on stage.
@@ -28,9 +49,14 @@ export function useComponentTree(frameRef: RefObject<HTMLElement | null>, revisi
 
     read()
 
-    // One read per frame at most: a screen that renders a list mutates the DOM once per item.
+    // One read per frame at most: a screen that renders a list mutates the DOM once per item. The
+    // viewer's own overlays live inside the frame too; drawing an outline is not a change to the
+    // screen, and reading the tree again for one would clear the hover that drew it.
     let pending = 0
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver(records => {
+      if (records.every(onlyOverlay)) {
+        return
+      }
       cancelAnimationFrame(pending)
       pending = requestAnimationFrame(read)
     })

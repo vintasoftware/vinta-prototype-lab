@@ -1,16 +1,25 @@
 import { AlertTriangle, MessageSquarePlus, Pencil, Trash2 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { NumberedAnnotation } from '../components/annotation-overlay'
 import { ANNOTATION_KIND } from '../lib/annotation-kind'
 import { Markdown } from '../lib/markdown'
-import type { Annotation, Prototype } from '../types'
+import { chipFor } from '../lib/version'
+import type { Annotation, Prototype, PrototypeVersion } from '../types'
 import { Badge, Button, cn, Tabs, TabsContent, TabsList, TabsTrigger } from '../ui'
 import { CommentComposer, type CommentDraft } from './comment-composer'
+import { VersionChip } from './screen-list'
+
+/** The panel's tabs. */
+export type PanelTab = 'doc' | 'notes' | 'issues' | 'dev'
 
 export interface SidePanelProps {
   prototype: Prototype
+  /** The tab shown, when the viewer decides it, as a pin clicked on the canvas opens Comments. */
+  tab?: PanelTab
+  onTabChange?: (tab: PanelTab) => void
   notes: NumberedAnnotation[]
   /** Notes whose target is not on the screen right now. Listed apart so the drift is visible. */
-  unanchored: Set<string>
+  unanchored: ReadonlySet<string>
   selectedId?: string
   onSelect: (id: string | undefined) => void
   /** What a new comment would point at: the component picked on the screen. */
@@ -28,10 +37,16 @@ export interface SidePanelProps {
   saveError?: string
   /** Offered when the picked element carries no semantic id and could be given one. */
   suggestedName?: string
+  /** The Dev tab: how the picked element is built. */
+  dev?: ReactNode
+  /** The prototype's versions, given only while All is picked, so notes not in every version get a chip. */
+  chipVersions?: readonly PrototypeVersion[]
 }
 
 export function SidePanel({
   prototype,
+  tab,
+  onTabChange,
   notes,
   unanchored,
   selectedId,
@@ -47,16 +62,23 @@ export function SidePanel({
   saving,
   saveError,
   suggestedName,
+  dev,
+  chipVersions = [],
 }: SidePanelProps) {
   const issueCount = prototype.issues.length
 
   return (
     <aside className='flex w-96 shrink-0 flex-col border-border border-l bg-card'>
-      <Tabs defaultValue='doc' className='flex min-h-0 flex-1 flex-col gap-0'>
+      <Tabs
+        {...(tab === undefined ? { defaultValue: 'doc' } : { value: tab })}
+        onValueChange={value => onTabChange?.(value as PanelTab)}
+        className='flex min-h-0 flex-1 flex-col gap-0'
+      >
         <TabsList variant='line' className='shrink-0 px-3 pt-2'>
           <TabsTrigger value='doc'>Doc</TabsTrigger>
           <TabsTrigger value='notes'>Comments {notes.length > 0 && `(${notes.length})`}</TabsTrigger>
           <TabsTrigger value='issues'>Problems {issueCount > 0 && `(${issueCount})`}</TabsTrigger>
+          {dev !== undefined && <TabsTrigger value='dev'>Dev</TabsTrigger>}
         </TabsList>
 
         <TabsContent value='doc' className='min-h-0 flex-1 overflow-y-auto px-4 py-3'>
@@ -112,12 +134,19 @@ export function SidePanel({
                     onEdit={() => onCompose(note)}
                     onDelete={() => onDelete(note)}
                     onToggleResolved={() => onToggleResolved(note)}
+                    chip={chipFor(chipVersions, note)}
                   />
                 </li>
               ))}
             </ul>
           )}
         </TabsContent>
+
+        {dev !== undefined && (
+          <TabsContent value='dev' className='min-h-0 flex-1 overflow-y-auto px-4 py-3'>
+            {dev}
+          </TabsContent>
+        )}
 
         <TabsContent value='issues' className='min-h-0 flex-1 overflow-y-auto px-4 py-3'>
           {issueCount === 0 ? (
@@ -170,13 +199,25 @@ interface NoteRowProps {
   onEdit: () => void
   onDelete: () => void
   onToggleResolved: () => void
+  /** "V2" or "Until V1" for a note not in every version, shown while All is picked. */
+  chip?: string | undefined
 }
 
 /**
  * One comment. The card selects the note; the actions along its foot change it, so the two never
  * nest a button inside a button.
  */
-function NoteRow({ note, anchored, selected, onSelect, canEdit, onEdit, onDelete, onToggleResolved }: NoteRowProps) {
+function NoteRow({
+  note,
+  anchored,
+  selected,
+  onSelect,
+  canEdit,
+  onEdit,
+  onDelete,
+  onToggleResolved,
+  chip,
+}: NoteRowProps) {
   const kind = ANNOTATION_KIND[note.kind]
 
   return (
@@ -192,6 +233,7 @@ function NoteRow({ note, anchored, selected, onSelect, canEdit, onEdit, onDelete
             {note.number}
           </span>
           <Badge variant='outline'>{kind.label}</Badge>
+          {chip !== undefined && <VersionChip label={chip} />}
           {note.status === 'resolved' && <Badge variant='success'>Resolved</Badge>}
           {!anchored && <Badge variant='warning'>Target missing</Badge>}
         </div>

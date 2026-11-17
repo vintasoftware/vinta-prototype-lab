@@ -12,7 +12,15 @@ const here = path.dirname(fileURLToPath(import.meta.url))
  */
 export default defineConfig({
   root: here,
-  plugins: [prototypeLab({ root: here, dir: 'example/prototypes', css: 'example/styles.css', storybook: false })],
+  plugins: [
+    prototypeLab({
+      root: here,
+      dir: 'example/prototypes',
+      css: 'example/styles.css',
+      storybook: false,
+      player: { outDir: 'example-player' },
+    }),
+  ],
   resolve: {
     alias: [
       { find: /^vinta-prototype-lab$/, replacement: path.join(here, 'src/index.ts') },

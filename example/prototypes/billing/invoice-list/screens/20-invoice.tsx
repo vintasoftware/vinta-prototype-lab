@@ -1,5 +1,5 @@
 import { ChevronLeft } from 'lucide-react'
-import { anchor, type ScreenMeta, useScreenNavigation } from 'vinta-prototype-lab'
+import { anchor, type ScreenMeta, Since, useScreenNavigation } from 'vinta-prototype-lab'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Separator } from '../../../../ui'
 
 export const screen: Partial<ScreenMeta> = { title: 'Invoice', viewport: 'desktop' }
@@ -10,7 +10,7 @@ const LINES = [
 ]
 
 export default function InvoiceScreen() {
-  const { back } = useScreenNavigation()
+  const { back, goToScreen } = useScreenNavigation()
 
   return (
     <div className='flex h-full flex-col items-center gap-6 bg-muted p-8'>
@@ -42,6 +42,17 @@ export default function InvoiceScreen() {
             <span>Balance</span>
             <span>$240.00</span>
           </div>
+          {/* Taking a payment arrives in V2, so V1 shows the invoice without the button. */}
+          <Since version='v2'>
+            <Button
+              size='sm'
+              className='self-end'
+              onClick={() => goToScreen('invoice', { variant: 'paid' })}
+              {...anchor('record-payment')}
+            >
+              Record a payment
+            </Button>
+          </Since>
         </CardContent>
       </Card>
     </div>

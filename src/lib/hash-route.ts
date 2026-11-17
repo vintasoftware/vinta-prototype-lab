@@ -7,6 +7,8 @@ export interface HashRoute {
   variant?: string
   /** The component the link points at, named the way a component link names one. */
   component?: string
+  /** The version picked in the header, by id. Left out for All. */
+  version?: string
 }
 
 /** A URL the viewer can write: the screen it is on, and the component picked on it. */
@@ -15,6 +17,8 @@ export interface ScreenRoute {
   screenId: string
   variant: string
   component?: string
+  /** The version picked in the header. Left out for All, so links shared without one open as before. */
+  version?: string
 }
 
 /** How many leading segments of the path make up the slug: the longest known slug they spell. */
@@ -30,7 +34,7 @@ function slugLength(segments: readonly string[], slugs: readonly string[]): numb
 }
 
 /**
- * Reads `#/p/[slug]/[screen]/[variant]?component=[id]`. Anything else reads as an empty route.
+ * Reads `#/p/[slug]/[screen]/[variant]?v=[version]&component=[id]`. Anything else reads as an empty route.
  *
  * A prototype inside a group folder has `/` in its slug (`billing/refunds`), so the path alone
  * cannot say where the slug ends. `slugs` are the prototypes that exist; the longest one the path
@@ -48,18 +52,24 @@ export function parseHash(hash: string, slugs: readonly string[] = []): HashRout
   const slug = segments.slice(0, length).join('/')
   const [screenId, variant] = segments.slice(length)
 
-  const component = new URLSearchParams(queryPart).get('component')
+  const query = new URLSearchParams(queryPart)
+  const component = query.get('component')
+  const version = query.get('v')
 
   return {
     slug,
     ...(screenId !== undefined && screenId !== '' ? { screenId } : {}),
     ...(variant !== undefined && variant !== '' ? { variant } : {}),
     ...(component === null || component === '' ? {} : { component }),
+    ...(version === null || version === '' ? {} : { version }),
   }
 }
 
 export function formatHash(route: ScreenRoute): string {
   const variant = route.variant === DEFAULT_VARIANT ? '' : `/${route.variant}`
-  const component = route.component === undefined ? '' : `?component=${encodeURIComponent(route.component)}`
-  return `#/p/${route.slug}/${route.screenId}${variant}${component}`
+  const query = [
+    route.version === undefined ? undefined : `v=${encodeURIComponent(route.version)}`,
+    route.component === undefined ? undefined : `component=${encodeURIComponent(route.component)}`,
+  ].filter(part => part !== undefined)
+  return `#/p/${route.slug}/${route.screenId}${variant}${query.length === 0 ? '' : `?${query.join('&')}`}`
 }

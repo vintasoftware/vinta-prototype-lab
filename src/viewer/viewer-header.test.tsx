@@ -16,7 +16,7 @@ function renderHeader(props: Partial<ViewerHeaderProps> = {}) {
       prototypes={prototypes}
       slug='booking'
       onOpenPrototype={vi.fn()}
-      toggles={{ notes: true, hotspots: false, inspect: false, flow: false, screens: true, doc: true }}
+      toggles={{ notes: true, hotspots: false, inspect: false, canvas: false, arrows: false, screens: true, doc: true }}
       onToggle={vi.fn()}
       noteCount={0}
       canGoBack={false}
@@ -48,6 +48,19 @@ describe('ViewerHeader', () => {
 
     expect(screen.queryByRole('tab', { name: 'Desktop' })).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Device' })).toBeInTheDocument()
+  })
+
+  it('links to the tour player only when the project has built one', () => {
+    renderHeader()
+    expect(screen.queryByRole('link', { name: 'Tours' })).not.toBeInTheDocument()
+  })
+
+  it('opens the tour player in a new tab', () => {
+    renderHeader({ playerHref: 'acme.html' })
+
+    const link = screen.getByRole('link', { name: 'Tours' })
+    expect(link).toHaveAttribute('href', 'acme.html')
+    expect(link).toHaveAttribute('target', '_blank')
   })
 
   it('offers presenting only when there is a screen to present', async () => {

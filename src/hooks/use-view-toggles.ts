@@ -1,26 +1,34 @@
 import { useCallback, useState } from 'react'
 
 /** Everything about the viewer that is simply on or off. */
-export type ViewToggle = 'notes' | 'hotspots' | 'inspect' | 'flow' | 'screens' | 'doc'
+export type ViewToggle = 'notes' | 'hotspots' | 'inspect' | 'canvas' | 'arrows' | 'screens' | 'doc'
 
 export type ViewToggles = Record<ViewToggle, boolean>
 
-/** How the viewer opens: both panels out, comments drawn, nothing else on. */
+/**
+ * How the viewer opens: the screens panel out, and the screen otherwise left alone, with the doc
+ * panel shut and comments hidden. `c` and `]` bring them back.
+ */
 const OPENING_TOGGLES: ViewToggles = {
-  notes: true,
+  notes: false,
   hotspots: false,
   inspect: false,
-  flow: false,
+  canvas: false,
+  // The canvas's arrow layer: where each control leads. On, so the canvas opens as the flow map did.
+  arrows: true,
   screens: true,
-  doc: true,
+  doc: false,
 }
 
-/** The key that flips each one. */
+/**
+ * The key that flips each one. `a` (arrows) works only on the canvas and `f` opens the canvas with
+ * its arrows on, so the viewer handles both itself.
+ */
 export const TOGGLE_KEYS: Readonly<Record<string, ViewToggle>> = {
   c: 'notes',
   h: 'hotspots',
   i: 'inspect',
-  f: 'flow',
+  v: 'canvas',
   '[': 'screens',
   ']': 'doc',
 }

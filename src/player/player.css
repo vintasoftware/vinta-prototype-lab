@@ -1,0 +1,170 @@
+/* Motion for the guided tour's cursor. The rest of the player is plain utilities. */
+
+@keyframes tour-ripple {
+  from {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.6);
+  }
+}
+
+@keyframes tour-press {
+  50% {
+    transform: scale(0.82);
+  }
+}
+
+.tour-cursor {
+  transition:
+    left 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease;
+}
+
+.tour-cursor[data-pressing='true'] svg {
+  animation: tour-press 260ms ease;
+  transform-origin: 4px 3px;
+}
+
+.tour-ring {
+  transition:
+    left 500ms ease,
+    top 500ms ease,
+    width 500ms ease,
+    height 500ms ease,
+    opacity 200ms ease;
+}
+
+.tour-ripple {
+  animation: tour-ripple 520ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-cursor,
+  .tour-ring {
+    transition: none;
+  }
+
+  .tour-cursor[data-pressing='true'] svg {
+    animation: none;
+  }
+
+  /* The ripple becomes a still ring. */
+  .tour-ripple {
+    animation: none;
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* The tour picker in Vinta's look: white, near-black type and Vinta blue from the wordmark. These
+   values are Vinta's brand, not the design system's, so they stay scoped to this one page. */
+.vinta-home {
+  --vinta-blue: #0061ff;
+  --vinta-blue-dark: #004ed0;
+  --vinta-ink: #0b0d12;
+  --vinta-muted: #5b6270;
+  --vinta-line: #e6e8ee;
+  --vinta-soft: #f5f7fb;
+  background: #ffffff;
+  color: var(--vinta-ink);
+}
+
+.vinta-home .vinta-muted {
+  color: var(--vinta-muted);
+}
+
+.vinta-home .vinta-eyebrow {
+  color: var(--vinta-blue);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vinta-home .vinta-headline {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.vinta-home .vinta-accent {
+  color: var(--vinta-blue);
+}
+
+.vinta-home .vinta-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  height: 100%;
+  padding: 1.75rem;
+  text-align: left;
+  background: var(--vinta-soft);
+  border: 1px solid var(--vinta-line);
+  border-radius: 1.25rem;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.vinta-home .vinta-card:hover,
+.vinta-home .vinta-card:focus-visible {
+  border-color: var(--vinta-blue);
+  box-shadow: 0 12px 32px -16px rgb(0 97 255 / 0.35);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.vinta-home .vinta-number {
+  color: var(--vinta-blue);
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.vinta-home .vinta-chip {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--vinta-ink);
+  background: #ffffff;
+  border: 1px solid var(--vinta-line);
+  border-radius: 999px;
+}
+
+.vinta-home .vinta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--vinta-blue);
+  border-radius: 999px;
+  transition: background 150ms ease;
+}
+
+.vinta-home .vinta-card:hover .vinta-button {
+  background: var(--vinta-blue-dark);
+}
+
+.vinta-home .vinta-footer {
+  color: var(--vinta-muted);
+  border-top: 1px solid var(--vinta-line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vinta-home .vinta-card {
+    transition: none;
+  }
+
+  .vinta-home .vinta-card:hover {
+    transform: none;
+  }
+}

@@ -16,6 +16,8 @@ export const annotationSchema = z.object({
   body: z.string().optional(),
   author: z.string().optional(),
   status: z.enum(['open', 'resolved']).default('open'),
+  since: z.string().min(1).optional(),
+  until: z.string().min(1).optional(),
 })
 
 const annotationsFileSchema = z.object({

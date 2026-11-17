@@ -76,6 +76,14 @@ body for the engineer who will build it:
 
 Writing it first is what stops the screens from drifting into a shape nobody asked for.
 
+When the flow ships in stages, declare them here too (step 7 says how to tag the screens):
+
+```yaml
+version-v1: 'V1: Send claims'
+version-v2: 'V2: Resolve denials'
+version-later: 'Later: Money in'
+```
+
 ## 4. Build the screens
 
 One file per screen under `screens/`, default-exporting the component. The filename is the id:
@@ -114,14 +122,14 @@ Rules that keep a prototype useful:
   component nobody has built. Wrap that thing in a `relative` element and put the hotspot inside it
   with no geometry: it fills the wrapper, so it stays on its target at every viewport. Reach for the
   `area` prop only over something that scales as one piece, such as a mock image.
-- **Navigate from a button, a link or a hotspot, never from a `div` with an `onClick`.** The flow
-  map finds links by clicking what a person can reach; a clickable `div` shows no arrow, and it is
+- **Navigate from a button, a link or a hotspot, never from a `div` with an `onClick`.** The
+  canvas finds links by clicking what a person can reach; a clickable `div` shows no arrow, and it is
   not reachable from the keyboard either.
 - **Navigate during the click.** A `goToScreen()` inside a timer or after an `await` is not seen by
-  the map, so the control reads as leading nowhere.
+  the canvas, so the control reads as leading nowhere.
 
-Every screen must be reachable from the entry screen. Open **Flow** (`f`) in the viewer: every card
-should carry an arrow in, none should say **Unreachable**, and there should be no red card — that is
+Every screen must be reachable from the entry screen. Open the canvas with its arrows (`f`) in the
+viewer: every frame should carry an arrow in, none should say **Unreachable**, and there should be no red card. A red card is
 a `goToScreen()` naming a screen that does not exist.
 
 ## 6. Pin the comments
@@ -152,7 +160,33 @@ Then write the note in `annotations.json`, one per decision an engineer could ge
   (`book-follow-up`), never for where it sits (`third-card-button`).
 - A note that applies on every screen it appears on leaves `screen` out.
 
-## 7. Name what the engineer will ask about
+## 7. Tag versions, when the flow ships in stages
+
+A prototype shows the whole vision, and engineers read it as a task list. Versions let them pick
+"V1" in the viewer header and see only what V1 builds, without deleting the screens that come
+later. Ask the designer which version each state and each part belongs to; do not guess.
+
+- **Declare them** in `prototype.md` front matter, one `version-<id>` line each, in shipping order.
+  The label's part before the colon is the chip text ("V1").
+- **Tag a state** in its screen meta: `since: 'v2'` exists from V2 on; `until: 'v1'` exists up to
+  V1 and is replaced after. Leave both out for a state in every version.
+- **Hide parts of a screen** with `<Since version='v2'>…</Since>` or `<Since until='v1'>…</Since>`.
+  For data, read `useVersion()` and filter rows by the same tags:
+  `rows.filter(row => version.includes(row.since, row.until))`. Totals and counts must add up
+  from the rows that are left.
+- **Tag a note** with `since` and `until` in `annotations.json` when it describes a later version.
+- Versions are cumulative: V2 shows V1 plus what V2 adds. All renders like the last version and
+  lists every state.
+- Draw nothing about the version on the screen: no badge, no "coming in V2" label. The viewer's
+  picker and screen list say it.
+
+```tsx
+import { type ScreenMeta, Since, useVersion } from 'vinta-prototype-lab'
+
+export const screen: Partial<ScreenMeta> = { title: 'Claim detail', variantLabel: 'Denied', since: 'v2' }
+```
+
+## 8. Name what the engineer will ask about
 
 The left rail reads the component tree out of the DOM, and inspect mode (`i`) lets a reviewer click
 any part of the screen to find its row. Two things make that tree useful, and both are choices you
@@ -167,7 +201,7 @@ make while building:
   nearest id above it, so an id nearby keeps that path short and immune to edits elsewhere on the
   screen. Every component can be linked to either way — ids decide how well those links age.
 
-## 8. Verify before handing it over
+## 9. Verify before handing it over
 
 Run the project's own type check and linter over the new files — the screens are ordinary TSX in the
 project, so its `tsc` and lint setup cover them.
@@ -177,14 +211,17 @@ Then open the viewer and check, on each screen:
 - **Problems tab is empty.** It lists missing default exports, notes pointing at screens that do not
   exist, and an `entry` that is not there.
 - **No comment reads "Target missing"** — that means an `anchor()` was renamed or removed.
-- **Every link goes somewhere**, and Back returns where it came from. The **Flow** map shows all of
-  them at once: no **Unreachable** badge, no red card.
+- **Every link goes somewhere**, and Back returns where it came from. The canvas with its arrows
+  (`f`) shows all of them at once: no **Unreachable** badge, no red card.
 - **The browser console is clean.** A nested-button warning means a `Button` ended up inside a
   `ScreenLink`.
 - **Each state renders**, including the empty and error ones.
+- **With versions, pick each one and All.** The Problems tab names any unknown version id. A link
+  to a state outside the picked version shows a toast rather than opening; that is expected. Every
+  count and total on a screen adds up from the rows that version shows.
 
 Report the deep link to the entry screen (`#/p/<slug>/<entry>`) so the designer can open exactly what
-you built.
+you built. With versions, add `?v=<id>` to open a link on one version: `#/p/<slug>/<entry>?v=v1`.
 
 ## Common mistakes
 
@@ -196,7 +233,9 @@ you built.
 | Handwritten `<div>` chrome instead of the design system | The review discusses the mock instead of the design. |
 | A state hidden behind in-screen `useState` | Invisible in the sidebar, so it never gets reviewed. |
 | A hotspot placed with `area` percentages of a flex container | It sits on its target at one width and drifts off it at every other. |
-| Navigation on a `div onClick` | No arrow on the flow map, and no way to reach it from the keyboard. |
-| `goToScreen()` after a timer or an `await` | The map reads the control as leading nowhere. |
+| Navigation on a `div onClick` | No arrow on the canvas, and no way to reach it from the keyboard. |
+| `goToScreen()` after a timer or an `await` | The canvas reads the control as leading nowhere. |
 | Prototypes folder not named `prototypes` | The viewer refuses to start; screen files are recognised by that folder name. |
+| A "Coming in V2" badge drawn on a screen | Screenshots no longer look like the product; the viewer's picker already says it. |
+| A total that counts rows the picked version hides | V1 shows numbers that do not add up. |
 | Prototype built as a Storybook story | No flow, no doc, no comments — the reason this tool exists. |

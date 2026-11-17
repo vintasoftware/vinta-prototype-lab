@@ -3,6 +3,55 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## [Unreleased]
+
+### Added
+
+- **Guided tours**: `prototype-lab player` builds the prototypes' tours into one HTML file that opens
+  offline with a double-click. A tour is a `tours/<id>.json` file of steps; each step opens a
+  screen state, rings an anchor, and has a caption and an optional `fixes` line, and the cursor
+  clicks the step's `click` anchor to move on. The home page lists the tours as cards in Vinta's
+  look, with its words set in `prototypeLab({ player })`. While a tour plays, a panel beside the
+  screen lists every step, with Play, Back, Next, speed and Tours home; `#/tour/<id>/<step>` opens
+  one step. `#/check` checks every step and every click and lists the problems.
+- **Tours button**: once `prototype-lab player` has written its file, the viewer's header links to
+  it. `dev` serves the file beside the viewer and `build` copies it into the static copy. Set the
+  folder with `player.outDir` (default `prototype-lab-player`).
+- **build-guided-tour skill**: writes a project's tours from its prototypes, checks them and builds
+  the file to send.
+- A canvas (`v`) that shows every screen state as a frame you can pan and zoom, laid out in the
+  flow's columns. Picking a frame opens that state, and double-clicking opens it on the stage.
+- Sections on the canvas can be dragged, and Reset layout puts them back. The layout is saved to
+  `canvas.json` in the prototype's folder.
+- Live frames (`L`) that click through inside the canvas, full-page frames, and two viewports side
+  by side.
+- Ready for dev marks on screen states, saved to `canvas.json`, and PNG export of the picked frame,
+  also from **Download PNG** in the Dev tab for the screen on the stage.
+- A Dev tab for the picked element: component, source line with Open in editor, styles read back
+  to tokens, size, Measure (`m` or Alt and hover), accessibility, and a JSX snippet.
+- Versions: `version-<id>` lines in `prototype.md` add a version picker. Screen states and comments
+  take `since` and `until`, screens use `<Since>` and `useVersion()`, and `?v=` keeps the pick.
+- Dependencies `dom-accessibility-api` (MIT) and `html-to-image` (MIT, loaded only for PNG export).
+
+### Changed
+
+- The flow map is the canvas's arrow layer (`a`), and `f` opens the canvas with the arrows on. The
+  header's Flow button is now Canvas.
+- Where each control leads is read one screen state at a time, so a large prototype no longer
+  freezes the page.
+- The header stays on one row on a 13-inch laptop.
+- The side panels slide in and out, and the prototype picker opens scrolled to the open prototype.
+- Turning Inspect on opens the Dev tab.
+
+### Fixed
+
+- The inspect outline under the pointer no longer disappears.
+- A viewer linked to a local checkout no longer goes blank while the package rebuilds.
+
+### Removed
+
+- The `FlowMap` export. `CanvasView` replaces it.
+
 ## [0.3.2] - 2026-11-05
 
 ### Added

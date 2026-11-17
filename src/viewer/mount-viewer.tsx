@@ -12,6 +12,8 @@ export interface ViewerOptions {
    * unless a size is chosen in the device toolbar, which shows either way.
    */
   viewportSwitcher?: boolean
+  /** The tour player's address. The plugin passes it once `prototype-lab player` has built it. */
+  player?: string
 }
 
 /**
@@ -33,6 +35,7 @@ export function mountViewer(
         prototypes={buildPrototypes(sources)}
         {...(options.storybook === undefined ? {} : { storybook: options.storybook })}
         {...(options.viewportSwitcher === undefined ? {} : { viewportSwitcher: options.viewportSwitcher })}
+        {...(options.player === undefined ? {} : { player: options.player })}
       />
     </StrictMode>
   )

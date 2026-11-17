@@ -1,0 +1,36 @@
+{
+  "id": "book-a-follow-up",
+  "title": "Booking a follow-up",
+  "summary": "A patient books her follow-up from the dashboard in four screens.",
+  "order": 1,
+  "steps": [
+    {
+      "screen": "home",
+      "anchor": "follow-up-card",
+      "title": "The follow-up is waiting",
+      "caption": "The dashboard leads with the visit the provider asked for, so the patient does not have to remember to book it.",
+      "fixes": "Patients forgetting to book the follow-up",
+      "click": "book-follow-up"
+    },
+    {
+      "screen": "choose-time",
+      "anchor": "slot-grid",
+      "title": "Every free time on one screen",
+      "caption": "The next days sit in a strip, with the free times for the day picked underneath. One tap picks a time.",
+      "click": "slot-grid"
+    },
+    {
+      "screen": "review",
+      "anchor": "review-summary",
+      "title": "One look before booking",
+      "caption": "The visit, the time and the place, on one card. Confirm books it.",
+      "click": "confirm-booking"
+    },
+    {
+      "screen": "confirmed",
+      "anchor": "appointment-card",
+      "title": "Booked",
+      "caption": "The visit is on her list, with a way to move it if plans change."
+    }
+  ]
+}

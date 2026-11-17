@@ -20,6 +20,10 @@ export interface ScreenMeta {
   viewport: ScreenViewport
   /** Position in the screen list. Screens with the same order sort by filename. */
   order: number
+  /** First version the state exists in, by version id. Left out, it exists from the first version. */
+  since?: string
+  /** Last version the state exists in, by version id. Left out, it exists in every later version. */
+  until?: string
 }
 
 /** Shape of a `screens/*.tsx` module. */
@@ -50,6 +54,20 @@ export interface Annotation {
   body?: string
   author?: string
   status?: 'open' | 'resolved'
+  /** First version the note applies to, like a screen state's `since`. */
+  since?: string
+  /** Last version the note applies to, like a screen state's `until`. */
+  until?: string
+}
+
+/** One version a prototype declares in its front matter with a `version-<id>` key. */
+export interface PrototypeVersion {
+  /** What follows `version-` in the key: `v1`, `later`. Used in `since`, `until` and `?v=`. */
+  id: string
+  /** The key's value, shown in the version picker: `V1: Send claims`. */
+  label: string
+  /** The label up to its colon, shown in chips: `V1`. */
+  short: string
 }
 
 /** `prototype.md`: the front matter fields plus the markdown that follows them. */
@@ -62,8 +80,24 @@ export interface PrototypeDoc {
   owner?: string
   /** Free text; the date the designer last touched the prototype. */
   updated?: string
+  /** The versions the prototype declares, in the order of their lines. Left out when it declares none. */
+  versions?: PrototypeVersion[]
   /** Markdown body, front matter removed. */
   body: string
+}
+
+/**
+ * `canvas.json`: how a person arranged the prototype on the canvas. It is a view, saved apart from
+ * the screens, and reviewed in the pull request with them.
+ */
+export interface CanvasFile {
+  version: 1
+  /** Top-left corner of each screen's section, in canvas pixels. Screens left out are laid out by the canvas. */
+  sections: Array<{ screen: string; x: number; y: number }>
+  /** The viewports each state is drawn in, side by side. Left out, each screen keeps its own. */
+  viewports?: ScreenViewport[]
+  /** Screen states marked ready for an engineer to build, as `screen/state`: `home/default`. */
+  ready?: string[]
 }
 
 export interface Prototype {
@@ -74,6 +108,8 @@ export interface Prototype {
   doc: PrototypeDoc
   screens: PrototypeScreen[]
   annotations: Annotation[]
+  /** The arrangement saved in `canvas.json`, when the prototype has one. */
+  canvas?: CanvasFile
   /** Problems found while loading. The viewer shows these instead of failing to start. */
   issues: string[]
 }

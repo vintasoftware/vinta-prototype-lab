@@ -1,11 +1,21 @@
 // @vitest-environment node
-import { readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer, type ViteDevServer } from 'vite'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { ANNOTATIONS_ENDPOINT } from '../lib/source-ref'
-import { ENTRY_URL, entryCode, indexHtml, prototypeLab, resolvePrototypesDir } from './plugin'
+import { ANNOTATIONS_ENDPOINT, CANVAS_ENDPOINT } from '../lib/source-ref'
+import {
+  ENTRY_URL,
+  entryCode,
+  indexHtml,
+  inlineIntoPage,
+  playerEntryCode,
+  playerFile,
+  prototypeLab,
+  resolvePrototypesDir,
+} from './plugin'
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SERVER_TIMEOUT = 60_000
@@ -29,13 +39,14 @@ describe('resolvePrototypesDir', () => {
 })
 
 describe('entryCode', () => {
-  it('globs the three kinds of file under the folder, from the root', () => {
+  it('globs every kind of file under the folder, from the root', () => {
     const code = entryCode({ root: '/project', prototypesDir: '/project/design/prototypes', css: [] })
 
     expect(code).toContain("import.meta.glob('/design/prototypes/**/prototype.md', { query: '?raw'")
     expect(code).toContain("import.meta.glob('/design/prototypes/**/annotations.json'")
     expect(code).toContain("import.meta.glob('/design/prototypes/**/screens/*.tsx', { eager: true })")
-    expect(code).toContain('mountViewer({ docs, annotations, screens }, {})')
+    expect(code).toContain("import.meta.glob('/design/prototypes/**/canvas.json'")
+    expect(code).toContain('mountViewer({ docs, annotations, screens, canvases }, {})')
   })
 
   it("loads the viewer's stylesheet first and the default one when the project names none", () => {
@@ -73,10 +84,73 @@ describe('entryCode', () => {
     expect(code).toContain('{"storybook":{"url":"http://localhost:6100","marker":"Design System"}}')
   })
 
+  it('passes the tour player address through', () => {
+    const code = entryCode({ root: '/project', prototypesDir: '/project/prototypes', css: [], player: 'tours.html' })
+
+    expect(code).toContain('{"player":"tours.html"}')
+  })
+
   it('passes a turned-off viewport switcher through', () => {
     const code = entryCode({ root: '/project', prototypesDir: '/project/prototypes', css: [], viewportSwitcher: false })
 
     expect(code).toContain('{"viewportSwitcher":false}')
+  })
+})
+
+describe('playerFile', () => {
+  it('defaults to tours.html in prototype-lab-player', () => {
+    expect(playerFile('/project', undefined)).toEqual({ dir: '/project/prototype-lab-player', name: 'tours.html' })
+  })
+
+  it('takes the folder and the file name the project names', () => {
+    expect(playerFile('/project', { outDir: 'public/tours', fileName: 'acme.html' })).toEqual({
+      dir: '/project/public/tours',
+      name: 'acme.html',
+    })
+  })
+
+  it('refuses a file name with a folder in it, or one that is not a page', () => {
+    expect(() => playerFile('/project', { fileName: '../acme.html' })).toThrow(/player.fileName/)
+    expect(() => playerFile('/project', { fileName: 'acme.js' })).toThrow(/player.fileName/)
+  })
+})
+
+describe('playerEntryCode', () => {
+  it('globs the tours with the prototype files and starts the player with the project text', () => {
+    const code = playerEntryCode({
+      root: '/project',
+      prototypesDir: '/project/prototypes',
+      css: ['./src/app.css'],
+      text: { client: 'Acme Health' },
+    })
+
+    expect(code).toContain('import "/src/app.css"')
+    expect(code).toContain("import { mountPlayer } from 'vinta-prototype-lab'")
+    expect(code).toContain("import.meta.glob('/prototypes/**/tours/*.json', { import: 'default', eager: true })")
+    expect(code).toContain('mountPlayer({ docs, annotations, screens, tours }, {"text":{"client":"Acme Health"}})')
+  })
+})
+
+describe('inlineIntoPage', () => {
+  it('folds the script and the stylesheet into the page and renames it', () => {
+    const bundle: Parameters<typeof inlineIntoPage>[0] = {
+      'index.html': {
+        type: 'asset',
+        fileName: 'index.html',
+        source:
+          '<head><script type="module" crossorigin src="./assets/index-a1.js"></script><link rel="stylesheet" crossorigin href="./assets/index-b2.css"></head>',
+      },
+      'assets/index-a1.js': { type: 'chunk', fileName: 'assets/index-a1.js', isEntry: true, code: 'go("</script>")' },
+      'assets/index-b2.css': { type: 'asset', fileName: 'assets/index-b2.css', source: 'a{color:red}' },
+    }
+
+    inlineIntoPage(bundle, 'acme-tours.html')
+
+    expect(Object.keys(bundle)).toEqual(['index.html'])
+    expect(bundle['index.html']?.fileName).toBe('acme-tours.html')
+    expect(bundle['index.html']?.source).toBe(
+      '<head><script type="module">go("<\\/script>")</script><style>a{color:red}</style></head>'
+    )
   })
 })
 
@@ -100,7 +174,13 @@ describe('prototypeLab', () => {
 
     expect(all.some(name => name.startsWith('vite:react'))).toBe(true)
     expect(all.some(name => name.startsWith('@tailwindcss/vite'))).toBe(true)
-    expect(bare).toEqual(['prototype-lab:viewer', 'prototype-lab:stamp-jsx-source', 'prototype-lab:annotations-writer'])
+    expect(bare).toEqual([
+      'prototype-lab:viewer',
+      'prototype-lab:player-single-file',
+      'prototype-lab:stamp-jsx-source',
+      'prototype-lab:annotations-writer',
+      'prototype-lab:own-build-reload',
+    ])
   })
 })
 
@@ -254,6 +334,31 @@ describe('the dev server', () => {
     )
 
     it(
+      'saves the canvas arrangement to canvas.json without reloading the page',
+      async () => {
+        const file = path.join(repo, 'example/prototypes', 'patient-booking', 'canvas.json')
+        try {
+          await server.transformRequest(ENTRY_URL)
+          const canvas = { version: 1, sections: [{ screen: 'home', x: 0, y: 0 }] }
+          const sent = await sentBy(async () => {
+            const response = await fetch(`${origin}${CANVAS_ENDPOINT}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ slug: 'patient-booking', canvas }),
+            })
+            expect(response.status).toBe(200)
+          })
+          expect(sent).not.toContain('full-reload')
+          expect(JSON.parse(await readFile(file, 'utf8'))).toEqual(canvas)
+        } finally {
+          await rm(file, { force: true })
+          await settle()
+        }
+      },
+      SERVER_TIMEOUT
+    )
+
+    it(
       'reloads the page when a notes file is edited by hand, and serves the edit',
       () =>
         restoring('patient-booking', async () => {
@@ -284,4 +389,61 @@ describe('the dev server', () => {
       SERVER_TIMEOUT
     )
   })
+})
+
+describe('the dev server and a built tour player', () => {
+  let server: ViteDevServer
+  let origin: string
+  let outDir: string
+
+  beforeAll(async () => {
+    outDir = await mkdtemp(path.join(os.tmpdir(), 'prototype-lab-player-'))
+    server = await createServer({
+      root: repo,
+      configFile: false,
+      logLevel: 'silent',
+      server: { port: 0 },
+      plugins: [
+        prototypeLab({
+          root: repo,
+          dir: 'example/prototypes',
+          tailwind: false,
+          player: { outDir, fileName: 'acme.html' },
+        }),
+      ],
+      // The package's own name, pointed at its source, so the test does not need a build.
+      resolve: {
+        alias: [
+          { find: /^vinta-prototype-lab$/, replacement: path.join(repo, 'src/index.ts') },
+          { find: /^vinta-prototype-lab\/(viewer|default)\.css$/, replacement: path.join(repo, 'src/$1.css') },
+        ],
+      },
+    })
+    await server.listen()
+    origin = server.resolvedUrls?.local[0]?.replace(/\/$/, '') ?? ''
+  }, SERVER_TIMEOUT)
+
+  afterAll(async () => {
+    await server.close()
+    await rm(outDir, { recursive: true, force: true })
+  }, SERVER_TIMEOUT)
+
+  it(
+    'links the header to the player once it is built, and serves it beside the viewer',
+    async () => {
+      expect((await server.transformRequest(ENTRY_URL))?.code).not.toContain('"player"')
+      expect((await fetch(`${origin}/acme.html`)).headers.get('content-type')).not.toBe('text/html')
+
+      await writeFile(path.join(outDir, 'acme.html'), '<title>Acme tours</title>', 'utf8')
+      await vi.waitFor(
+        async () => expect((await server.transformRequest(ENTRY_URL))?.code).toContain('{"player":"acme.html"}'),
+        { timeout: 10_000, interval: 200 }
+      )
+
+      const response = await fetch(`${origin}/acme.html`)
+      expect(response.headers.get('content-type')).toBe('text/html')
+      expect(await response.text()).toBe('<title>Acme tours</title>')
+    },
+    SERVER_TIMEOUT
+  )
 })

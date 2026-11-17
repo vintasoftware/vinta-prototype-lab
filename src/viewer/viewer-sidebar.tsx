@@ -1,4 +1,4 @@
-import type { Prototype } from '../types'
+import type { Prototype, PrototypeVersion } from '../types'
 import { ComponentsSection, type ComponentsSectionProps } from './components-section'
 import { ScreenList } from './screen-list'
 
@@ -9,6 +9,8 @@ export interface ViewerSidebarProps {
   noteCountByScreen: Map<string, number>
   onSelectScreen: (screenId: string) => void
   onSelectVariant: (variant: string) => void
+  /** The versions to draw chips for, given only while All is picked. */
+  chipVersions?: readonly PrototypeVersion[]
   /** Everything the components half of the rail needs, passed through as one thing. */
   components: ComponentsSectionProps
 }
@@ -21,6 +23,7 @@ export function ViewerSidebar({
   noteCountByScreen,
   onSelectScreen,
   onSelectVariant,
+  chipVersions,
   components,
 }: ViewerSidebarProps) {
   return (
@@ -33,6 +36,7 @@ export function ViewerSidebar({
           noteCountByScreen={noteCountByScreen}
           onSelectScreen={onSelectScreen}
           onSelectVariant={onSelectVariant}
+          {...(chipVersions === undefined ? {} : { chipVersions })}
         />
       </div>
 

@@ -9,9 +9,17 @@ import {
   type WrittenNote,
 } from '../lib/annotation-edit'
 import { annotationSchema, parseAnnotationsFile } from '../lib/annotations'
-import { ANNOTATIONS_ENDPOINT, NAME_ELEMENT_ENDPOINT, parseSourceRef } from '../lib/source-ref'
+import { canvasFileSchema, serializeCanvasFile } from '../lib/canvas-file'
+import {
+  ANNOTATIONS_ENDPOINT,
+  CANVAS_ENDPOINT,
+  NAME_ELEMENT_ENDPOINT,
+  parseSourceRef,
+  SNIPPET_ENDPOINT,
+} from '../lib/source-ref'
 import type { Annotation } from '../types'
 import { addAnchor } from './add-anchor'
+import { jsxSnippet } from './source-snippet'
 import { isScreenFile } from './stamp-jsx-source'
 
 /**
@@ -52,14 +60,87 @@ export interface NameResult {
   body: { named: string } | { error: string }
 }
 
-/** The file a slug names, or undefined when the slug is not a path of plain folder names. */
-export function annotationsPathFor(prototypesDir: string, slug: string): string | undefined {
+/** A file in the folder a slug names, or undefined when the slug is not a path of plain folder names. */
+function prototypeFileFor(prototypesDir: string, slug: string, name: string): string | undefined {
   if (!SLUG.test(slug)) {
     return undefined
   }
-  const file = path.join(prototypesDir, slug, 'annotations.json')
+  const file = path.join(prototypesDir, slug, name)
   const inside = path.relative(prototypesDir, file)
   return inside.startsWith('..') || path.isAbsolute(inside) ? undefined : file
+}
+
+/** The notes file a slug names, or undefined when the slug is not a path of plain folder names. */
+export function annotationsPathFor(prototypesDir: string, slug: string): string | undefined {
+  return prototypeFileFor(prototypesDir, slug, 'annotations.json')
+}
+
+/** The canvas file a slug names, or undefined when the slug is not a path of plain folder names. */
+export function canvasPathFor(prototypesDir: string, slug: string): string | undefined {
+  return prototypeFileFor(prototypesDir, slug, 'canvas.json')
+}
+
+/** Asks for the JSX an element was written as, by the stamp on it. */
+const snippetRequestSchema = z.object({ source: z.string().min(1) })
+
+export interface SnippetResult {
+  status: number
+  body: { snippet: string } | { error: string }
+}
+
+/**
+ * Reads the JSX an element was written as. Like naming, only a file under a prototype's `screens/`
+ * is ever opened, and the position comes from the stamp the dev server put on the element. It
+ * writes nothing.
+ */
+export async function readSnippet(root: string, source: string): Promise<SnippetResult> {
+  const ref = parseSourceRef(source)
+  if (ref === undefined) {
+    return { status: 400, body: { error: 'That element carries no source to read.' } }
+  }
+  const file = path.resolve(root, ref.file)
+  if (!isScreenFile(file) || path.relative(root, file).startsWith('..')) {
+    return { status: 400, body: { error: 'Only a screen of a prototype can be read.' } }
+  }
+  const snippet = jsxSnippet(await readFile(file, 'utf8'), ref.line, ref.column, ref.tag)
+  return snippet === undefined
+    ? { status: 409, body: { error: 'The element has moved since the screen was drawn. Reload and try again.' } }
+    : { status: 200, body: { snippet } }
+}
+
+/** Asks for a prototype's canvas arrangement to be written. */
+const canvasRequestSchema = z.object({ slug: z.string().min(1), canvas: canvasFileSchema })
+
+export interface CanvasRequest {
+  slug: string
+  canvas: z.infer<typeof canvasFileSchema>
+}
+
+export interface CanvasResult {
+  status: number
+  body: { saved: true } | { error: string }
+}
+
+/**
+ * Writes a prototype's `canvas.json`. The arrangement is a view the viewer owns whole, so the file
+ * is written as sent rather than merged: what the canvas shows is what the file says.
+ *
+ * `beforeWrite` is told what is about to be written, so the watcher can tell the write apart from a
+ * hand edit, as with the notes file.
+ */
+export async function writeCanvas(
+  prototypesDir: string,
+  request: CanvasRequest,
+  beforeWrite?: (file: string, content: string) => void
+): Promise<CanvasResult> {
+  const file = canvasPathFor(prototypesDir, request.slug)
+  if (file === undefined) {
+    return { status: 400, body: { error: `"${request.slug}" is not a prototype folder name.` } }
+  }
+  const content = serializeCanvasFile(request.canvas)
+  beforeWrite?.(file, content)
+  await writeFile(file, content, 'utf8')
+  return { status: 200, body: { saved: true } }
 }
 
 /**
@@ -183,18 +264,19 @@ async function readBody(request: Connect.IncomingMessage): Promise<unknown> {
 }
 
 /**
- * Lets the viewer write a prototype's comments while `vite dev` is running.
+ * Lets the viewer write a prototype's comments, and its canvas arrangement, while `vite dev` is
+ * running.
  *
- * Comments stay in `annotations.json`, in the same shape a designer hand-writes, so they are
- * reviewed in the pull request with everything else. A built copy of the viewer has no server
- * behind it and stays read-only.
+ * Comments stay in `annotations.json`, in the same shape a designer hand-writes, and the canvas in
+ * `canvas.json`, so both are reviewed in the pull request with everything else. A built copy of the
+ * viewer has no server behind it and stays read-only.
  *
- * The notes files stay watched, so a hand edit reloads the page as a screen edit does. A write the
- * viewer asked for does not: the viewer already shows the result, and a reload would only throw away
- * what is on screen.
+ * Both files stay watched, so a hand edit reloads the page as a screen edit does. A write the viewer
+ * asked for does not: the viewer already shows the result, and a reload would only throw away what
+ * is on screen.
  */
 export function annotationsWriter(options: { prototypesDir: string; root: string }): Plugin {
-  /** What this server last wrote to each notes file, by the path the watcher reports it under. */
+  /** What this server last wrote to each notes or canvas file, by the path the watcher reports it under. */
   const written = new Map<string, string>()
 
   return {
@@ -271,6 +353,17 @@ export function annotationsWriter(options: { prototypesDir: string; root: string
         return result
       })
       serve(NAME_ELEMENT_ENDPOINT, nameElementRequestSchema, payload => nameElement(options.root, payload))
+      serve(SNIPPET_ENDPOINT, snippetRequestSchema, payload => readSnippet(options.root, payload.source))
+      serve(CANVAS_ENDPOINT, canvasRequestSchema, async payload => {
+        const result = await writeCanvas(options.prototypesDir, payload, (file, content) => {
+          written.set(normalizePath(file), content)
+        })
+        const file = canvasPathFor(options.prototypesDir, payload.slug)
+        if (result.status === 200 && file !== undefined) {
+          forget(server, file)
+        }
+        return result
+      })
     },
   }
 }

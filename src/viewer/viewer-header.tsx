@@ -1,23 +1,25 @@
 import {
   ArrowLeft,
   Crosshair,
+  LayoutGrid,
   type LucideIcon,
   Maximize,
   MessageSquare,
+  MonitorPlay,
   PanelLeft,
   PanelLeftClose,
   PanelRight,
   PanelRightClose,
   RotateCcw,
   SquareDashedMousePointer,
-  Workflow,
 } from 'lucide-react'
 import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
 import { VIEWPORT_LABEL } from '../lib/constants'
-import type { Prototype, ScreenViewport } from '../types'
+import type { Prototype, PrototypeVersion, ScreenViewport } from '../types'
 import { Badge, Button, SegmentedToggle } from '../ui'
 import { DeviceToolbar, type DeviceToolbarProps } from './device-toolbar'
 import { PrototypePicker } from './prototype-picker'
+import { VersionPicker } from './version-picker'
 import { VintaWordmark } from './vinta-wordmark'
 
 const VIEWPORT_OPTIONS = (['mobile', 'tablet', 'desktop'] as const).map(value => ({
@@ -27,7 +29,7 @@ const VIEWPORT_OPTIONS = (['mobile', 'tablet', 'desktop'] as const).map(value =>
 
 /** The toggles the header shows as named buttons, in the order they sit. */
 const MODES: readonly { name: ViewToggle; label: string; Icon: LucideIcon }[] = [
-  { name: 'flow', label: 'Flow', Icon: Workflow },
+  { name: 'canvas', label: 'Canvas', Icon: LayoutGrid },
   { name: 'inspect', label: 'Inspect', Icon: Crosshair },
   { name: 'hotspots', label: 'Hotspots', Icon: SquareDashedMousePointer },
   { name: 'notes', label: 'Comments', Icon: MessageSquare },
@@ -51,6 +53,18 @@ export interface ViewerHeaderProps {
   device: DeviceToolbarProps
   /** Shows the screen alone, without the viewer; left out when there is no screen to show. */
   onPresent?: () => void
+  /** The open prototype's versions. The version picker shows only when there are some. */
+  versions?: readonly PrototypeVersion[]
+  /** The picked version's id. Left out for All. */
+  version?: string
+  /** The guided tour player's address. The Tours link shows only when the project has built one. */
+  playerHref?: string
+  onVersionChange?: (version: string | undefined) => void
+}
+
+/** A button's text, dropped on a window too narrow for it; the icon and tooltip stay. */
+function Label({ children }: { children: string }) {
+  return <span className='max-[1920px]:hidden!'>{children}</span>
 }
 
 export function ViewerHeader({
@@ -67,12 +81,19 @@ export function ViewerHeader({
   onRestart,
   device,
   onPresent,
+  versions = [],
+  version,
+  onVersionChange = () => {},
+  playerHref,
 }: ViewerHeaderProps) {
   return (
-    <header className='flex shrink-0 flex-wrap items-center gap-3 border-border border-b bg-card px-4 py-2'>
-      <span className='flex shrink-0 items-center gap-2'>
+    // One row always: a narrower window drops the labels first, then the title and the size fields,
+    // and a window narrower still scrolls the row sideways rather than hiding a button. The widths
+    // where each drops are set so the row fits a 13-inch laptop with any prototype open.
+    <header className='flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-border border-b bg-card px-4 py-2 *:shrink-0 max-[1200px]:gap-1! max-[1200px]:px-2!'>
+      <span className='max-[1200px]:hidden! flex items-center gap-2'>
         <VintaWordmark className='h-[19px] w-auto shrink-0 text-primary' />
-        <span className='font-semibold text-sm'>Prototype Lab</span>
+        <span className='max-[1560px]:hidden! font-semibold text-sm'>Prototype Lab</span>
       </span>
 
       <PanelButton
@@ -84,19 +105,18 @@ export function ViewerHeader({
       />
 
       <PrototypePicker prototypes={prototypes} slug={slug} onOpenPrototype={onOpenPrototype} />
+      {versions.length > 0 && <VersionPicker versions={versions} selected={version} onSelect={onVersionChange} />}
 
       <div className='flex items-center gap-1'>
-        <Button variant='outline' size='sm' onClick={onBack} disabled={!canGoBack}>
+        <Button variant='outline' size='icon-sm' aria-label='Back' title='Back' onClick={onBack} disabled={!canGoBack}>
           <ArrowLeft />
-          Back
         </Button>
-        <Button variant='ghost' size='sm' onClick={onRestart}>
+        <Button variant='ghost' size='icon-sm' aria-label='Restart' title='Restart' onClick={onRestart}>
           <RotateCcw />
-          Restart
         </Button>
       </div>
 
-      <div className='ml-auto flex flex-wrap items-center gap-2'>
+      <div className='ml-auto flex items-center gap-2'>
         {viewport !== undefined && onViewportChange !== undefined && (
           <SegmentedToggle size='sm' options={VIEWPORT_OPTIONS} value={viewport} onValueChange={onViewportChange} />
         )}
@@ -104,12 +124,34 @@ export function ViewerHeader({
         <DeviceToolbar {...device} />
 
         {MODES.map(({ name, label, Icon }) => (
-          <Button key={name} variant={toggles[name] ? 'light' : 'ghost'} size='sm' onClick={() => onToggle(name)}>
+          <Button
+            key={name}
+            variant={toggles[name] ? 'light' : 'ghost'}
+            size='sm'
+            aria-label={label}
+            title={label}
+            onClick={() => onToggle(name)}
+          >
             <Icon />
-            {label}
+            <Label>{label}</Label>
             {name === 'notes' && noteCount > 0 && <Badge variant='neutral'>{noteCount}</Badge>}
           </Button>
         ))}
+
+        {playerHref !== undefined && (
+          <Button variant='ghost' size='sm' asChild>
+            <a
+              href={playerHref}
+              target='_blank'
+              rel='noopener'
+              aria-label='Tours'
+              title='Tours: open the guided tour player in a new tab'
+            >
+              <MonitorPlay />
+              <Label>Tours</Label>
+            </a>
+          </Button>
+        )}
 
         {onPresent !== undefined && (
           <Button

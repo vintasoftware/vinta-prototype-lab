@@ -40,16 +40,17 @@ describe('installSkills', () => {
     await rm(project, { recursive: true, force: true })
   })
 
-  it('copies the build-prototype skill the package ships', async () => {
+  it('copies the skills the package ships', async () => {
     const result = await installSkills({ cwd: project })
-    const installed = path.join(project, '.claude/skills/build-prototype/SKILL.md')
+    const skills = path.join(project, '.claude/skills')
 
     expect(result).toEqual({
-      target: path.join(project, '.claude/skills'),
-      installed: ['build-prototype'],
+      target: skills,
+      installed: ['build-guided-tour', 'build-prototype'],
       skipped: [],
     })
-    expect(await readFile(installed, 'utf8')).toContain('name: build-prototype')
+    expect(await readFile(path.join(skills, 'build-prototype/SKILL.md'), 'utf8')).toContain('name: build-prototype')
+    expect(await readFile(path.join(skills, 'build-guided-tour/SKILL.md'), 'utf8')).toContain('name: build-guided-tour')
   })
 
   it('leaves a copy the team has edited alone', async () => {
@@ -60,7 +61,7 @@ describe('installSkills', () => {
     const result = await installSkills({ cwd: project })
 
     expect(result.skipped).toEqual(['build-prototype'])
-    expect(result.installed).toEqual([])
+    expect(result.installed).toEqual(['build-guided-tour'])
     expect(await readFile(path.join(existing, 'SKILL.md'), 'utf8')).toBe('our edits')
   })
 
@@ -77,7 +78,7 @@ describe('installSkills', () => {
   it('writes nothing on a dry run', async () => {
     const result = await installSkills({ cwd: project, dryRun: true })
 
-    expect(result.installed).toEqual(['build-prototype'])
+    expect(result.installed).toEqual(['build-guided-tour', 'build-prototype'])
     await expect(readFile(path.join(project, '.claude/skills/build-prototype/SKILL.md'))).rejects.toThrow()
   })
 })

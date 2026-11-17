@@ -50,5 +50,7 @@ export function buildScreenMeta(fileName: string, overrides: Partial<ScreenMeta>
     variantLabel: overrides?.variantLabel ?? titleize(variant),
     viewport: overrides?.viewport ?? 'desktop',
     order: overrides?.order ?? parsed.order,
+    ...(overrides?.since === undefined ? {} : { since: overrides.since }),
+    ...(overrides?.until === undefined ? {} : { until: overrides.until }),
   }
 }

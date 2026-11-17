@@ -5,6 +5,7 @@
    stylesheet, not by this one. */
 @import 'tailwindcss' source(none);
 @import './theme.css';
+@import './player/player.css';
 
 @source "./**/*.{ts,tsx}";
 
@@ -25,3 +26,49 @@
     @apply bg-cyan-400/25 ring-2 ring-cyan-500;
   }
 }
+
+/* A screen on the canvas drawn as a full page: each area that scrolls, and everything between it and
+   the frame, grows to fit what it holds. Important, since the screen's own stylesheet sets these
+   heights; the marks come off when the frame is made live and scrolls again. */
+[data-prototype-page='scroller'] {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+[data-prototype-page='grow'] {
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* The viewer's own popovers grow out of their trigger as they open and fade as they close. Radix
+   keeps a closing popover drawn until its animation ends. Popovers inside a prototype's screens keep
+   their own motion. */
+.prototype-lab-popover[data-state='open'] {
+  animation: prototype-lab-popover-in 150ms ease-out;
+}
+
+.prototype-lab-popover[data-state='closed'] {
+  animation: prototype-lab-popover-out 100ms ease-in;
+}
+
+@keyframes prototype-lab-popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+}
+
+@keyframes prototype-lab-popover-out {
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prototype-lab-popover[data-state] {
+    animation: none;
+  }
+}
+

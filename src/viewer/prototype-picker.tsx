@@ -1,5 +1,5 @@
 import { Check, ChevronsUpDown } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { titleize } from '../lib/screen-id'
 import type { Prototype } from '../types'
 import {
@@ -59,11 +59,36 @@ export interface PrototypePickerProps {
   onOpenPrototype: (slug: string) => void
 }
 
+/**
+ * Scrolls a list so its current item sits in the middle, or as near as the list's ends allow, when
+ * the item is out of view. An item already in view stays where it is.
+ */
+export function scrollToCurrent(list: HTMLElement | null) {
+  const item = list?.querySelector<HTMLElement>('[data-current]')
+  if (list === null || list === undefined || item === null || item === undefined) {
+    return
+  }
+  const listBox = list.getBoundingClientRect()
+  const itemBox = item.getBoundingClientRect()
+  if (itemBox.top >= listBox.top && itemBox.bottom <= listBox.bottom) {
+    return
+  }
+  list.scrollTop = itemBox.top - listBox.top + list.scrollTop - (list.clientHeight - item.offsetHeight) / 2
+}
+
 /** The header's prototype switcher: a searchable list, grouped by the folders under `prototypes/`. */
 export function PrototypePicker({ prototypes, slug, onOpenPrototype }: PrototypePickerProps) {
   const [open, setOpen] = useState(false)
   const groups = useMemo(() => groupPrototypes(prototypes), [prototypes])
   const current = prototypes.find(prototype => prototype.slug === slug)
+  const list = useRef<HTMLDivElement>(null)
+
+  // Once per opening, so it never pulls the list back while someone scrolls it.
+  useEffect(() => {
+    if (open) {
+      scrollToCurrent(list.current)
+    }
+  }, [open])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -74,16 +99,17 @@ export function PrototypePicker({ prototypes, slug, onOpenPrototype }: Prototype
           role='combobox'
           aria-expanded={open}
           aria-label='Prototype'
-          className='max-w-64 justify-between font-normal'
+          className='max-w-52 justify-between font-normal max-[1200px]:max-w-35!'
         >
           <span className='truncate'>{current?.doc.title ?? 'Choose a prototype'}</span>
           <ChevronsUpDown className='text-muted-foreground' />
         </Button>
       </PopoverTrigger>
       <PopoverContent align='start' className='w-72 p-0'>
-        <Command filter={matchesSearch}>
+        {/* Opens on the prototype that is open now, highlighted, and scrolled to it when it is out of view. */}
+        <Command filter={matchesSearch} defaultValue={slug}>
           <CommandInput placeholder='Search prototypes…' />
-          <CommandList>
+          <CommandList ref={list}>
             <CommandEmpty>No prototype matches.</CommandEmpty>
             {groups.map(group => (
               <CommandGroup key={group.heading} heading={group.heading === '' ? undefined : group.heading}>
@@ -92,6 +118,7 @@ export function PrototypePicker({ prototypes, slug, onOpenPrototype }: Prototype
                     key={prototype.slug}
                     // The slug is unique where titles may not be; the rest is what a search matches.
                     value={prototype.slug}
+                    data-current={prototype.slug === slug ? '' : undefined}
                     keywords={[prototype.doc.title, prototype.doc.summary ?? '', ...prototype.group]}
                     onSelect={() => {
                       onOpenPrototype(prototype.slug)

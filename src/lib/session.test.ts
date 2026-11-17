@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { goBack, navigateTo, selectComponent, showVariant, startSession } from './session'
+import { goBack, navigateTo, selectComponent, showScreen, showVariant, startSession } from './session'
 
 const home = { screenId: 'home', variant: 'default' }
 const review = { screenId: 'review', variant: 'default' }
@@ -41,6 +41,23 @@ describe('showVariant', () => {
 
     expect(state.current).toEqual({ screenId: 'review', variant: 'empty' })
     expect(state.history).toEqual([home])
+  })
+})
+
+describe('showScreen', () => {
+  it('shows another screen without a step in the flow, and drops the pick', () => {
+    const picked = selectComponent(navigateTo(startSession('booking', home), review), 'book-follow-up')
+    const state = showScreen(picked, { screenId: 'home', variant: 'empty' })
+
+    expect(state.current).toEqual({ screenId: 'home', variant: 'empty' })
+    expect(state.history).toEqual([home])
+    expect(state.component).toBeUndefined()
+  })
+
+  it('changes nothing for the screen already shown', () => {
+    const state = startSession('booking', home)
+
+    expect(showScreen(state, home)).toBe(state)
   })
 })
 

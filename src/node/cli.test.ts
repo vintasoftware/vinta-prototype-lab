@@ -1,7 +1,8 @@
 // @vitest-environment node
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { findConfigFile, optionsFromFlags, run, viewerConfig } from './cli'
 
@@ -97,6 +98,25 @@ describe('run', () => {
 
     expect(log.mock.calls[0]?.[0]).toMatch(/^\d+\.\d+\.\d+/)
   })
+
+  it('builds the example tours into one HTML file', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const outDir = await mkdtemp(path.join(os.tmpdir(), 'prototype-lab-player-'))
+    const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+
+    try {
+      await run(['player', '--config', 'vite.config.ts', '--out-dir', outDir], repo)
+
+      expect(await readdir(outDir)).toEqual(['tours.html'])
+      const html = await readFile(path.join(outDir, 'tours.html'), 'utf8')
+      expect(html).toContain('book-a-follow-up')
+      // The page loads nothing from beside it: no script or stylesheet file.
+      expect(html).not.toMatch(/<script[^>]*\ssrc="[^"]+\.js"/)
+      expect(html).not.toMatch(/<link[^>]*\shref="[^"]+\.css"/)
+    } finally {
+      await rm(outDir, { recursive: true, force: true })
+    }
+  }, 60_000)
 
   it('names an unknown command', async () => {
     await expect(run(['serve'], os.tmpdir())).rejects.toThrow(/unknown command "serve"/)

@@ -1,22 +1,26 @@
-import type { Prototype, PrototypeDoc, PrototypeScreen, ScreenModule } from '../types'
+import type { Prototype, PrototypeDoc, PrototypeScreen, PrototypeVersion, ScreenModule } from '../types'
 import { parseAnnotationsFile } from './annotations'
+import { type ParsedCanvasFile, parseCanvasFile } from './canvas-file'
 import { DEFAULT_VARIANT } from './constants'
 import { parseFrontmatter } from './frontmatter'
 import { buildScreenMeta, titleize } from './screen-id'
 import type { ScreenAddress } from './session'
+import { ALL_VERSIONS, readVersions } from './version'
 
-/** The three file kinds a prototype folder holds, keyed by path. */
+/** The file kinds a prototype folder holds, keyed by path. */
 export interface PrototypeSources {
   docs: Record<string, string>
   annotations: Record<string, unknown>
   screens: Record<string, ScreenModule>
+  /** `canvas.json` files, the arrangement saved on the canvas. Optional, as a project may have none. */
+  canvases?: Record<string, unknown>
 }
 
 /** Where a path enters the prototypes folder. */
 const PROTOTYPES_ROOT = /(?:^|\/)prototypes\//
 
-/** What sits directly in a prototype folder: its doc, its notes, or a screen under `screens/`. */
-const PROTOTYPE_FILE = /^(.+?)\/(?:prototype\.md|annotations\.json|screens\/[^/]+)$/
+/** What sits directly in a prototype folder: its doc, its notes, its canvas, or a screen under `screens/`. */
+const PROTOTYPE_FILE = /^(.+?)\/(?:prototype\.md|annotations\.json|canvas\.json|screens\/[^/]+)$/
 
 /**
  * The folder a file belongs to, as a path under `prototypes/` such as `billing/refunds`. That path
@@ -43,6 +47,7 @@ function buildDoc(slug: string, raw: string | undefined): PrototypeDoc {
   }
 
   const { data, body } = parseFrontmatter(raw)
+  const versions = readVersions(data)
 
   return {
     title: data.title ?? fallbackTitle,
@@ -51,11 +56,51 @@ function buildDoc(slug: string, raw: string | undefined): PrototypeDoc {
     status: data.status,
     owner: data.owner,
     updated: data.updated,
+    ...(versions.length === 0 ? {} : { versions }),
     body,
   }
 }
 
-function buildScreens(slug: string, sources: PrototypeSources, issues: string[]): PrototypeScreen[] {
+/** Reports a `version-all` key, which would clash with the viewer's All, and drops it. */
+function checkVersions(doc: PrototypeDoc, issues: string[]): PrototypeDoc {
+  const versions = doc.versions ?? []
+  if (!versions.some(version => version.id === ALL_VERSIONS)) {
+    return doc
+  }
+  issues.push(`prototype.md: "version-${ALL_VERSIONS}" is reserved for the All option. Give that version another id.`)
+  const kept = versions.filter(version => version.id !== ALL_VERSIONS)
+  const { versions: _dropped, ...rest } = doc
+  return kept.length === 0 ? rest : { ...rest, versions: kept }
+}
+
+/**
+ * Drops a `since` or `until` that names no declared version and reports it, so the item reads as
+ * existing in every version on that side. `where` names the file or note in the message.
+ */
+function checkVersionTags<T extends { since?: string; until?: string }>(
+  item: T,
+  versions: readonly PrototypeVersion[],
+  where: string,
+  issues: string[]
+): T {
+  let checked = item
+  for (const key of ['since', 'until'] as const) {
+    const id = checked[key]
+    if (id !== undefined && !versions.some(version => version.id === id)) {
+      issues.push(`Unknown version '${id}' in ${where}.`)
+      const { [key]: _dropped, ...rest } = checked
+      checked = rest as T
+    }
+  }
+  return checked
+}
+
+function buildScreens(
+  slug: string,
+  sources: PrototypeSources,
+  versions: readonly PrototypeVersion[],
+  issues: string[]
+): PrototypeScreen[] {
   const screens: PrototypeScreen[] = []
   const seen = new Map<string, string>()
 
@@ -72,7 +117,7 @@ function buildScreens(slug: string, sources: PrototypeSources, issues: string[])
       continue
     }
 
-    const meta = buildScreenMeta(fileName, module.screen)
+    const meta = checkVersionTags(buildScreenMeta(fileName, module.screen), versions, fileName, issues)
     const key = `${meta.id}:${meta.variant}`
     const previous = seen.get(key)
     if (previous !== undefined) {
@@ -103,6 +148,7 @@ export function buildPrototypes(sources: PrototypeSources): Prototype[] {
     ...Object.keys(sources.docs),
     ...Object.keys(sources.screens),
     ...Object.keys(sources.annotations),
+    ...Object.keys(sources.canvases ?? {}),
   ]) {
     const slug = slugOf(path)
     if (slug !== undefined) {
@@ -127,9 +173,10 @@ export function buildPrototypes(sources: PrototypeSources): Prototype[] {
     if (docEntry === undefined) {
       issues.push('prototype.md is missing, so this prototype has no documentation.')
     }
-    const doc = buildDoc(slug, docEntry?.[1])
+    const doc = checkVersions(buildDoc(slug, docEntry?.[1]), issues)
+    const versions = doc.versions ?? []
 
-    const screens = buildScreens(slug, sources, issues)
+    const screens = buildScreens(slug, sources, versions, issues)
     if (screens.length === 0) {
       issues.push('screens/ holds no screen, so there is nothing to click through.')
     }
@@ -140,9 +187,12 @@ export function buildPrototypes(sources: PrototypeSources): Prototype[] {
         ? { annotations: [], issues: [] }
         : parseAnnotationsFile(annotationEntry[1], fileNameOf(annotationEntry[0]))
     issues.push(...parsed.issues)
+    const annotations = parsed.annotations.map(note =>
+      checkVersionTags(note, versions, `annotations.json note "${note.id}"`, issues)
+    )
 
     const screenIds = new Set(screens.map(screen => screen.id))
-    for (const note of parsed.annotations) {
+    for (const note of annotations) {
       if (note.screen !== undefined && !screenIds.has(note.screen)) {
         issues.push(`annotations.json: note "${note.id}" points at screen "${note.screen}", which does not exist.`)
       }
@@ -152,8 +202,28 @@ export function buildPrototypes(sources: PrototypeSources): Prototype[] {
       issues.push(`prototype.md: entry "${doc.entry}" is not one of the screens.`)
     }
 
+    const canvasEntry = Object.entries(sources.canvases ?? {}).find(([path]) => slugOf(path) === slug)
+    const canvas: ParsedCanvasFile =
+      canvasEntry === undefined
+        ? { issues: [] }
+        : parseCanvasFile(
+            canvasEntry[1],
+            fileNameOf(canvasEntry[0]),
+            screenIds,
+            new Set(screens.map(screen => `${screen.id}/${screen.variant}`))
+          )
+    issues.push(...canvas.issues)
+
     const group = slug.split('/').slice(0, -1)
-    prototypes.push({ slug, group, doc, screens, annotations: parsed.annotations, issues })
+    prototypes.push({
+      slug,
+      group,
+      doc,
+      screens,
+      annotations,
+      ...(canvas.canvas === undefined ? {} : { canvas: canvas.canvas }),
+      issues,
+    })
   }
 
   return prototypes

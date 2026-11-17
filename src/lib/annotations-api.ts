@@ -1,7 +1,7 @@
-import type { Annotation } from '../types'
+import type { Annotation, CanvasFile } from '../types'
 import type { AnnotationEdit } from './annotation-edit'
 import { isDevServer } from './runtime'
-import { ANNOTATIONS_ENDPOINT, NAME_ELEMENT_ENDPOINT } from './source-ref'
+import { ANNOTATIONS_ENDPOINT, CANVAS_ENDPOINT, NAME_ELEMENT_ENDPOINT, SNIPPET_ENDPOINT } from './source-ref'
 
 /**
  * Whether comments can be written from here.
@@ -49,4 +49,35 @@ export async function nameElement(source: string, id: string): Promise<void> {
     const payload = (await response.json()) as { error?: string }
     throw new Error(payload.error ?? `The dev server answered ${response.status}.`)
   }
+}
+
+/**
+ * Writes the canvas arrangement to the prototype's `canvas.json`. Like comments, it needs the dev
+ * server: a built copy shows the arrangement it was built with and does not offer to change it.
+ */
+export async function saveCanvas(slug: string, canvas: CanvasFile): Promise<void> {
+  const response = await fetch(CANVAS_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug, canvas }),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json()) as { error?: string }
+    throw new Error(payload.error ?? `The dev server answered ${response.status}.`)
+  }
+}
+
+/** The JSX an element was written as, read from its screen file by the dev server. */
+export async function fetchSnippet(source: string): Promise<string> {
+  const response = await fetch(SNIPPET_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source }),
+  })
+  const payload = (await response.json()) as { snippet?: string; error?: string }
+  if (!response.ok || payload.snippet === undefined) {
+    throw new Error(payload.error ?? `The dev server answered ${response.status}.`)
+  }
+  return payload.snippet
 }

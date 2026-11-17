@@ -37,11 +37,12 @@ page is served from memory, so an `index.html` the project already has is left a
 | `prototype-lab dev`           | Runs the viewer. Comments and element names are written back to the files.    |
 | `prototype-lab build`         | Writes a static, read-only copy to `prototype-lab-dist/` to hand to someone.   |
 | `prototype-lab preview`       | Serves that copy.                                                              |
+| `prototype-lab player`        | Writes the [guided tour player](#guided-tours-the-player): one HTML file that opens offline. |
 | `prototype-lab install-skill` | Copies the [build-prototype](#the-build-prototype-agent-skill) skill in.       |
 
 `dev`, `build` and `preview` take `--dir`, `--css` (repeat it for several files), `--storybook <url>`,
 `--no-storybook`, `--no-viewport-switcher`, `--port`, `--host`, `--open` and `--out-dir`. `prototype-lab --help` lists them all.
-Add `prototype-lab-dist/` to `.gitignore`.
+Add `prototype-lab-dist/` and `prototype-lab-player/` to `.gitignore`.
 
 The copy from `build` can be deployed to any static host as it is. It keeps what only makes sense
 on your own machine out: it shows comments without offering to write them, offers no element names,
@@ -81,6 +82,7 @@ export default defineConfig({
 | `root`      | current folder   | The project root the paths are relative to. Set it when the config sets Vite's `root`.   |
 | `react`     | `true`           | Adds `@vitejs/plugin-react`. Pass `false` when the config already adds it.                |
 | `tailwind`  | `true`           | Adds `@tailwindcss/vite`. Pass `false` when the config already adds it.                   |
+| `player`    | `{}`             | The [tour player](#guided-tours-the-player)'s home page text and file name.               |
 
 The plugin works in any Vite config, not only this file — `prototype-lab.config.ts` exists so the
 viewer stays out of the project's own app config.
@@ -102,6 +104,7 @@ project:
 prototypes/patient-booking/
   prototype.md            the story: the flow, the rules, the open questions
   annotations.json        comments, each pinned to an element by its semantic id
+  canvas.json             how the canvas is arranged (written by the viewer; optional)
   screens/
     10-home.tsx           one screen, one file, default-exported
     20-choose-time.tsx
@@ -142,13 +145,17 @@ example, or ask your coding agent with the [build-prototype](#the-build-prototyp
 
 [skills/build-prototype](skills/build-prototype/SKILL.md) walks a coding agent through building a
 prototype in the right order: ask the designer what it cannot infer, write the doc first, build one
-file per screen state, link them, pin the comments, check the flow map. Install it either way:
+file per screen state, link them, pin the comments, check the arrows on the canvas. Install it either way:
 
 ```bash
 npx prototype-lab install-skill                         # into .claude/skills
 npx prototype-lab install-skill --target .agents/skills # for other agents
 npx skills add vintasoftware/vinta-prototype-lab        # with the skills CLI
 ```
+
+The package ships a second skill, [build-guided-tour](skills/build-guided-tour/SKILL.md), which
+writes the [guided tours](#guided-tours-the-player) for a project's prototypes, checks them and
+builds the file to send. `install-skill` installs both.
 
 `install-skill` leaves a copy that is already there alone; `--force` replaces it, and `--global`
 installs into `~/.claude/skills`. The skill runs only when a person asks for it
@@ -166,6 +173,7 @@ Front matter, then markdown. The viewer shows it in the Doc panel next to the sc
 | `status`  | Free text, e.g. `In review`. Shown as a chip.                 |
 | `owner`   | Who to ask. Shown as a chip.                                  |
 | `updated` | Free text date. Shown as a chip.                              |
+| `version-<id>` | One line per version, in order, e.g. `version-v1: 'V1: Send claims'`. See [Versions](#versions). |
 
 Write the body for the engineer who will build it: the flow step by step, the rules the screens
 cannot show (what happens on a second booking, which timezone the times are in), the open questions,
@@ -225,6 +233,34 @@ thing you are making clickable in a `relative` element and put the hotspot insid
 (`{ top, left, width, height }` as percentages) is for one case only: a region of something that
 scales as a single piece, such as a mock image. Percentages of a flex container drift away from the
 content as the frame grows.
+
+## Versions
+
+A prototype can show what ships when. Declare the versions in `prototype.md`, one line each, in
+order:
+
+```yaml
+version-v1: 'V1: Send claims'
+version-v2: 'V2: Resolve denials'
+version-later: 'Later: Money in'
+```
+
+The header then shows a version picker (default **All**), and the pick goes in the URL (`?v=v1`).
+Versions are cumulative: V2 shows V1 plus what V2 adds. Tag what changes between them:
+
+```tsx
+export const screen: Partial<ScreenMeta> = { title: 'Claim detail', since: 'v2' } // or until: 'v1'
+
+<Since version='v2'><MoneyFlowCard /></Since>
+<Since until='v1'><RecordLetterButton /></Since>
+
+const version = useVersion() // { id, label, isAll, atLeast(id), atMost(id), includes(since, until) }
+```
+
+Comments in `annotations.json` take `since` and `until` too. With a version picked, the screen list,
+the canvas and the comments show only that version; **All** shows everything, with a chip on what is
+not in every version. An unknown id is listed in Problems. Outside the viewer, `useVersion()` acts
+as **All**. A prototype with no `version-` lines works as before.
 
 ## Comments pinned to the UI
 
@@ -380,41 +416,116 @@ While inspecting, a click picks instead of navigating: inspecting the button tha
 not start the flow. Comment pins stay clickable. Turn Inspect off and the prototype clicks through
 as before.
 
-## The flow map
+## The canvas
 
-**Flow** (`f`) replaces the stage with every screen state on one canvas, each drawn small, with an
-arrow from each control to the screen it opens. It answers "which button goes where" for the whole
-prototype at once, and it is read-only: the picture comes from the screens, and changing it means
-changing a screen file.
+**Canvas** (`v`) shows every screen state as a frame on one canvas you can pan and zoom. Each screen
+is a section with its states side by side, laid out in the flow's columns. Frames are the real
+screens at full-page height, sized by the device toolbar, with their comment pins. Picking a frame
+opens that state in the viewer.
 
-The arrows are found at run time, not declared. When the map opens, the viewer renders each screen
-out of sight inside a runtime whose `goToScreen` and `back` record instead of navigating, clicks
-every control, and notes what each click did. So a `Button` with its own `onClick`, a `ScreenLink`
-and a `Hotspot` all show up the same way, and a link the code no longer makes disappears from the map
-on the next open.
+| Action               | Pointer                                | Keyboard           |
+| -------------------- | -------------------------------------- | ------------------ |
+| Pan                  | Drag, Space + drag, two-finger scroll  | Arrow keys         |
+| Zoom                 | Ctrl/Cmd + wheel, pinch                | `+` / `-`          |
+| Fit everything       | Toolbar                                | `Shift+1`          |
+| Zoom to picked frame | Toolbar                                | `Shift+2`          |
+| Open on the stage    | Double-click, or **Open**              | `Enter`            |
+| Make it live         | Double-click with **Live** on          | `L`, `Esc` to stop |
 
-What the map shows:
+The canvas toolbar also has:
 
-- **One arrow per destination.** Six slot buttons that all open the review screen are one arrow, and
-  every control that leads there is outlined in the thumbnail. The card lists them:
-  `9:00 AM, 9:30 AM +4 → Review`.
-- **Dashed arrows go back to an earlier column** — a "Back to home" link from the last screen.
-- **Controls that call `back()`** are listed on their card as `Previous screen`, with no arrow,
-  since where they lead depends on where the person came from.
-- **Entry** marks the screen the prototype opens on; **Unreachable** marks a screen no control
-  leads to — a state a reviewer would never find by clicking through.
-- **A red card** stands in for a screen id that a control opens but no file defines. That is a typo
-  in a `goToScreen()` call, and the map is where it shows.
-- **Click a card** to put that screen state on stage.
+- **Live**: a live frame clicks through on its own, without moving the viewer. One at a time.
+- **Viewports**: every state in two sizes side by side, desktop and tablet for example.
+- **Ready for dev**: marks the picked state as ready to build.
+- **PNG**: saves the picked frame as an image at twice its size.
+- **Reset layout**: puts the sections back in the flow's columns.
 
-The screens are laid out in columns by how many clicks they are from the entry, and the viewport
-switcher redraws every thumbnail in the chosen frame. Zoom with the toolbar; the map opens fitted.
+Under `prototype-lab dev`, drag a section by its name to move it. The layout, the viewports and the
+Ready for dev marks are saved to `canvas.json` beside `annotations.json`; a built copy shows them
+read-only.
 
-Two things the map cannot see. A control that navigates later — from a timer, after an `await` — is
-read as leading nowhere, because only what happens during the click counts. And a `div` with an
-`onClick` is not clicked at all: the probe clicks what a person can reach — buttons, links, and
-elements with an interactive role — so a clickable `div` shows no arrow, which is also the
-accessibility bug it is.
+Only the frames in view are drawn, so a prototype with 60 states stays smooth. Media queries read the
+browser window, not the frame: use container queries (`@container`, `@md:`) for anything that must
+follow the frame's size.
+
+### The arrows
+
+**Arrows** (`a`) draw where each control leads; `f` opens the canvas with them on. They are found at
+run time: the viewer renders each screen out of sight, clicks every control, and records where
+`goToScreen` and `back` go. There is one arrow per destination, dashed when it goes back, and
+controls that call `back()` are listed as `Previous screen`. **Entry** and **Unreachable** mark
+screens, and a red card stands in for a screen id no file defines (a typo in `goToScreen()`).
+
+The arrows miss navigation that happens later (a timer, after an `await`) and a `div` with an
+`onClick`, since only buttons, links and interactive roles are clicked.
+
+## Dev tools
+
+Turn on Inspect (`i`) and click an element: the **Dev** tab shows how it is built, on the stage or
+on the canvas.
+
+- **Element**: component, path, semantic id, Storybook page, and source line with **Open in editor**.
+- **Styles as tokens**: colours, spacing, type, radius and shadow, each read back to its utility
+  class and token. A value no token produces is flagged **not a token**.
+- **Size** in the frame's own pixels.
+- **Snippet**: the element's JSX from the screen file, with a copy button.
+- **Accessibility**: role, accessible name, WCAG AA contrast, and whether the keyboard reaches it.
+- **Measure** (`m`, or hold Alt): distances from the picked element to the one under the pointer.
+- **Download PNG**: saves the screen on the stage, or the picked frame on the canvas, at twice its
+  size.
+
+A built copy has all of it except Open in editor and the snippet, which need the dev server.
+
+## Guided tours (the player)
+
+A tour plays a fixed path through the screens for someone who will not click around, such as a
+client: a cursor clicks through, and a panel beside the screen says what each step is for.
+`prototype-lab player` builds the tours into one HTML file that opens offline with a double-click:
+
+```bash
+npx prototype-lab player     # writes prototype-lab-player/tours.html
+```
+
+Once the file exists, the viewer's header shows a **Tours** button that opens it, under `dev` and in
+a `build` copy. To write it elsewhere, set `player.outDir` rather than `--out-dir`, or the viewer will
+not find it.
+
+A tour is a JSON file in `tours/` inside the prototype it starts in (or in `prototypes/tours/` when
+it crosses prototypes):
+
+```json
+{
+  "id": "book-a-follow-up",
+  "title": "Booking a follow-up",
+  "summary": "One line for the card on the home page.",
+  "order": 1,
+  "steps": [
+    {
+      "screen": "home",
+      "anchor": "follow-up-card",
+      "title": "The follow-up is waiting",
+      "caption": "One or two sentences for the client, not for an engineer.",
+      "fixes": "Patients forgetting to book the follow-up",
+      "click": "book-follow-up"
+    }
+  ]
+}
+```
+
+A step can also take `prototype` (a slug, for tours that cross prototypes) and `variant` (defaults to
+`default`). `click` must open the next step's screen. See
+[example/prototypes/patient-booking/tours](example/prototypes/patient-booking/tours).
+
+In the player, Space plays or pauses, the arrow keys move between steps and `Esc` goes home;
+`#/tour/<id>/<step>` links to a step. Open the file with `#/check` to check that every step and
+click still works.
+
+The home page's words come from the `player` option: `client`, `eyebrow`, `headline`, `accent`,
+`intro` and `footer`, plus `fileName` and `outDir` for where the file goes.
+
+```ts
+prototypeLab({ player: { client: 'Acme Health', fileName: 'acme-tours.html' } })
+```
 
 ## Using the viewer
 
@@ -422,7 +533,7 @@ accessibility bug it is.
   folder — a missing default export, a note pointing at a screen that does not exist, an entry
   screen that is not there. The viewer never fails to start over a broken prototype.
 - **Either side closes.** The icon beside the title closes the screens rail; the one at the far
-  right closes the doc panel. With both shut, the screen — or the flow map — has the window to
+  right closes the doc panel. With both shut, the screen or the canvas has the window to
   itself, which is what you want when presenting or reading a wide desktop screen.
 - **Deep links.** The URL carries the screen: `#/p/patient-booking/choose-time/no-slots`, and the
   picked component with it. Paste it into a ticket. In-prototype **Back** is the flow's own back, so
@@ -434,9 +545,11 @@ accessibility bug it is.
 - **Presenting.** `p`, the header button, or `?present` in the URL shows only the screen, at the
   size chosen in the viewer, scaled down if the window is smaller. `?present=fill` fills the window
   instead: start the server with `--host` and open that on a phone or tablet. `Esc` exits.
-- **Keys.** `c` toggles comments, `h` toggles hotspots, `i` toggles inspect mode, `f` toggles the
-  flow map, `[` and `]` close the panels either side, `p` starts presenting, `Esc` clears the open
-  note and the picked component, or stops presenting.
+- **Keys.** `c` toggles comments, `h` toggles hotspots, `i` toggles inspect mode, `v` toggles the
+  canvas, `a` its arrows, `f` opens it with the arrows on, `m` turns measuring on, `[` and `]` close
+  the panels either side, `p` starts presenting, `Esc` clears the open note and the picked
+  component, or stops presenting. The canvas has its own keys, listed under
+  [The canvas](#the-canvas).
 
 ## What this is not
 
@@ -459,7 +572,7 @@ node scripts/smoke-test.mjs   # installs the packed package into a throwaway pro
 | `src/lib`             | Reading a folder: front matter, screen filenames, annotations, markdown. The flow graph and the probe that reads links out of a screen. |
 | `src/components`      | What a prototype screen imports: `anchor`, `ScreenLink`, `Hotspot`, the frame; the thumbnail the map draws. |
 | `src/hooks`           | Session state, inspect mode, the flow links, and the measuring the overlays need. |
-| `src/viewer`          | The viewer's own chrome, the flow map included, and `mountViewer`.             |
+| `src/viewer`          | The viewer's own chrome, the canvas included, and `mountViewer`.                |
 | `src/ui`              | The shadcn/ui components the chrome is built from, vendored.                  |
 | `src/dev`             | The dev-server plugins: stamping where each element was written, and writing comments and names back. |
 | `src/node`            | The Vite plugin, the CLI, and the skill installer.                            |

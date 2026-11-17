@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { anchor } from '../components/anchor'
@@ -53,6 +53,13 @@ const prototypes = buildPrototypes({
   },
 })
 
+/** The viewer opens with the doc panel shut; the doc and comment tests start with it open. */
+async function renderWithDocPanel(ui: Parameters<typeof render>[0]) {
+  const result = render(ui)
+  await userEvent.click(screen.getByRole('button', { name: 'Show the doc panel' }))
+  return result
+}
+
 describe('PrototypeLabApp', () => {
   beforeEach(() => {
     window.location.hash = ''
@@ -90,8 +97,8 @@ describe('PrototypeLabApp', () => {
     expect(screen.getByRole('heading', { name: 'Nothing to review' })).toBeInTheDocument()
   })
 
-  it('shows the prototype document beside the screen', () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+  it('shows the prototype document beside the screen', async () => {
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
 
     expect(screen.getByRole('heading', { name: 'Booking' })).toBeInTheDocument()
     expect(screen.getByText('How a patient books a visit.')).toBeInTheDocument()
@@ -99,7 +106,7 @@ describe('PrototypeLabApp', () => {
   })
 
   it('shows the comments written for the open screen', async () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
 
     await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
 
@@ -108,7 +115,7 @@ describe('PrototypeLabApp', () => {
   })
 
   it('says the prototype loaded cleanly when it has no problems', async () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
 
     await userEvent.click(screen.getByRole('tab', { name: /Problems/ }))
 
@@ -250,7 +257,7 @@ describe('PrototypeLabApp', () => {
 
     render(<PrototypeLabApp prototypes={prototypes} storybook={false} />)
 
-    await screen.findByRole('button', { name: 'Flow' })
+    await screen.findByRole('button', { name: 'Canvas' })
     expect(fetch).not.toHaveBeenCalled()
     expect(screen.queryByText(/Nothing is serving Storybook at/)).not.toBeInTheDocument()
   })
@@ -436,23 +443,68 @@ describe('PrototypeLabApp', () => {
     })
   })
 
-  it('shows the flow map and opens a screen from one of its cards', async () => {
+  it('shows the canvas and opens a screen from one of its frames', async () => {
     render(<PrototypeLabApp prototypes={prototypes} />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Flow' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Canvas' }))
 
     const home = await screen.findByRole('article', { name: 'Home' })
     const rows = within(home).getByRole('list')
     expect(within(rows).getByText('Book a visit')).toBeInTheDocument()
     expect(within(rows).getByText('Review')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Open Review · Empty' }))
+    await userEvent.dblClick(screen.getByRole('button', { name: 'Review · Empty' }))
 
     expect(screen.getByRole('heading', { name: 'Nothing to review' })).toBeInTheDocument()
     expect(screen.queryByRole('article', { name: 'Home' })).not.toBeInTheDocument()
   })
 
-  it('toggles the flow map with the f key and empties the component tree while it is open', async () => {
+  it('opens the canvas with v, and picking a frame puts its screen in the URL', async () => {
+    render(<PrototypeLabApp prototypes={prototypes} />)
+
+    await userEvent.keyboard('v')
+    await userEvent.click(await screen.findByRole('button', { name: 'Review · Empty' }))
+
+    expect(window.location.hash).toBe('#/p/booking/review/empty')
+    expect(screen.getByRole('button', { name: 'Review · Empty' })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.keyboard('v')
+
+    expect(screen.getByRole('heading', { name: 'Nothing to review' })).toBeInTheDocument()
+  })
+
+  it('turns the arrows off and on with a, only on the canvas', async () => {
+    render(<PrototypeLabApp prototypes={prototypes} />)
+
+    await userEvent.keyboard('a')
+    await userEvent.keyboard('v')
+    const arrows = await screen.findByRole('button', { name: 'Arrows' })
+    expect(arrows).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.keyboard('a')
+
+    expect(arrows).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('opens a comment in the Comments panel from a pin on a frame', async () => {
+    // happy-dom lays nothing out; give every element a box so the pins have somewhere to go.
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 10, y: 10, width: 50, height: 20 })
+    )
+    // happy-dom's IntersectionObserver never reports; without one every frame counts as in view.
+    vi.stubGlobal('IntersectionObserver', undefined)
+    render(<PrototypeLabApp prototypes={prototypes} />)
+
+    await userEvent.keyboard('c')
+    await userEvent.keyboard('v')
+    await screen.findByRole('article', { name: 'Home' })
+    await userEvent.click(await screen.findByRole('button', { name: 'Note 1: One filled button per screen' }))
+
+    expect(screen.getByRole('tab', { name: /Comments/ })).toHaveAttribute('aria-selected', 'true')
+    expect(within(screen.getByRole('tabpanel')).getByText('One filled button per screen')).toBeInTheDocument()
+  })
+
+  it('toggles the canvas with the f key and empties the component tree while it is open', async () => {
     render(<PrototypeLabApp prototypes={prototypes} />)
 
     await userEvent.keyboard('f')
@@ -480,13 +532,23 @@ describe('PrototypeLabApp', () => {
     expect(screen.getByRole('navigation', { name: 'Screens' })).toBeInTheDocument()
   })
 
-  it('closes and reopens the doc panel from the header', async () => {
+  it('opens with the doc panel shut and the comments hidden', () => {
     render(<PrototypeLabApp prototypes={prototypes} />)
+
+    expect(screen.queryByRole('tab', { name: 'Doc' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Comments' })).toHaveAttribute('data-variant', 'ghost')
+    expect(screen.getByRole('heading', { name: 'Good morning' })).toBeInTheDocument()
+  })
+
+  it('opens and closes the doc panel from the header', async () => {
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
+
+    expect(screen.getByRole('tab', { name: 'Doc' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Hide the doc panel' }))
 
     expect(screen.queryByRole('tab', { name: 'Doc' })).not.toBeInTheDocument()
-    expect(screen.queryByText('How a patient books a visit.')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('How a patient books a visit.')).not.toBeInTheDocument())
     expect(screen.getByRole('heading', { name: 'Good morning' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Show the doc panel' }))
@@ -495,7 +557,7 @@ describe('PrototypeLabApp', () => {
   })
 
   it('closes each panel with its own bracket key, leaving the other one open', async () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
 
     // `[[` types one `[`: user-event reads a lone bracket as the start of a key descriptor.
     await userEvent.keyboard('[[')
@@ -594,7 +656,7 @@ describe('PrototypeLabApp', () => {
       })
     )
 
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
     const tree = screen.getByRole('list', { name: 'Components' })
 
     await userEvent.click(within(tree).getByRole('button', { name: 'Badge #task-count' }))
@@ -638,7 +700,7 @@ describe('PrototypeLabApp', () => {
     })
 
     const openComposer = async () => {
-      render(<PrototypeLabApp prototypes={prototypes} />)
+      await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
       const tree = screen.getByRole('list', { name: 'Components' })
       await userEvent.click(within(tree).getByRole('button', { name: 'CardTitle' }))
       await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
@@ -702,7 +764,7 @@ describe('PrototypeLabApp', () => {
       })
     )
 
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
     await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -724,7 +786,7 @@ describe('PrototypeLabApp', () => {
   })
 
   it('offers no way to write a comment with no component picked', async () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
 
     await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
 
@@ -745,7 +807,7 @@ describe('PrototypeLabApp', () => {
       )
     )
 
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
     const tree = screen.getByRole('list', { name: 'Components' })
 
     await userEvent.click(within(tree).getByRole('button', { name: 'Badge #task-count' }))
@@ -824,7 +886,7 @@ describe('PrototypeLabApp', () => {
   })
 
   it('offers the name of the element picked now, not the one picked when the form opened', async () => {
-    render(<PrototypeLabApp prototypes={prototypes} />)
+    await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
     const tree = screen.getByRole('list', { name: 'Components' })
 
     await userEvent.click(within(tree).getByRole('button', { name: 'CardTitle' }))
@@ -861,5 +923,171 @@ describe('PrototypeLabApp', () => {
     render(<PrototypeLabApp prototypes={[]} />)
 
     expect(screen.getByRole('heading', { name: 'No prototypes yet' })).toBeInTheDocument()
+  })
+
+  describe('the canvas arrangement', () => {
+    const arranged = buildPrototypes({
+      docs: { '../../prototypes/booking/prototype.md': '---\ntitle: Booking\nentry: home\n---\n' },
+      annotations: {},
+      screens: {
+        '../../prototypes/booking/screens/10-home.tsx': { default: HomeScreen },
+        '../../prototypes/booking/screens/20-review.tsx': { default: ReviewScreen },
+      },
+      canvases: {
+        '../../prototypes/booking/canvas.json': {
+          version: 1,
+          sections: [
+            { screen: 'home', x: 0, y: 0 },
+            { screen: 'gone', x: 10, y: 10 },
+          ],
+        },
+      },
+    })
+
+    it('lists a section for a screen that is gone in Problems', async () => {
+      await renderWithDocPanel(<PrototypeLabApp prototypes={arranged} />)
+
+      await userEvent.click(screen.getByRole('tab', { name: /Problems/ }))
+
+      expect(
+        screen.getByText('canvas.json: section "gone" is for a screen that does not exist, so it was dropped.')
+      ).toBeInTheDocument()
+    })
+
+    it('saves a moved section through the dev server, and the stale line goes with the old file', async () => {
+      vi.stubGlobal('IntersectionObserver', undefined)
+      const fetch = vi.fn((url: string, _init?: { body: string }) =>
+        url.includes('__canvas')
+          ? Promise.resolve({ ok: true, json: () => Promise.resolve({ saved: true }) })
+          : Promise.reject(new Error('Storybook is not running'))
+      )
+      vi.stubGlobal('fetch', fetch)
+      await renderWithDocPanel(<PrototypeLabApp prototypes={arranged} />)
+      await userEvent.keyboard('v')
+
+      const handle = await screen.findByRole('button', { name: 'Move the Review section' })
+      fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 0, clientY: 0 })
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 30, clientY: 30 })
+      fireEvent.pointerUp(window, { pointerId: 1 })
+
+      await waitFor(() => expect(fetch).toHaveBeenCalledWith('/__canvas', expect.anything()))
+      const body = JSON.parse(fetch.mock.calls.find(([url]) => url === '/__canvas')?.[1]?.body ?? '{}')
+      expect(body.slug).toBe('booking')
+      expect(body.canvas.sections.map((placed: { screen: string }) => placed.screen).sort()).toEqual(['home', 'review'])
+
+      await userEvent.click(screen.getByRole('tab', { name: /Problems/ }))
+      expect(await screen.findByText('Nothing to fix — the prototype loaded cleanly.')).toBeInTheDocument()
+    })
+  })
+
+  describe('the Dev tab', () => {
+    // Stamped the way the dev server stamps a screen today: file, line, column and tag.
+    const Stamped = () => (
+      <div>
+        <h1 data-slot='card-title' data-proto-src='prototypes/kit/screens/10-start.tsx:7:9:CardTitle'>
+          Start
+        </h1>
+      </div>
+    )
+    const kit = buildPrototypes({
+      docs: { '../../prototypes/kit/prototype.md': '---\ntitle: Kit\n---\n' },
+      annotations: {},
+      screens: { '../../prototypes/kit/screens/10-start.tsx': { default: Stamped } },
+    })
+
+    it('shows how the component picked on the stage is built, and where it was written', async () => {
+      await renderWithDocPanel(<PrototypeLabApp prototypes={kit} />)
+      await userEvent.click(
+        within(screen.getByRole('list', { name: 'Components' })).getByRole('button', { name: 'CardTitle' })
+      )
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Dev' }))
+
+      const panel = screen.getByRole('tabpanel')
+      expect(within(panel).getByText('CardTitle')).toBeInTheDocument()
+      expect(within(panel).getByText('screens/10-start.tsx:7')).toBeInTheDocument()
+    })
+
+    it('shows the component picked in a frame on the canvas', async () => {
+      vi.stubGlobal('IntersectionObserver', undefined)
+      await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.keyboard('v')
+      await screen.findByRole('article', { name: 'Home' })
+
+      await waitFor(() =>
+        expect(
+          within(screen.getByRole('list', { name: 'Components' })).getByRole('button', { name: 'CardTitle' })
+        ).toBeInTheDocument()
+      )
+      await userEvent.click(
+        within(screen.getByRole('list', { name: 'Components' })).getByRole('button', { name: 'CardTitle' })
+      )
+      await userEvent.click(screen.getByRole('tab', { name: 'Dev' }))
+
+      expect(within(screen.getByRole('tabpanel')).getByText('CardTitle')).toBeInTheDocument()
+    })
+
+    it('opens the Dev tab when Inspect turns on, and closes it when Inspect turns off', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+      const inspect = within(screen.getByRole('banner')).getByRole('button', { name: 'Inspect' })
+
+      await userEvent.click(inspect)
+
+      expect(screen.getByRole('tab', { name: 'Dev' })).toHaveAttribute('aria-selected', 'true')
+
+      await userEvent.click(inspect)
+
+      expect(screen.queryByRole('tab', { name: 'Dev' })).not.toBeInTheDocument()
+    })
+
+    it('leaves another tab open when Inspect turns off', async () => {
+      render(<PrototypeLabApp prototypes={prototypes} />)
+      const inspect = within(screen.getByRole('banner')).getByRole('button', { name: 'Inspect' })
+      await userEvent.click(inspect)
+      await userEvent.click(screen.getByRole('tab', { name: 'Doc' }))
+
+      await userEvent.click(inspect)
+
+      expect(screen.getByRole('tab', { name: 'Doc' })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('keeps the Comments tab when Inspect turns on while a comment is being written', async () => {
+      await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.click(
+        within(screen.getByRole('list', { name: 'Components' })).getByRole('button', { name: 'Badge #task-count' })
+      )
+      await userEvent.click(screen.getByRole('tab', { name: /Comments/ }))
+      await userEvent.click(screen.getByRole('button', { name: 'Comment on task-count' }))
+
+      await userEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Inspect' }))
+
+      expect(screen.getByRole('tab', { name: /Comments/ })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByLabelText('Title')).toBeInTheDocument()
+    })
+
+    it('turns Inspect on from the Dev tab, the same as the I key', async () => {
+      await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.click(screen.getByRole('tab', { name: 'Dev' }))
+
+      await userEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Inspect' }))
+
+      expect(within(screen.getByRole('banner')).getByRole('button', { name: 'Inspect' })).toHaveAttribute(
+        'data-variant',
+        'light'
+      )
+      expect(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Inspecting' })).toBeInTheDocument()
+    })
+
+    it('turns measuring on and off with M', async () => {
+      await renderWithDocPanel(<PrototypeLabApp prototypes={prototypes} />)
+      await userEvent.click(
+        within(screen.getByRole('list', { name: 'Components' })).getByRole('button', { name: 'CardTitle' })
+      )
+      await userEvent.click(screen.getByRole('tab', { name: 'Dev' }))
+
+      await userEvent.keyboard('m')
+
+      expect(screen.getByRole('button', { name: 'Measure' })).toHaveAttribute('aria-pressed', 'true')
+    })
   })
 })

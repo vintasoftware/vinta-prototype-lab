@@ -14,6 +14,8 @@ export interface SessionState {
    * a link pasted in a ticket opens the screen with the component already picked.
    */
   component?: string
+  /** The version picked in the header, by id. Left out for All. It stays as the screens change. */
+  version?: string
 }
 
 function sameAddress(a: ScreenAddress, b: ScreenAddress): boolean {
@@ -26,8 +28,23 @@ function moveTo(state: SessionState, current: ScreenAddress, history: ScreenAddr
   return { ...rest, current, history }
 }
 
-export function startSession(slug: string, current: ScreenAddress, component?: string): SessionState {
-  return { slug, current, history: [], ...(component === undefined ? {} : { component }) }
+export function startSession(slug: string, current: ScreenAddress, component?: string, version?: string): SessionState {
+  return {
+    slug,
+    current,
+    history: [],
+    ...(component === undefined ? {} : { component }),
+    ...(version === undefined ? {} : { version }),
+  }
+}
+
+/** Picks a version, or All with `undefined`. The screen on stage and the history stay. */
+export function selectVersion(state: SessionState, version: string | undefined): SessionState {
+  if (state.version === version) {
+    return state
+  }
+  const { version: _replaced, ...rest } = state
+  return { ...rest, ...(version === undefined ? {} : { version }) }
 }
 
 /**
@@ -58,6 +75,17 @@ export function showVariant(state: SessionState, variant: string): SessionState 
     return state
   }
   return moveTo(state, { ...state.current, variant }, state.history)
+}
+
+/**
+ * Shows another screen state without making it a step in the flow, as picking a frame on the
+ * canvas does. History is left alone, so Back still means the flow's own back.
+ */
+export function showScreen(state: SessionState, next: ScreenAddress): SessionState {
+  if (sameAddress(state.current, next)) {
+    return state
+  }
+  return moveTo(state, next, state.history)
 }
 
 /** Picks a component on the screen, or clears the pick. */
