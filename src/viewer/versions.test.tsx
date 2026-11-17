@@ -123,7 +123,7 @@ describe('versions in the viewer', () => {
     expect(screen.queryByText('A recorded payment sends the patient a receipt')).not.toBeInTheDocument()
 
     await pickVersion('All')
-    const note = screen.getByText('A recorded payment sends the patient a receipt').closest('li')
+    const note = (await screen.findByText('A recorded payment sends the patient a receipt')).closest('li')
     expect(note).not.toBeNull()
     expect(within(note as HTMLElement).getByText('V2')).toBeInTheDocument()
   })
