@@ -3,83 +3,43 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
-## Unreleased
+## [Unreleased]
 
 ### Added
 
-- **Versions**: a prototype declares its versions with `version-<id>` lines in `prototype.md`, and
-  a picker after the prototype picker shows one at a time, or All. Screen states and comments take
-  `since` and `until`; screens hide parts with `<Since>` and read the pick with `useVersion()`. The
-  screen list, counters, canvas, arrows and comments follow the pick, which lives in `?v=`. All
-  marks states and comments not in every version with a chip. A link outside the version shows a
-  toast, and a deep link opens a placeholder. Unknown version ids are lines in Problems. Prototypes
-  without versions are unchanged.
-- **Canvas** (`v`): every screen state as a frame on one canvas you can pan and zoom, in a section
-  per screen laid out in the flow's columns. Drag, Space and drag, or scroll to pan; Ctrl or Cmd and
-  scroll, pinch, or `+` and `-` to zoom between 5% and 200%; `Shift+1` fits everything and
-  `Shift+2` zooms to the picked frame. Tab and the arrow keys move between frames, and Enter or a
-  double click opens one on the stage. Picking a frame opens that screen state, so the URL, the
-  screen list and the panels follow the canvas. Comment pins sit on the frames and open their
-  comment in the Comments panel.
-- **Arranging the canvas**: drag a section by its name, or move it with the arrow keys, and
-  **Reset layout** to go back to the flow's columns. The arrangement is saved to `canvas.json` in
-  the prototype's folder through the dev server, and a section for a screen that is gone is a line
-  in Problems. A built copy draws the saved arrangement read-only.
-- **Live frames**: `L`, or a double click with **Live** on, makes one frame click through inside
-  itself on its own history, with a **Back to** chip and `Esc` to stop.
-- **Full-page frames**: a frame on the canvas shows its screen's whole page, its scrolling areas let
-  out to fit what they hold, up to six device heights; a live frame is drawn at its device height
-  again and scrolls.
-- **Two viewports**: the canvas can draw every state in two sizes side by side; the choice is saved
-  in `canvas.json`.
-- **Dev tab**: the picked element's component, path, id, Storybook page and source line, with
-  **Open in editor**; its colours, spacing, typography, radius and shadow read back to utility and
-  token, flagging a value no token produces; its size in frame pixels; and **Measure** (Alt and
-  hover, or `M` and the component tree) for the distances to another element. It works on the stage
-  and in the picked frame of the canvas.
-- **Accessibility, snippet**: the Dev tab gives the role and accessible name (via
-  `dom-accessibility-api`), the text contrast against its background with pass or fail for AA, and
-  whether the keyboard reaches the element; under the dev server it also shows the element's JSX as
-  written, children collapsed, with a copy button.
-- **Branch picker**: with `branchSwitch` in the config, the header lists the repository's local
-  branches under `prototype-lab dev` and switches the checkout from the viewer. Files listed in
-  `localOnlyFiles` are kept across the switch, uncommitted work stops it, and a changed lockfile
-  offers to run the install.
-- **Ready for dev**: mark a screen state ready from the canvas; the marks are saved in `canvas.json`.
-- **PNG**: save the picked frame's screen as an image.
-- New dependencies: `dom-accessibility-api` (MIT), and `html-to-image` (MIT), loaded only when a PNG
-  is exported.
-- The canvas draws only the frames in view, a couple at a time, and holds new ones back while a pan
-  is moving; below 20% a frame is a card with its title. A generated 60-state fixture,
-  `example/prototypes/canvas-sixty`, measures it (`node scripts/generate-canvas-fixture.mjs` writes it).
+- A canvas (`v`) that shows every screen state as a frame you can pan and zoom, laid out in the
+  flow's columns. Picking a frame opens that state, and double-clicking opens it on the stage.
+- Sections on the canvas can be dragged, and Reset layout puts them back. The layout is saved to
+  `canvas.json` in the prototype's folder.
+- Live frames (`L`) that click through inside the canvas, full-page frames, and two viewports side
+  by side.
+- Ready for dev marks on screen states, saved to `canvas.json`, and PNG export of the picked frame.
+- A Dev tab for the picked element: component, source line with Open in editor, styles read back
+  to tokens, size, Measure (`m` or Alt and hover), accessibility, and a JSX snippet.
+- Versions: `version-<id>` lines in `prototype.md` add a version picker. Screen states and comments
+  take `since` and `until`, screens use `<Since>` and `useVersion()`, and `?v=` keeps the pick.
+- A branch picker under `prototype-lab dev`, turned on with `branchSwitch`. It keeps
+  `localOnlyFiles` across a switch and refuses while there is uncommitted work.
+- Dependencies `dom-accessibility-api` (MIT) and `html-to-image` (MIT, loaded only for PNG export).
 
 ### Changed
 
-- **The flow map is the canvas's arrow layer.** Arrows (`a` on the canvas) show where each control
-  leads, as the flow map did; `f` opens the canvas with them on, fitted to the whole flow. The
-  header's **Flow** button is now **Canvas**.
-- Where the controls lead is read one screen state at a time, so a large prototype no longer holds
-  the page while it is read, and the canvas says how far along it is.
-- The header fits a 13-inch laptop: **Back** and **Restart** are icons with tooltips, the prototype
-  picker is a little narrower, and the compact header starts below 1200px.
-- The prototype picker opens on the prototype that is open now, highlighted, and scrolled to it once when it is out of view.
-- The side panels slide in and out over 200ms on the stage, and the prototype picker grows out of its
-  button. Both are instant with reduced motion, and the panels stay instant on the canvas.
-- Turning Inspect on opens the right panel on the Dev tab, unless a comment is being written, and
-  turning it off closes the panel again if it is still on the Dev tab.
+- The flow map is the canvas's arrow layer (`a`), and `f` opens the canvas with the arrows on. The
+  header's Flow button is now Canvas.
+- Where each control leads is read one screen state at a time, so a large prototype no longer
+  freezes the page.
+- The header stays on one row on a 13-inch laptop.
+- The side panels slide in and out, and the prototype picker opens scrolled to the open prototype.
+- Turning Inspect on opens the Dev tab.
 
 ### Fixed
 
-- The inspect outline of the element under the pointer stays on the stage. Drawing it changed the
-  frame's DOM, which read the component tree again and cleared the hover that drew it.
-- A viewer running against a linked checkout no longer goes blank when the package is rebuilt. A
-  full build empties `dist/` and writes the stylesheet last, and the page reloaded in that gap, found
-  no stylesheet and never started. The reload now waits until the output is complete, comes once
-  per rebuild, and reaches the browser rather than only the server environment.
+- The inspect outline under the pointer no longer disappears.
+- A viewer linked to a local checkout no longer goes blank while the package rebuilds.
 
 ### Removed
 
-- The `FlowMap` export. `CanvasView` takes its place.
+- The `FlowMap` export. `CanvasView` replaces it.
 
 ## [0.3.2] - 2026-11-05
 
