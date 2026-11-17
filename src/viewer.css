@@ -5,6 +5,7 @@
    stylesheet, not by this one. */
 @import 'tailwindcss' source(none);
 @import './theme.css';
+@import './player/player.css';
 
 @source "./**/*.{ts,tsx}";
 

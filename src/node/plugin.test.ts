@@ -5,7 +5,15 @@ import { fileURLToPath } from 'node:url'
 import { createServer, type ViteDevServer } from 'vite'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ANNOTATIONS_ENDPOINT, CANVAS_ENDPOINT } from '../lib/source-ref'
-import { ENTRY_URL, entryCode, indexHtml, prototypeLab, resolvePrototypesDir } from './plugin'
+import {
+  ENTRY_URL,
+  entryCode,
+  indexHtml,
+  inlineIntoPage,
+  playerEntryCode,
+  prototypeLab,
+  resolvePrototypesDir,
+} from './plugin'
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SERVER_TIMEOUT = 60_000
@@ -81,6 +89,45 @@ describe('entryCode', () => {
   })
 })
 
+describe('playerEntryCode', () => {
+  it('globs the tours with the prototype files and starts the player with the project text', () => {
+    const code = playerEntryCode({
+      root: '/project',
+      prototypesDir: '/project/prototypes',
+      css: ['./src/app.css'],
+      text: { client: 'Acme Health' },
+    })
+
+    expect(code).toContain('import "/src/app.css"')
+    expect(code).toContain("import { mountPlayer } from 'vinta-prototype-lab'")
+    expect(code).toContain("import.meta.glob('/prototypes/**/tours/*.json', { import: 'default', eager: true })")
+    expect(code).toContain('mountPlayer({ docs, annotations, screens, tours }, {"text":{"client":"Acme Health"}})')
+  })
+})
+
+describe('inlineIntoPage', () => {
+  it('folds the script and the stylesheet into the page and renames it', () => {
+    const bundle: Parameters<typeof inlineIntoPage>[0] = {
+      'index.html': {
+        type: 'asset',
+        fileName: 'index.html',
+        source:
+          '<head><script type="module" crossorigin src="./assets/index-a1.js"></script><link rel="stylesheet" crossorigin href="./assets/index-b2.css"></head>',
+      },
+      'assets/index-a1.js': { type: 'chunk', fileName: 'assets/index-a1.js', isEntry: true, code: 'go("</script>")' },
+      'assets/index-b2.css': { type: 'asset', fileName: 'assets/index-b2.css', source: 'a{color:red}' },
+    }
+
+    inlineIntoPage(bundle, 'acme-tours.html')
+
+    expect(Object.keys(bundle)).toEqual(['index.html'])
+    expect(bundle['index.html']?.fileName).toBe('acme-tours.html')
+    expect(bundle['index.html']?.source).toBe(
+      '<head><script type="module">go("<\\/script>")</script><style>a{color:red}</style></head>'
+    )
+  })
+})
+
 describe('indexHtml', () => {
   it('loads the entry and escapes the title', () => {
     const html = indexHtml('Flows <draft>')
@@ -103,6 +150,7 @@ describe('prototypeLab', () => {
     expect(all.some(name => name.startsWith('@tailwindcss/vite'))).toBe(true)
     expect(bare).toEqual([
       'prototype-lab:viewer',
+      'prototype-lab:player-single-file',
       'prototype-lab:stamp-jsx-source',
       'prototype-lab:annotations-writer',
       'prototype-lab:own-build-reload',

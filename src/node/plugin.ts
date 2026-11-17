@@ -7,6 +7,7 @@ import { annotationsWriter } from '../dev/annotations-writer'
 import { ownBuildReload } from '../dev/own-build-reload'
 import { stampJsxSource } from '../dev/stamp-jsx-source'
 import type { StorybookOptions } from '../lib/storybook-links'
+import type { PlayerText } from '../player/player-text'
 
 /** The name screens import from, and the name the generated entry imports the viewer by. */
 export const PACKAGE_NAME = 'vinta-prototype-lab'
@@ -17,6 +18,12 @@ export const VIEWER_PLUGIN_NAME = 'prototype-lab:viewer'
 /** What the page's script tag asks for, and the id the plugin answers it with. */
 export const ENTRY_URL = '/@prototype-lab/entry.js'
 const ENTRY_ID = '\0prototype-lab:entry.js'
+
+/** Vite mode `prototype-lab player` builds in. The plugin then builds the tour player, not the viewer. */
+export const PLAYER_MODE = 'player'
+
+/** The file the player build writes when the project names none. */
+export const PLAYER_FILE_NAME = 'tours.html'
 
 /** The folder name the viewer reads prototypes from. It is part of how a screen file is recognised. */
 const PROTOTYPES_FOLDER = 'prototypes'
@@ -48,6 +55,11 @@ export interface PrototypeLabOptions {
   react?: boolean
   /** Adds `@tailwindcss/vite`. Pass `false` when the project's config already has it. */
   tailwind?: boolean
+  /**
+   * The guided tour player that `prototype-lab player` builds: the words on its home page, and the
+   * name of the one HTML file it writes (default `tours.html`).
+   */
+  player?: PlayerText & { fileName?: string }
 }
 
 function toPosix(file: string): string {
@@ -110,6 +122,83 @@ export function entryCode({ root, prototypesDir, css, storybook, viewportSwitche
   ].join('\n')
 }
 
+export interface PlayerEntryOptions {
+  root: string
+  prototypesDir: string
+  css: readonly string[]
+  text?: PlayerText
+}
+
+/**
+ * The module the player's page loads: the same prototype files as the viewer's, plus every
+ * `tours/*.json`, handed to the player.
+ */
+export function playerEntryCode({ root, prototypesDir, css, text }: PlayerEntryOptions): string {
+  const base = `/${toPosix(path.relative(root, prototypesDir))}`
+  const stylesheets =
+    css.length === 0
+      ? [`${PACKAGE_NAME}/default.css`]
+      : css.map(file => `/${toPosix(path.relative(root, path.resolve(root, file)))}`)
+
+  return [
+    `import '${PACKAGE_NAME}/viewer.css'`,
+    ...stylesheets.map(file => `import ${JSON.stringify(file)}`),
+    `import { mountPlayer } from '${PACKAGE_NAME}'`,
+    '',
+    `const docs = import.meta.glob('${base}/**/prototype.md', { query: '?raw', import: 'default', eager: true })`,
+    `const annotations = import.meta.glob('${base}/**/annotations.json', { import: 'default', eager: true })`,
+    `const screens = import.meta.glob('${base}/**/screens/*.tsx', { eager: true })`,
+    `const tours = import.meta.glob('${base}/**/tours/*.json', { import: 'default', eager: true })`,
+    '',
+    `mountPlayer({ docs, annotations, screens, tours }, ${JSON.stringify(text === undefined ? {} : { text })})`,
+    '',
+  ].join('\n')
+}
+
+/**
+ * Folds the built script and stylesheet into the page, so the player is one HTML file that opens
+ * with a double-click, offline, from `file://`. Fonts and images are inlined as data URLs by
+ * `assetsInlineLimit`. The page is renamed to the file name the project asked for.
+ */
+export function inlineIntoPage(
+  bundle: Record<string, { type: 'chunk' | 'asset'; fileName: string } & Record<string, unknown>>,
+  fileName: string
+): void {
+  const page = Object.values(bundle).find(file => file.type === 'asset' && file.fileName.endsWith('.html'))
+  if (page === undefined) {
+    return
+  }
+  let html = String(page.source)
+  for (const [name, file] of Object.entries(bundle)) {
+    if (file.type === 'chunk' && file.isEntry === true) {
+      const code = String(file.code).replace(/<\/script/gi, '<\\/script')
+      html = html.replace(
+        new RegExp(`<script[^>]*src="[^"]*${escapeRegExp(file.fileName)}"[^>]*></script>`),
+        () => `<script type="module">${code}</script>`
+      )
+      delete bundle[name]
+    } else if (file.type === 'asset' && file.fileName.endsWith('.css')) {
+      const css = String(file.source).replace(/<\/style/gi, '<\\/style')
+      html = html.replace(
+        new RegExp(`<link[^>]*href="[^"]*${escapeRegExp(file.fileName)}"[^>]*>`),
+        () => `<style>${css}</style>`
+      )
+      delete bundle[name]
+    }
+  }
+  page.source = html
+  page.fileName = fileName
+}
+
+/** The player page's title: the client's name, when the project gives one. */
+function playerTitle(player: PrototypeLabOptions['player']): string {
+  return player?.client === undefined || player.client === '' ? 'Guided tours' : `${player.client} · Guided tours`
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, char => `&#${char.charCodeAt(0)};`)
 }
@@ -140,11 +229,23 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
   const css = options.css === undefined ? [] : [options.css].flat()
   const title = options.title ?? 'Prototype Lab'
   const screensGlob = `${toPosix(path.relative(root, prototypesDir))}/**/screens/*.tsx`
+  let player = false
 
   return {
     name: VIEWER_PLUGIN_NAME,
     enforce: 'pre',
     config(config, env) {
+      player = env.mode === PLAYER_MODE
+      const playerBuild = player
+        ? {
+            // One self-contained file: nothing to split, preload or load from beside it.
+            assetsInlineLimit: Number.POSITIVE_INFINITY,
+            cssCodeSplit: false,
+            modulePreload: false,
+            sourcemap: false,
+            chunkSizeWarningLimit: 100_000,
+          }
+        : {}
       return {
         // A built copy opens from any folder; the viewer routes by hash, so no path depends on where.
         ...(env.command === 'build' && config.base === undefined ? { base: './' } : {}),
@@ -154,9 +255,10 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
           entries: [screensGlob],
           include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
         },
-        build: { rollupOptions: { input: htmlPath } },
+        build: { ...playerBuild, rollupOptions: { input: htmlPath } },
       }
     },
+
     configResolved(config) {
       if (path.resolve(config.root) !== root) {
         throw new Error(
@@ -174,6 +276,10 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
       return null
     },
     load(id) {
+      if (id === ENTRY_ID && player) {
+        const { fileName: _fileName, ...text } = options.player ?? {}
+        return playerEntryCode({ root, prototypesDir, css, text })
+      }
       if (id === ENTRY_ID) {
         return entryCode({
           root,
@@ -184,7 +290,7 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
         })
       }
       if (id === htmlPath) {
-        return indexHtml(title)
+        return indexHtml(player ? playerTitle(options.player) : title)
       }
       return null
     },
@@ -211,6 +317,29 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
 }
 
 /**
+ * Makes the player build one file. It runs after Vite has written the page, which the inlining needs.
+ */
+function playerSingleFile(options: PrototypeLabOptions): Plugin {
+  let player = false
+  return {
+    name: 'prototype-lab:player-single-file',
+    enforce: 'post',
+    apply: 'build',
+    config(_config, env) {
+      player = env.mode === PLAYER_MODE
+    },
+    generateBundle(_output, bundle) {
+      if (player) {
+        inlineIntoPage(
+          bundle as unknown as Parameters<typeof inlineIntoPage>[0],
+          options.player?.fileName ?? PLAYER_FILE_NAME
+        )
+      }
+    },
+  }
+}
+
+/**
  * The Vite plugins that run the viewer over a project's `prototypes/` folder: the page and its entry,
  * the dev-server endpoints that write comments and names back to the files, and (unless turned off)
  * React and Tailwind.
@@ -229,6 +358,7 @@ export function prototypeLab(options: PrototypeLabOptions = {}): PluginOption[] 
 
   return [
     viewerPlugin(root, prototypesDir, options),
+    playerSingleFile(options),
     stampJsxSource({ root }),
     annotationsWriter({ prototypesDir, root }),
     // This file runs from the package's build folder, which the page imports the viewer from.

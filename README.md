@@ -37,11 +37,12 @@ page is served from memory, so an `index.html` the project already has is left a
 | `prototype-lab dev`           | Runs the viewer. Comments and element names are written back to the files.    |
 | `prototype-lab build`         | Writes a static, read-only copy to `prototype-lab-dist/` to hand to someone.   |
 | `prototype-lab preview`       | Serves that copy.                                                              |
+| `prototype-lab player`        | Writes the [guided tour player](#guided-tours-the-player): one HTML file that opens offline. |
 | `prototype-lab install-skill` | Copies the [build-prototype](#the-build-prototype-agent-skill) skill in.       |
 
 `dev`, `build` and `preview` take `--dir`, `--css` (repeat it for several files), `--storybook <url>`,
 `--no-storybook`, `--no-viewport-switcher`, `--port`, `--host`, `--open` and `--out-dir`. `prototype-lab --help` lists them all.
-Add `prototype-lab-dist/` to `.gitignore`.
+Add `prototype-lab-dist/` and `prototype-lab-player/` to `.gitignore`.
 
 The copy from `build` can be deployed to any static host as it is. It keeps what only makes sense
 on your own machine out: it shows comments without offering to write them, offers no element names,
@@ -81,6 +82,7 @@ export default defineConfig({
 | `root`      | current folder   | The project root the paths are relative to. Set it when the config sets Vite's `root`.   |
 | `react`     | `true`           | Adds `@vitejs/plugin-react`. Pass `false` when the config already adds it.                |
 | `tailwind`  | `true`           | Adds `@tailwindcss/vite`. Pass `false` when the config already adds it.                   |
+| `player`    | `{}`             | The [tour player](#guided-tours-the-player)'s home page text and file name.               |
 
 The plugin works in any Vite config, not only this file — `prototype-lab.config.ts` exists so the
 viewer stays out of the project's own app config.
@@ -150,6 +152,10 @@ npx prototype-lab install-skill                         # into .claude/skills
 npx prototype-lab install-skill --target .agents/skills # for other agents
 npx skills add vintasoftware/vinta-prototype-lab        # with the skills CLI
 ```
+
+The package ships a second skill, [build-guided-tour](skills/build-guided-tour/SKILL.md), which
+writes the [guided tours](#guided-tours-the-player) for a project's prototypes, checks them and
+builds the file to send. `install-skill` installs both.
 
 `install-skill` leaves a copy that is already there alone; `--force` replaces it, and `--global`
 installs into `~/.claude/skills`. The skill runs only when a person asks for it
@@ -608,6 +614,95 @@ the canvas, Inspect works in the picked frame: its screen takes the pointer whil
 Under `prototype-lab build` the tab still reads components, tokens, sizes and accessibility; there
 is no source to open and no snippet, since the dev server is what records where each element was
 written.
+
+## Guided tours (the player)
+
+A tour plays a fixed path through the screens for someone who will not click around, such as a
+client reviewing the prototype on their own. A cursor moves to the element that matters and clicks
+it, the element gets a ring, and a panel beside the screen says what the screen is for and what it
+fixes. `prototype-lab player` builds the tours into one HTML file that opens with a double-click,
+offline, with no install:
+
+```bash
+npx prototype-lab player     # writes prototype-lab-player/tours.html
+```
+
+The file holds the screens, the project's stylesheet, fonts and images, and nothing else: no
+comments, no canvas and no free clicking. Its home page is in Vinta's look, with the tours as cards.
+
+### A tour is a JSON file
+
+Put it in `tours/` inside the prototype its steps start in, beside `screens/`. A tour that crosses
+prototypes can sit there too, or in `prototypes/tours/`, where every step names its prototype.
+
+```json
+{
+  "id": "book-a-follow-up",
+  "title": "Booking a follow-up",
+  "summary": "One line for the card on the home page.",
+  "order": 1,
+  "steps": [
+    {
+      "screen": "home",
+      "anchor": "follow-up-card",
+      "title": "The follow-up is waiting",
+      "caption": "One or two sentences for the client, not for an engineer.",
+      "fixes": "Patients forgetting to book the follow-up",
+      "click": "book-follow-up"
+    }
+  ]
+}
+```
+
+| Field       | Meaning                                                                                        |
+| ----------- | ---------------------------------------------------------------------------------------------- |
+| `id`        | The file name without `.json`.                                                                 |
+| `order`     | Where the card sits on the home page, lowest first.                                            |
+| `prototype` | The step's prototype slug, such as `billing/refunds`. Defaults to the folder the file is in.   |
+| `screen`    | Screen id.                                                                                     |
+| `variant`   | State. Defaults to `default`.                                                                  |
+| `anchor`    | Optional `anchor()` id the step rings and points at.                                           |
+| `click`     | Optional `anchor()` id the cursor clicks to leave the step. It must open the next step's screen. |
+| `fixes`     | Optional. The pain the screen removes, in the client's words.                                   |
+
+[example/prototypes/patient-booking/tours](example/prototypes/patient-booking/tours) is a worked
+example.
+
+### Playing a tour
+
+- Each step stays up for about 2.5 seconds plus a quarter second per word, at least 4 seconds, at
+  1x. Speed goes to 1.5x and 2x. Hovering the caption holds the step.
+- The panel beside the screen lists every step, grouped by prototype; any step opens with a click.
+  **Tours home** in the header goes back to the cards.
+- Space plays or pauses, the arrow keys move between steps, Esc goes home.
+- `#/tour/<id>/<step>` opens a step, paused, so a link can point at one.
+- Clicks inside a screen are ignored while it plays. Buttons whose label starts with `Prototype:`
+  are hidden, so a screen can keep shortcuts meant for reviews.
+- With reduced motion the cursor jumps instead of gliding.
+
+### Checking the tours
+
+Open the file with `#/check` at the end of its address. It renders every step of every tour, clicks
+each `click` for real with the navigation captured, and lists what would stop a tour in front of a
+client: a screen or state that is gone, an anchor that is not drawn, a click that opens another
+screen than the next step's, or one that only changes the screen it is on. When it finishes,
+`<html data-tour-check="done">` is set and `window.__TOUR_CHECK__` holds the result, for a script.
+
+### The home page's words
+
+```ts
+prototypeLab({
+  player: {
+    client: 'Acme Health',
+    headline: 'The new Acme,',
+    accent: 'one flow at a time.',
+    fileName: 'acme-tours.html',
+  },
+})
+```
+
+`client`, `eyebrow`, `headline`, `accent` (the end of the headline, in blue), `intro` and `footer`
+replace the defaults; `fileName` names the file the build writes.
 
 ## Using the viewer
 

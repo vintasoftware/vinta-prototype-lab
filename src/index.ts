@@ -80,6 +80,20 @@ export {
   type VersionView,
   versionView,
 } from './lib/version'
+export { mountPlayer, type PlayerOptions, type PlayerSources } from './player/mount-player'
+export { DEFAULT_PLAYER_TEXT, type PlayerText, playerText } from './player/player-text'
+export { CLICKABLE, checkStep, checkTours, type StepCheck } from './player/tour-check'
+export {
+  buildTours,
+  formatTourHash,
+  parseTourHash,
+  readingTimeMs,
+  screenForStep,
+  type Tour,
+  type TourStep,
+  type TourStepFile,
+  tourLengthMs,
+} from './player/tours'
 export type {
   Annotation,
   AnnotationKind,

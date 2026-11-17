@@ -7,6 +7,15 @@ All notable changes to this package are recorded here. Versions follow
 
 ### Added
 
+- **Guided tours**: `prototype-lab player` builds the prototypes' tours into one HTML file that opens
+  offline with a double-click. A tour is a `tours/<id>.json` file of steps; each step opens a
+  screen state, rings an anchor, and has a caption and an optional `fixes` line, and the cursor
+  clicks the step's `click` anchor to move on. The home page lists the tours as cards in Vinta's
+  look, with its words set in `prototypeLab({ player })`. While a tour plays, a panel beside the
+  screen lists every step, with Play, Back, Next, speed and Tours home; `#/tour/<id>/<step>` opens
+  one step. `#/check` checks every step and every click and lists the problems.
+- **build-guided-tour skill**: writes a project's tours from its prototypes, checks them and builds
+  the file to send.
 - A canvas (`v`) that shows every screen state as a frame you can pan and zoom, laid out in the
   flow's columns. Picking a frame opens that state, and double-clicking opens it on the stage.
 - Sections on the canvas can be dragged, and Reset layout puts them back. The layout is saved to

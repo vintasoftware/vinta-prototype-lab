@@ -2,6 +2,8 @@ node_modules/
 dist/
 example-dist/
 prototype-lab-dist/
+prototype-lab-player/
+example-player/
 coverage/
 *.tgz
 .DS_Store

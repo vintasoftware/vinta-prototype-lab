@@ -60,6 +60,7 @@
     "dev": "vite",
     "build": "tsdown && tailwindcss -i src/viewer.css -o dist/viewer.css --minify",
     "build:example": "vite build",
+    "build:example-player": "vite build --mode player --outDir example-player",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
