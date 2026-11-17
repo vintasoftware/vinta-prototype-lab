@@ -19,9 +19,22 @@ describe('exportPng', () => {
 
     await exportPng(element, 'booking--home--default.png')
 
-    expect(toPng).toHaveBeenCalledWith(element, { pixelRatio: 2, cacheBust: true })
+    expect(toPng).toHaveBeenCalledWith(element, expect.objectContaining({ pixelRatio: 2, cacheBust: true }))
     const link = click.mock.contexts[0] as HTMLAnchorElement
     expect(link.download).toBe('booking--home--default.png')
     expect(link.href).toBe('data:image/png;base64,AAAA')
+  })
+
+  it("leaves out the viewer's layers drawn over the screen", async () => {
+    const { toPng } = await import('html-to-image')
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const overlay = document.createElement('div')
+    overlay.setAttribute('data-prototype-overlay', '')
+
+    await exportPng(document.createElement('div'), 'a.png')
+
+    const filter = vi.mocked(toPng).mock.calls[0]?.[1]?.filter
+    expect(filter?.(overlay)).toBe(false)
+    expect(filter?.(document.createElement('button'))).toBe(true)
   })
 })
