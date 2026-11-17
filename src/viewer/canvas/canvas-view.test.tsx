@@ -688,6 +688,8 @@ describe('CanvasView', () => {
     it("saves the picked frame's screen as a PNG named after it", async () => {
       const { exportPng } = await import('../../lib/export-png')
       renderCanvas({ selectedKey: 'review/empty' })
+      // Frames draw their screens a couple at a time; the export needs the picked one drawn.
+      await screen.findByText('Nothing to review')
 
       await userEvent.click(screen.getByRole('button', { name: 'PNG' }))
 

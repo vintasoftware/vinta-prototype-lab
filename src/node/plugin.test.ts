@@ -199,12 +199,15 @@ describe('the dev server', () => {
   describe('and the branch endpoints', () => {
     const local = () => new URL(origin).host
 
-    it('lists the branches of the repository the project sits in', async () => {
+    // The branches a checkout has depend on how it was cloned (CI checks out one commit with no
+    // local branch), so this checks the answer's shape; branch-switch.test.ts lists real branches.
+    it('answers with the status of the repository the project sits in', async () => {
       const response = await fetch(`${origin}${BRANCHES_ENDPOINT}`)
       const status = (await response.json()) as BranchStatus
 
       expect(response.status).toBe(200)
-      expect(status.branches.length).toBeGreaterThan(0)
+      expect(status.head).toMatch(/^[0-9a-f]+$/)
+      expect(Array.isArray(status.branches)).toBe(true)
       expect(Array.isArray(status.blockers)).toBe(true)
     })
 
