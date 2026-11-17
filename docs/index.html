@@ -152,6 +152,26 @@
     .note .acts { display: flex; gap: 10px; font-size: 11px; color: var(--ds-muted); margin-top: 2px; }
     .dock .compose { margin: auto 10px 10px; padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--ds-input); color: var(--ds-muted); font-size: 11.5px; }
     .dock .compose b { color: var(--ds-fg); font-weight: 500; }
+    .devpane { display: none; padding: 10px 12px; font-size: 11.5px; gap: 6px; align-content: start; }
+    .shot.dev .devpane { display: grid; animation: devin .3s ease; }
+    .shot.dev .notes, .shot.dev .compose { display: none; }
+    @keyframes devin { from { opacity: 0; transform: translateX(8px); } }
+    .devpane h6 { margin: 6px 0 0; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ds-muted); }
+    .devpane dl { margin: 0; display: grid; grid-template-columns: 68px 1fr; gap: 3px 8px; }
+    .devpane dt { color: var(--ds-muted); }
+    .devpane dd { margin: 0; color: var(--ds-fg); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .devpane .m { font-family: var(--mono); font-size: 10.5px; }
+    .devpane .ok { font-size: 10px; padding: 1px 6px; border-radius: 5px; color: var(--ok); background: color-mix(in oklch, var(--ok) 14%, transparent); }
+    .dacts { display: flex; gap: 6px; }
+    .dbtn { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--ds-input); color: var(--ds-fg); font-size: 11px; white-space: nowrap; }
+    .dbtn.on { background: var(--ds-muted-bg); }
+    .dbtn.xs { height: 20px; padding: 0 6px; font-size: 10px; }
+    .tok { border: 1px solid var(--ds-border); border-radius: 7px; padding: 6px 8px; display: grid; gap: 2px; }
+    .tok div { display: flex; justify-content: space-between; gap: 6px; }
+    .tok b { font-weight: 500; }
+    .tok code { font-family: var(--mono); font-size: 10px; padding: 0 4px; border-radius: 4px; background: var(--ds-muted-bg); }
+    .tok span { font-family: var(--mono); font-size: 10px; color: var(--ds-muted); overflow-wrap: anywhere; }
+    .tok i { font-style: normal; color: var(--ds-primary); margin-right: 6px; }
     @media (max-width: 1100px) { .app-body { grid-template-columns: 220px 1fr; } .app .dock { display: none; } }
     @media (max-width: 760px) { .app-body { grid-template-columns: 1fr; } .app .rail { display: none; } .stage { padding: 16px 8px; } }
     @media (max-width: 600px) { .btn-copy { white-space: normal; text-align: left; font-size: 12.5px; max-width: 100%; } .stat code { overflow-wrap: anywhere; } .cmd code { overflow-wrap: anywhere; } }
@@ -359,7 +379,26 @@
         </div>
 
         <aside class="dock">
-          <div class="tabs"><span>Doc</span><span class="on">Comments (2)</span><span>Problems</span><span>Dev</span></div>
+          <div class="tabs"><span>Doc</span><span class="on" id="tab-com">Comments (2)</span><span>Problems</span><span id="tab-dev">Dev</span></div>
+          <div class="devpane" aria-hidden="true">
+            <div class="dacts"><span class="dbtn on">Inspecting</span><span class="dbtn">Download PNG</span></div>
+            <h6>Element</h6>
+            <dl>
+              <dt>Component</dt><dd class="m">Button</dd>
+              <dt>Id</dt><dd class="m">#book-follow-up</dd>
+              <dt>Source</dt><dd><span class="m">10-home.tsx:33</span> <span class="dbtn xs">Open in editor</span></dd>
+              <dt>Size</dt><dd class="m">272 × 36</dd>
+            </dl>
+            <h6>Accessibility</h6>
+            <dl>
+              <dt>Role</dt><dd class="m">button</dd>
+              <dt>Contrast</dt><dd><span class="m">5.2:1</span> <span class="ok">Passes AA (4.5:1)</span></dd>
+              <dt>Keyboard</dt><dd>Reachable with Tab</dd>
+            </dl>
+            <h6>Colors</h6>
+            <div class="tok"><div><b>Background</b><code>bg-primary</code></div><span><i>--primary</i> oklch(0.55 0.2 260)</span></div>
+            <div class="tok"><div><b>Text</b><code>text-primary-foreground</code></div><span><i>--primary-foreground</i> #fff</span></div>
+          </div>
           <div class="notes">
             <div class="note spec open" id="note-1">
               <div class="top"><span class="n">1</span><span class="kind">spec</span><span class="tgt">book-follow-up</span></div>
@@ -783,7 +822,7 @@
 <script src="./assets/site.js?v=1"></script>
 <script>
 // ---------- The viewer, simulated: the pick moves between the two commented elements,
-// the matching note opens, and the hotspots toggle flips on for a beat. ----------
+// the matching note opens, the hotspots toggle flips on for a beat, and Inspect opens the Dev tab. ----------
 (() => {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const shot = document.getElementById("shot");
@@ -794,11 +833,20 @@
   const hint = document.querySelector(".stage .hint");
   const n1 = document.getElementById("note-1"), n2 = document.getElementById("note-2");
   const hot = document.getElementById("t-hot");
+  const insp = document.getElementById("t-inspect");
+  const tabCom = document.getElementById("tab-com"), tabDev = document.getElementById("tab-dev");
+  // Turning Inspect on opens the Dev tab for the picked element, as the viewer does.
+  function inspect(on) {
+    shot.classList.toggle("dev", on);
+    insp.classList.toggle("on", on);
+    tabDev.classList.toggle("on", on);
+    tabCom.classList.toggle("on", !on);
+  }
   const steps = [
-    () => { pick(1); },
+    () => { inspect(false); pick(1); },
     () => { pick(2); },
     () => { pick(1); shot.classList.add("hotspots"); hot.classList.add("on"); },
-    () => { shot.classList.remove("hotspots"); hot.classList.remove("on"); },
+    () => { shot.classList.remove("hotspots"); hot.classList.remove("on"); inspect(true); },
   ];
   function pick(n) {
     const one = n === 1;
