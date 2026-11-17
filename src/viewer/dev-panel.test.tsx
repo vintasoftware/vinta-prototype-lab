@@ -62,6 +62,31 @@ describe('DevPanel', () => {
     expect(onToggleInspect).toHaveBeenCalled()
   })
 
+  it('saves the screen as a PNG from beside the Inspect button, picked element or not', async () => {
+    const onDownloadScreen = vi.fn(() => Promise.resolve())
+    renderPanel({ onDownloadScreen })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Download PNG' }))
+
+    expect(onDownloadScreen).toHaveBeenCalledOnce()
+  })
+
+  it('says when the screen could not be saved', async () => {
+    renderPanel({
+      element: picked('<button>Pay</button>'),
+      onDownloadScreen: () => Promise.reject(new Error('No canvas')),
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Download PNG' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the image: No canvas')
+  })
+
+  it('offers no download without a screen to save', () => {
+    renderPanel()
+    expect(screen.queryByRole('button', { name: 'Download PNG' })).not.toBeInTheDocument()
+  })
+
   it('says to click an element once Inspect is on, and shows the button pressed', () => {
     renderPanel({ inspecting: true })
 

@@ -39,6 +39,7 @@ import {
   writeDeviceSettings,
 } from '../lib/device-frame'
 import { distinctScreens, resolveScreen } from '../lib/discovery'
+import { exportPng, pngFileName } from '../lib/export-png'
 import { type FlowNodeKey, flowNodeKey, type ScreenLinks } from '../lib/flow-graph'
 import { boxModel, measureBetween } from '../lib/measure'
 import { type PresentMode, presentModeIn, writePresenting } from '../lib/present-param'
@@ -639,6 +640,13 @@ export function PrototypeLabApp({
       measuring={measuring}
       onToggleMeasure={() => setMeasureOn(on => !on)}
       measurements={measurements}
+      onDownloadScreen={async () => {
+        const frame = inspectRef.current
+        if (frame === null) {
+          throw new Error('There is no screen on show.')
+        }
+        await exportPng(frame, pngFileName(prototype.slug, state.current.screenId, state.current.variant))
+      }}
     />
   )
 

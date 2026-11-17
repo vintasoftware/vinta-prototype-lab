@@ -1,4 +1,4 @@
-import { BookOpen, Check, Copy, Crosshair, ExternalLink, Ruler, TriangleAlert } from 'lucide-react'
+import { BookOpen, Check, Copy, Crosshair, Download, ExternalLink, Ruler, TriangleAlert } from 'lucide-react'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { type AccessibilityReading, type KeyboardReach, readAccessibility } from '../lib/accessibility'
 import { measureAnchor } from '../lib/anchor-rect'
@@ -30,6 +30,8 @@ export interface DevPanelProps {
   onToggleMeasure: () => void
   /** The distances to the element under the pointer, while measuring. */
   measurements: readonly Measurement[]
+  /** Saves the screen on show, on the stage or in the picked frame of the canvas, as a PNG. */
+  onDownloadScreen?: () => Promise<void>
 }
 
 /** `prototypes/booking/screens/10-home.tsx` → `screens/10-home.tsx`, which is what a person looks for. */
@@ -156,6 +158,7 @@ export function DevPanel({
   measuring,
   onToggleMeasure,
   measurements,
+  onDownloadScreen,
 }: DevPanelProps) {
   const readings = useMemo(() => (element === undefined ? undefined : readElement(element)), [element])
   const size = useMemo(
@@ -177,7 +180,7 @@ export function DevPanel({
             ? 'Click an element on the stage or in the picked frame of the canvas to see how it is built.'
             : 'Turn on Inspect (I) and pick an element, on the stage or the canvas, to see how it is built.'}
         </p>
-        <InspectButton inspecting={inspecting} onToggle={onToggleInspect} />
+        <DevActions inspecting={inspecting} onToggleInspect={onToggleInspect} onDownloadScreen={onDownloadScreen} />
       </div>
     )
   }
@@ -186,7 +189,7 @@ export function DevPanel({
 
   return (
     <div className='flex flex-col gap-4 text-sm'>
-      <InspectButton inspecting={inspecting} onToggle={onToggleInspect} />
+      <DevActions inspecting={inspecting} onToggleInspect={onToggleInspect} onDownloadScreen={onDownloadScreen} />
 
       <Section title='Element'>
         <dl className='grid grid-cols-[6rem_1fr] gap-x-2 gap-y-1'>
@@ -487,6 +490,49 @@ function AccessibilityView({ reading }: { reading: AccessibilityReading }) {
       <dt className='text-muted-foreground'>Keyboard</dt>
       <dd className={cn(!reach.good && 'text-warning')}>{reach.text}</dd>
     </dl>
+  )
+}
+
+interface DevActionsProps {
+  inspecting: boolean
+  onToggleInspect: () => void
+  onDownloadScreen: (() => Promise<void>) | undefined
+}
+
+/** The tab's own buttons: Inspect, and saving the screen as an image. */
+function DevActions({ inspecting, onToggleInspect, onDownloadScreen }: DevActionsProps) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | undefined>(undefined)
+
+  return (
+    <div className='flex flex-col items-start gap-1'>
+      <div className='flex flex-wrap items-center gap-2'>
+        <InspectButton inspecting={inspecting} onToggle={onToggleInspect} />
+        {onDownloadScreen !== undefined && (
+          <Button
+            variant='outline'
+            size='sm'
+            disabled={saving}
+            title='Save the screen as a PNG, at twice its size'
+            onClick={() => {
+              setSaving(true)
+              setError(undefined)
+              onDownloadScreen()
+                .catch((thrown: unknown) => setError(thrown instanceof Error ? thrown.message : String(thrown)))
+                .finally(() => setSaving(false))
+            }}
+          >
+            <Download />
+            {saving ? 'Saving…' : 'Download PNG'}
+          </Button>
+        )}
+      </div>
+      {error !== undefined && (
+        <p role='alert' className='text-destructive text-xs'>
+          Could not save the image: {error}
+        </p>
+      )}
+    </div>
   )
 }
 

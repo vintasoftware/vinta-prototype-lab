@@ -25,7 +25,8 @@ All notable changes to this package are recorded here. Versions follow
   `canvas.json` in the prototype's folder.
 - Live frames (`L`) that click through inside the canvas, full-page frames, and two viewports side
   by side.
-- Ready for dev marks on screen states, saved to `canvas.json`, and PNG export of the picked frame.
+- Ready for dev marks on screen states, saved to `canvas.json`, and PNG export of the picked frame,
+  also from **Download PNG** in the Dev tab for the screen on the stage.
 - A Dev tab for the picked element: component, source line with Open in editor, styles read back
   to tokens, size, Measure (`m` or Alt and hover), accessibility, and a JSX snippet.
 - Versions: `version-<id>` lines in `prototype.md` add a version picker. Screen states and comments

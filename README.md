@@ -502,7 +502,8 @@ build; its frame says so on its title. The marks are saved in `canvas.json` next
 that no longer exists is dropped with a line in Problems. A built copy shows the marks.
 
 **PNG** saves the picked frame's screen as an image at twice its size, named after the prototype,
-screen and state. It works in a built copy too.
+screen and state. It works in a built copy too. The Dev tab has the same button, **Download PNG**,
+beside **Inspect**: it saves the screen on the stage, or the picked frame on the canvas.
 
 ### Arranging it
 
