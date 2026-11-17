@@ -67,6 +67,8 @@ export interface PrototypeLabAppProps {
    * unless a size is chosen in the device toolbar, which shows either way.
    */
   viewportSwitcher?: boolean
+  /** The guided tour player's address. The header links to it only when it is given. */
+  player?: string
 }
 
 const AUTHOR_KEY = 'prototype-lab.author'
@@ -91,6 +93,7 @@ export function PrototypeLabApp({
   prototypes: loaded,
   storybook: storybookOptions,
   viewportSwitcher = true,
+  player,
 }: PrototypeLabAppProps) {
   const [prototypes, setPrototypes] = useState(loaded)
   const session = usePrototypeSession(prototypes)
@@ -702,6 +705,7 @@ export function PrototypeLabApp({
           {...(versions === undefined ? {} : { versions })}
           {...(state.version === undefined ? {} : { version: state.version })}
           onVersionChange={session.pickVersion}
+          {...(player === undefined ? {} : { playerHref: player })}
         />
 
         <div className='flex min-h-0 flex-1'>

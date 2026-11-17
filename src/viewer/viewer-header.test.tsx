@@ -50,6 +50,19 @@ describe('ViewerHeader', () => {
     expect(screen.getByRole('combobox', { name: 'Device' })).toBeInTheDocument()
   })
 
+  it('links to the tour player only when the project has built one', () => {
+    renderHeader()
+    expect(screen.queryByRole('link', { name: 'Tours' })).not.toBeInTheDocument()
+  })
+
+  it('opens the tour player in a new tab', () => {
+    renderHeader({ playerHref: 'acme.html' })
+
+    const link = screen.getByRole('link', { name: 'Tours' })
+    expect(link).toHaveAttribute('href', 'acme.html')
+    expect(link).toHaveAttribute('target', '_blank')
+  })
+
   it('offers presenting only when there is a screen to present', async () => {
     const onPresent = vi.fn()
     renderHeader({ onPresent })

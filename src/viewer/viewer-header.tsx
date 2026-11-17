@@ -5,6 +5,7 @@ import {
   type LucideIcon,
   Maximize,
   MessageSquare,
+  MonitorPlay,
   PanelLeft,
   PanelLeftClose,
   PanelRight,
@@ -56,6 +57,8 @@ export interface ViewerHeaderProps {
   versions?: readonly PrototypeVersion[]
   /** The picked version's id. Left out for All. */
   version?: string
+  /** The guided tour player's address. The Tours link shows only when the project has built one. */
+  playerHref?: string
   onVersionChange?: (version: string | undefined) => void
 }
 
@@ -81,6 +84,7 @@ export function ViewerHeader({
   versions = [],
   version,
   onVersionChange = () => {},
+  playerHref,
 }: ViewerHeaderProps) {
   return (
     // One row always: a narrower window drops the labels first, then the title and the size fields,
@@ -133,6 +137,21 @@ export function ViewerHeader({
             {name === 'notes' && noteCount > 0 && <Badge variant='neutral'>{noteCount}</Badge>}
           </Button>
         ))}
+
+        {playerHref !== undefined && (
+          <Button variant='ghost' size='sm' asChild>
+            <a
+              href={playerHref}
+              target='_blank'
+              rel='noopener'
+              aria-label='Tours'
+              title='Tours: open the guided tour player in a new tab'
+            >
+              <MonitorPlay />
+              <Label>Tours</Label>
+            </a>
+          </Button>
+        )}
 
         {onPresent !== undefined && (
           <Button

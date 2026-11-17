@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
@@ -24,6 +25,9 @@ export const PLAYER_MODE = 'player'
 
 /** The file the player build writes when the project names none. */
 export const PLAYER_FILE_NAME = 'tours.html'
+
+/** The folder the player build writes to when the project names none. */
+export const PLAYER_OUT_DIR = 'prototype-lab-player'
 
 /** The folder name the viewer reads prototypes from. It is part of how a screen file is recognised. */
 const PROTOTYPES_FOLDER = 'prototypes'
@@ -56,10 +60,22 @@ export interface PrototypeLabOptions {
   /** Adds `@tailwindcss/vite`. Pass `false` when the project's config already has it. */
   tailwind?: boolean
   /**
-   * The guided tour player that `prototype-lab player` builds: the words on its home page, and the
-   * name of the one HTML file it writes (default `tours.html`).
+   * The guided tour player that `prototype-lab player` builds: the words on its home page, the name
+   * of the one HTML file it writes (default `tours.html`), and the folder it writes it to (default
+   * `prototype-lab-player`). Once that file exists, the viewer's header links to it.
    */
-  player?: PlayerText & { fileName?: string }
+  player?: PlayerOptions
+}
+
+export type PlayerOptions = PlayerText & { fileName?: string; outDir?: string }
+
+/** Where `prototype-lab player` writes the player, and so where the viewer looks for it. */
+export function playerFile(root: string, player: PlayerOptions | undefined): { dir: string; name: string } {
+  const name = player?.fileName ?? PLAYER_FILE_NAME
+  if (name === '' || path.basename(name) !== name || !name.endsWith('.html')) {
+    throw new Error(`prototype-lab: player.fileName must be a file name ending in .html, got "${name}".`)
+  }
+  return { dir: path.resolve(root, player?.outDir ?? PLAYER_OUT_DIR), name }
 }
 
 function toPosix(file: string): string {
@@ -86,6 +102,8 @@ export interface EntryOptions {
   css: readonly string[]
   storybook?: StorybookOptions | false
   viewportSwitcher?: boolean
+  /** The tour player's address, relative to the viewer's page. Given only when the player is built. */
+  player?: string
 }
 
 /**
@@ -95,7 +113,7 @@ export interface EntryOptions {
  * The viewer's stylesheet goes first so the project's stylesheets, loaded after it, win wherever
  * both set the same token.
  */
-export function entryCode({ root, prototypesDir, css, storybook, viewportSwitcher }: EntryOptions): string {
+export function entryCode({ root, prototypesDir, css, storybook, viewportSwitcher, player }: EntryOptions): string {
   const base = `/${toPosix(path.relative(root, prototypesDir))}`
   const stylesheets =
     css.length === 0
@@ -104,6 +122,7 @@ export function entryCode({ root, prototypesDir, css, storybook, viewportSwitche
   const options = {
     ...(storybook === undefined ? {} : { storybook }),
     ...(viewportSwitcher === undefined ? {} : { viewportSwitcher }),
+    ...(player === undefined ? {} : { player }),
   }
 
   return [
@@ -195,6 +214,15 @@ function playerTitle(player: PrototypeLabOptions['player']): string {
   return player?.client === undefined || player.client === '' ? 'Guided tours' : `${player.client} · Guided tours`
 }
 
+/** Whether two paths name the same file, through symlinks such as macOS's /var to /private/var. */
+function isFile(file: string, expected: string): boolean {
+  if (path.basename(file) !== path.basename(expected)) {
+    return false
+  }
+  const real = (dir: string) => (existsSync(dir) ? realpathSync(dir) : path.resolve(dir))
+  return real(path.dirname(file)) === real(path.dirname(expected))
+}
+
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -229,6 +257,8 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
   const css = options.css === undefined ? [] : [options.css].flat()
   const title = options.title ?? 'Prototype Lab'
   const screensGlob = `${toPosix(path.relative(root, prototypesDir))}/**/screens/*.tsx`
+  const tourPlayer = playerFile(root, options.player)
+  const tourPlayerPath = path.join(tourPlayer.dir, tourPlayer.name)
   let player = false
 
   return {
@@ -244,6 +274,8 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
             modulePreload: false,
             sourcemap: false,
             chunkSizeWarningLimit: 100_000,
+            // `prototype-lab player --out-dir` and `vite build --outDir` win over the project's folder.
+            ...(config.build?.outDir === undefined ? { outDir: tourPlayer.dir } : {}),
           }
         : {}
       return {
@@ -277,7 +309,7 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
     },
     load(id) {
       if (id === ENTRY_ID && player) {
-        const { fileName: _fileName, ...text } = options.player ?? {}
+        const { fileName: _fileName, outDir: _outDir, ...text } = options.player ?? {}
         return playerEntryCode({ root, prototypesDir, css, text })
       }
       if (id === ENTRY_ID) {
@@ -287,6 +319,8 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
           css,
           ...(options.storybook === undefined ? {} : { storybook: options.storybook }),
           ...(options.viewportSwitcher === undefined ? {} : { viewportSwitcher: options.viewportSwitcher }),
+          // The viewer's page sits at the root of what is served or built, and the player beside it.
+          ...(existsSync(tourPlayerPath) ? { player: tourPlayer.name } : {}),
         })
       }
       if (id === htmlPath) {
@@ -294,10 +328,38 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
       }
       return null
     },
+    generateBundle() {
+      // A built copy carries the player beside its page, so the header's link works there too.
+      if (!player && existsSync(tourPlayerPath)) {
+        this.emitFile({ type: 'asset', fileName: tourPlayer.name, source: readFileSync(tourPlayerPath) })
+      }
+    },
     configureServer(server) {
+      // Building the player, or deleting it, shows or hides the header's link. The watcher reports a
+      // new file only through its folder, and already watches a folder inside the project.
+      server.watcher.add(tourPlayer.dir)
+      const playerChanged = (file: string) => {
+        if (!isFile(file, tourPlayerPath)) {
+          return
+        }
+        const entry = server.moduleGraph.getModuleById(ENTRY_ID)
+        if (entry !== undefined) {
+          server.moduleGraph.invalidateModule(entry)
+          server.ws.send({ type: 'full-reload' })
+        }
+      }
+      server.watcher.on('add', playerChanged)
+      server.watcher.on('unlink', playerChanged)
+
       server.middlewares.use((request, response, next) => {
         const url = (request.url ?? '').split('?')[0]
         const base = server.config.base
+        if (url === `${base}${tourPlayer.name}` && request.method === 'GET' && existsSync(tourPlayerPath)) {
+          response.statusCode = 200
+          response.setHeader('Content-Type', 'text/html')
+          response.end(readFileSync(tourPlayerPath))
+          return
+        }
         if (url !== base && url !== `${base}index.html`) {
           next()
           return

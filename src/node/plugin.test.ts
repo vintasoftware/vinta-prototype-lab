@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer, type ViteDevServer } from 'vite'
@@ -11,6 +12,7 @@ import {
   indexHtml,
   inlineIntoPage,
   playerEntryCode,
+  playerFile,
   prototypeLab,
   resolvePrototypesDir,
 } from './plugin'
@@ -82,10 +84,34 @@ describe('entryCode', () => {
     expect(code).toContain('{"storybook":{"url":"http://localhost:6100","marker":"Design System"}}')
   })
 
+  it('passes the tour player address through', () => {
+    const code = entryCode({ root: '/project', prototypesDir: '/project/prototypes', css: [], player: 'tours.html' })
+
+    expect(code).toContain('{"player":"tours.html"}')
+  })
+
   it('passes a turned-off viewport switcher through', () => {
     const code = entryCode({ root: '/project', prototypesDir: '/project/prototypes', css: [], viewportSwitcher: false })
 
     expect(code).toContain('{"viewportSwitcher":false}')
+  })
+})
+
+describe('playerFile', () => {
+  it('defaults to tours.html in prototype-lab-player', () => {
+    expect(playerFile('/project', undefined)).toEqual({ dir: '/project/prototype-lab-player', name: 'tours.html' })
+  })
+
+  it('takes the folder and the file name the project names', () => {
+    expect(playerFile('/project', { outDir: 'public/tours', fileName: 'acme.html' })).toEqual({
+      dir: '/project/public/tours',
+      name: 'acme.html',
+    })
+  })
+
+  it('refuses a file name with a folder in it, or one that is not a page', () => {
+    expect(() => playerFile('/project', { fileName: '../acme.html' })).toThrow(/player.fileName/)
+    expect(() => playerFile('/project', { fileName: 'acme.js' })).toThrow(/player.fileName/)
   })
 })
 
@@ -363,4 +389,54 @@ describe('the dev server', () => {
       SERVER_TIMEOUT
     )
   })
+})
+
+describe('the dev server and a built tour player', () => {
+  let server: ViteDevServer
+  let origin: string
+  let outDir: string
+
+  beforeAll(async () => {
+    outDir = await mkdtemp(path.join(os.tmpdir(), 'prototype-lab-player-'))
+    server = await createServer({
+      root: repo,
+      configFile: false,
+      logLevel: 'silent',
+      server: { port: 0 },
+      plugins: [
+        prototypeLab({
+          root: repo,
+          dir: 'example/prototypes',
+          tailwind: false,
+          player: { outDir, fileName: 'acme.html' },
+        }),
+      ],
+    })
+    await server.listen()
+    origin = server.resolvedUrls?.local[0]?.replace(/\/$/, '') ?? ''
+  }, SERVER_TIMEOUT)
+
+  afterAll(async () => {
+    await server.close()
+    await rm(outDir, { recursive: true, force: true })
+  }, SERVER_TIMEOUT)
+
+  it(
+    'links the header to the player once it is built, and serves it beside the viewer',
+    async () => {
+      expect((await server.transformRequest(ENTRY_URL))?.code).not.toContain('"player"')
+      expect((await fetch(`${origin}/acme.html`)).headers.get('content-type')).not.toBe('text/html')
+
+      await writeFile(path.join(outDir, 'acme.html'), '<title>Acme tours</title>', 'utf8')
+      await vi.waitFor(
+        async () => expect((await server.transformRequest(ENTRY_URL))?.code).toContain('{"player":"acme.html"}'),
+        { timeout: 10_000, interval: 200 }
+      )
+
+      const response = await fetch(`${origin}/acme.html`)
+      expect(response.headers.get('content-type')).toBe('text/html')
+      expect(await response.text()).toBe('<title>Acme tours</title>')
+    },
+    SERVER_TIMEOUT
+  )
 })

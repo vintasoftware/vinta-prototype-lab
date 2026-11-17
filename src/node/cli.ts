@@ -4,11 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { build, createServer, type InlineConfig, preview, type ResolvedConfig } from 'vite'
 import { installSkills } from './install-skill'
-import { PLAYER_MODE, type PrototypeLabOptions, prototypeLab, VIEWER_PLUGIN_NAME } from './plugin'
+import { PLAYER_MODE, PLAYER_OUT_DIR, type PrototypeLabOptions, prototypeLab, VIEWER_PLUGIN_NAME } from './plugin'
 
 const DEFAULT_PORT = 6007
 const DEFAULT_OUT_DIR = 'prototype-lab-dist'
-const DEFAULT_PLAYER_OUT_DIR = 'prototype-lab-player'
 const CONFIG_FILES = [
   'prototype-lab.config.ts',
   'prototype-lab.config.mts',
@@ -36,7 +35,7 @@ Viewer options (dev, build, preview, player)
   --port <number>     Port to serve on
   --host              Listen on the network too
   --open              Open the browser
-  --out-dir <path>    Where build writes, and preview reads (default: ${DEFAULT_OUT_DIR}; player: ${DEFAULT_PLAYER_OUT_DIR})
+  --out-dir <path>    Where build writes, and preview reads (default: ${DEFAULT_OUT_DIR}; player: ${PLAYER_OUT_DIR})
 
 install-skill options
   --target <path>     Skills folder to install into (default: .claude/skills; use .agents/skills for other agents)
@@ -205,10 +204,7 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
   const config = viewerConfig(cwd, configFile, flags)
   const port = portOf(values.port)
   const host = values.host === true ? { host: true } : {}
-  const outDir = path.resolve(
-    cwd,
-    values['out-dir'] ?? (command === 'player' ? DEFAULT_PLAYER_OUT_DIR : DEFAULT_OUT_DIR)
-  )
+  const outDir = path.resolve(cwd, values['out-dir'] ?? (command === 'player' ? PLAYER_OUT_DIR : DEFAULT_OUT_DIR))
 
   if (command === 'dev') {
     const server = await createServer({
@@ -229,9 +225,24 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
   }
 
   if (command === 'player') {
-    await build({ ...config, mode: PLAYER_MODE, build: { outDir, emptyOutDir: true } })
+    // Without --out-dir, the plugin writes to the project's `player.outDir`, where the viewer looks.
+    let written = outDir
+    await build({
+      ...config,
+      mode: PLAYER_MODE,
+      build: { ...(values['out-dir'] === undefined ? {} : { outDir }), emptyOutDir: true },
+      plugins: [
+        ...(config.plugins ?? []),
+        {
+          name: 'prototype-lab:player-out-dir',
+          configResolved(resolved) {
+            written = path.resolve(resolved.root, resolved.build.outDir)
+          },
+        },
+      ],
+    })
     console.log(
-      `Wrote the tour player to ${path.relative(cwd, outDir)}. Open the HTML file there; add #/check to its address to check every tour.`
+      `Wrote the tour player to ${path.relative(cwd, written)}. Open the HTML file there; add #/check to its address to check every tour. The viewer's header links to it.`
     )
     return
   }

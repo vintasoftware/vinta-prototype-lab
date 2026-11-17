@@ -14,6 +14,9 @@ All notable changes to this package are recorded here. Versions follow
   look, with its words set in `prototypeLab({ player })`. While a tour plays, a panel beside the
   screen lists every step, with Play, Back, Next, speed and Tours home; `#/tour/<id>/<step>` opens
   one step. `#/check` checks every step and every click and lists the problems.
+- **Tours button**: once `prototype-lab player` has written its file, the viewer's header links to
+  it. `dev` serves the file beside the viewer and `build` copies it into the static copy. Set the
+  folder with `player.outDir` (default `prototype-lab-player`).
 - **build-guided-tour skill**: writes a project's tours from its prototypes, checks them and builds
   the file to send.
 - A canvas (`v`) that shows every screen state as a frame you can pan and zoom, laid out in the

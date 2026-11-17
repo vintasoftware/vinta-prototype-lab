@@ -630,6 +630,12 @@ npx prototype-lab player     # writes prototype-lab-player/tours.html
 The file holds the screens, the project's stylesheet, fonts and images, and nothing else: no
 comments, no canvas and no free clicking. Its home page is in Vinta's look, with the tours as cards.
 
+Once the file exists, the viewer's header shows a **Tours** button that opens it in a new tab.
+`prototype-lab dev` serves it beside the viewer, and `prototype-lab build` copies it into the static
+copy, so the button works in both. A project that never ran `prototype-lab player` sees no button.
+The viewer looks for the file where the player writes it: `player.outDir` and `player.fileName`
+below. Passing `--out-dir` to `prototype-lab player` writes somewhere the viewer does not look.
+
 ### A tour is a JSON file
 
 Put it in `tours/` inside the prototype its steps start in, beside `screens/`. A tour that crosses
@@ -702,7 +708,8 @@ prototypeLab({
 ```
 
 `client`, `eyebrow`, `headline`, `accent` (the end of the headline, in blue), `intro` and `footer`
-replace the defaults; `fileName` names the file the build writes.
+replace the defaults; `fileName` names the file the build writes, and `outDir` the folder it goes in
+(default `prototype-lab-player`).
 
 ## Using the viewer
 
