@@ -3,7 +3,7 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
-## [Unreleased]
+## [0.4.0] - 2026-11-17
 
 ### Added
 
@@ -42,6 +42,8 @@ All notable changes to this package are recorded here. Versions follow
 - The header stays on one row on a 13-inch laptop.
 - The side panels slide in and out, and the prototype picker opens scrolled to the open prototype.
 - Turning Inspect on opens the Dev tab.
+- The landing page shows the canvas, the Dev tab, versions and guided tours, and its hero demo
+  opens the Dev tab.
 
 ### Fixed
 
