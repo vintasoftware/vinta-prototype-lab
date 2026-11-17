@@ -81,7 +81,6 @@ export default defineConfig({
 | `root`      | current folder   | The project root the paths are relative to. Set it when the config sets Vite's `root`.   |
 | `react`     | `true`           | Adds `@vitejs/plugin-react`. Pass `false` when the config already adds it.                |
 | `tailwind`  | `true`           | Adds `@tailwindcss/vite`. Pass `false` when the config already adds it.                   |
-| `branchSwitch` | off           | Shows the [branch picker](#switching-branches) under `prototype-lab dev`. `true`, or `{ localOnlyFiles: [...] }`. |
 
 The plugin works in any Vite config, not only this file — `prototype-lab.config.ts` exists so the
 viewer stays out of the project's own app config.
@@ -634,78 +633,6 @@ written.
   component, or stops presenting. The canvas has its own keys, listed under
   [Moving around](#moving-around).
 
-## Switching branches
-
-Prototypes often live on feature branches, and the viewer shows only the branch the project has
-checked out. Turn on the branch picker to switch from the header instead of from a terminal:
-
-```ts
-// prototype-lab.config.ts
-prototypeLab({
-  branchSwitch: { localOnlyFiles: ['pnpm-workspace.yaml', 'pnpm-lock.yaml'] },
-})
-```
-
-The picker sits next to the prototype picker. It shows the branch checked out and lists the local
-branches of the repository the project sits in — for a package inside a monorepo, the monorepo.
-Picking one runs `git switch <branch>` there and reloads the page, so the prototype list is that
-branch's. It is there only under `prototype-lab dev`; a copy from `prototype-lab build` never has it.
-
-**Local-only files** are files you keep changed on purpose and never commit, such as a
-`pnpm-workspace.yaml` that links a package from a sibling checkout and the lockfile that link
-produces. Paths are from the top of the repository. They never block a switch: the picker keeps a
-copy in `.prototype-lab/local-only/`, puts them back as committed, switches, and writes your
-version back. If the new branch changed one of them too, your edit is merged onto the branch's
-version; where the two overlap, your copy wins and the picker says so.
-
-**What stops a switch.** The picker never stashes, discards or resets anything, so it refuses to
-switch, and names the files, while any tracked or untracked file outside the local-only files has
-uncommitted changes. A merge, rebase, cherry-pick, revert or bisect in progress, or another git
-command running, stops it too.
-
-**What asks first.** A switch rewrites the files on disk for everyone using the checkout. The
-picker asks for a second click when:
-
-- a file the dev server watches changed in the last 5 minutes (it names the file and when), or
-- a session marker says someone is editing the project (see below).
-
-**After the switch.** If the lockfile differs between the two branches, the picker says the
-dependencies changed and offers to run the install (`pnpm install`, `npm install`, `yarn install`
-or `bun install`, from the lockfile it found). Nothing is installed unless you click. The note
-survives the reload, and stays until you install or dismiss it.
-
-The dev server takes these requests only from the viewer it serves, opened on this machine: the
-`Host` must be `localhost`, `127.0.0.1` or `[::1]` on the server's port, and a switch must carry
-JSON and an `Origin` from that same address. A `--host` address on the network can see the viewer
-but not switch. The branch must be one `git branch --list` lists; nothing else is ever run.
-
-### Session markers
-
-A tool that edits the project — an agent session, an editor plugin — can say so by writing a
-marker while it works, so the picker warns before switching under it:
-
-```
-<repository top>/.prototype-lab/sessions/<id>.json
-```
-
-```json
-{ "name": "Claude Code (feature-clinical-notes)", "startedAt": "2026-10-28T14:03:00.000Z", "pid": 81234 }
-```
-
-| Field       | Required | Meaning                                                                    |
-| ----------- | -------- | -------------------------------------------------------------------------- |
-| `name`      | yes      | What the picker calls the session.                                         |
-| `startedAt` | yes      | When it started, as an ISO 8601 time.                                       |
-| `pid`       | no       | The process doing the editing. The marker is ignored once it has exited.   |
-
-`<id>` is any file name unique to the session. Write the marker when the session starts and remove
-it when it ends. A marker that cannot be read, whose `pid` has exited, or that has not been
-written or touched for 12 hours is ignored, so one left behind by a crash never locks the picker; a
-long session can touch its marker now and then to stay fresh.
-
-Add `.prototype-lab/` to the project's `.gitignore`: it holds the markers, the local-only copies and
-the note the last switch left. The picker never counts that folder as uncommitted work.
-
 ## What this is not
 
 Prototypes are synthetic — no real personal or health data, no network, no API clients, no auth.
@@ -729,7 +656,7 @@ node scripts/smoke-test.mjs   # installs the packed package into a throwaway pro
 | `src/hooks`           | Session state, inspect mode, the flow links, and the measuring the overlays need. |
 | `src/viewer`          | The viewer's own chrome, the canvas included, and `mountViewer`.                |
 | `src/ui`              | The shadcn/ui components the chrome is built from, vendored.                  |
-| `src/dev`             | The dev-server plugins: stamping where each element was written, writing comments and names back, and switching branches. |
+| `src/dev`             | The dev-server plugins: stamping where each element was written, and writing comments and names back. |
 | `src/node`            | The Vite plugin, the CLI, and the skill installer.                            |
 | `skills/`             | The agent skills the package ships.                                           |
 | `example/prototypes/` | The worked example `pnpm dev` shows.                                          |

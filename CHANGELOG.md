@@ -18,8 +18,6 @@ All notable changes to this package are recorded here. Versions follow
   to tokens, size, Measure (`m` or Alt and hover), accessibility, and a JSX snippet.
 - Versions: `version-<id>` lines in `prototype.md` add a version picker. Screen states and comments
   take `since` and `until`, screens use `<Since>` and `useVersion()`, and `?v=` keeps the pick.
-- A branch picker under `prototype-lab dev`, turned on with `branchSwitch`. It keeps
-  `localOnlyFiles` across a switch and refuses while there is uncommitted work.
 - Dependencies `dom-accessibility-api` (MIT) and `html-to-image` (MIT, loaded only for PNG export).
 
 ### Changed

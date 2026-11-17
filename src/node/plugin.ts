@@ -4,7 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin, PluginOption } from 'vite'
 import { annotationsWriter } from '../dev/annotations-writer'
-import { type BranchSwitchOptions, branchSwitch } from '../dev/branch-switch'
 import { ownBuildReload } from '../dev/own-build-reload'
 import { stampJsxSource } from '../dev/stamp-jsx-source'
 import type { StorybookOptions } from '../lib/storybook-links'
@@ -49,12 +48,6 @@ export interface PrototypeLabOptions {
   react?: boolean
   /** Adds `@tailwindcss/vite`. Pass `false` when the project's config already has it. */
   tailwind?: boolean
-  /**
-   * Shows a branch picker in the header under `prototype-lab dev`, which checks out another local
-   * branch of the repository the project sits in. Off unless set; `true` turns it on with no
-   * local-only files. A built copy never has it.
-   */
-  branchSwitch?: boolean | BranchSwitchOptions
 }
 
 function toPosix(file: string): string {
@@ -80,8 +73,6 @@ export interface EntryOptions {
   prototypesDir: string
   css: readonly string[]
   storybook?: StorybookOptions | false
-  /** Shows the branch picker. Set only while serving, so a built copy never offers it. */
-  branches?: boolean
   viewportSwitcher?: boolean
 }
 
@@ -92,7 +83,7 @@ export interface EntryOptions {
  * The viewer's stylesheet goes first so the project's stylesheets, loaded after it, win wherever
  * both set the same token.
  */
-export function entryCode({ root, prototypesDir, css, storybook, branches, viewportSwitcher }: EntryOptions): string {
+export function entryCode({ root, prototypesDir, css, storybook, viewportSwitcher }: EntryOptions): string {
   const base = `/${toPosix(path.relative(root, prototypesDir))}`
   const stylesheets =
     css.length === 0
@@ -100,7 +91,6 @@ export function entryCode({ root, prototypesDir, css, storybook, branches, viewp
       : css.map(file => `/${toPosix(path.relative(root, path.resolve(root, file)))}`)
   const options = {
     ...(storybook === undefined ? {} : { storybook }),
-    ...(branches === true ? { branches } : {}),
     ...(viewportSwitcher === undefined ? {} : { viewportSwitcher }),
   }
 
@@ -150,8 +140,6 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
   const css = options.css === undefined ? [] : [options.css].flat()
   const title = options.title ?? 'Prototype Lab'
   const screensGlob = `${toPosix(path.relative(root, prototypesDir))}/**/screens/*.tsx`
-  const branchSwitchOn = options.branchSwitch !== undefined && options.branchSwitch !== false
-  let serving = false
 
   return {
     name: VIEWER_PLUGIN_NAME,
@@ -170,7 +158,6 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
       }
     },
     configResolved(config) {
-      serving = config.command === 'serve'
       if (path.resolve(config.root) !== root) {
         throw new Error(
           `prototype-lab: Vite's root is ${config.root}, but the plugin was set up for ${root}. Pass the same \`root\` to both.`
@@ -193,7 +180,6 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
           prototypesDir,
           css,
           ...(options.storybook === undefined ? {} : { storybook: options.storybook }),
-          ...(serving && branchSwitchOn ? { branches: true } : {}),
           ...(options.viewportSwitcher === undefined ? {} : { viewportSwitcher: options.viewportSwitcher }),
         })
       }
@@ -245,9 +231,6 @@ export function prototypeLab(options: PrototypeLabOptions = {}): PluginOption[] 
     viewerPlugin(root, prototypesDir, options),
     stampJsxSource({ root }),
     annotationsWriter({ prototypesDir, root }),
-    ...(options.branchSwitch === undefined || options.branchSwitch === false
-      ? []
-      : [branchSwitch({ root, ...(options.branchSwitch === true ? {} : options.branchSwitch) })]),
     // This file runs from the package's build folder, which the page imports the viewer from.
     ownBuildReload(path.dirname(fileURLToPath(import.meta.url))),
     ...(options.tailwind === false ? [] : [tailwindcss()]),

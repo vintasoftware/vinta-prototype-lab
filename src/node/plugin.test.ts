@@ -4,7 +4,6 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer, type ViteDevServer } from 'vite'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { BRANCHES_ENDPOINT, type BranchStatus } from '../lib/branch-status'
 import { ANNOTATIONS_ENDPOINT, CANVAS_ENDPOINT } from '../lib/source-ref'
 import { ENTRY_URL, entryCode, indexHtml, prototypeLab, resolvePrototypesDir } from './plugin'
 
@@ -75,14 +74,6 @@ describe('entryCode', () => {
     expect(code).toContain('{"storybook":{"url":"http://localhost:6100","marker":"Design System"}}')
   })
 
-  it('turns the branch picker on only when asked', () => {
-    const on = entryCode({ root: '/project', prototypesDir: '/project/prototypes', css: [], branches: true })
-    const off = entryCode({ root: '/project', prototypesDir: '/project/prototypes', css: [] })
-
-    expect(on).toContain('{"branches":true}')
-    expect(off).toContain('mountViewer({ docs, annotations, screens, canvases }, {})')
-  })
-
   it('passes a turned-off viewport switcher through', () => {
     const code = entryCode({ root: '/project', prototypesDir: '/project/prototypes', css: [], viewportSwitcher: false })
 
@@ -117,18 +108,6 @@ describe('prototypeLab', () => {
       'prototype-lab:own-build-reload',
     ])
   })
-
-  it('adds the branch switch only when it is turned on', () => {
-    const names = (options: Parameters<typeof prototypeLab>[0]) =>
-      prototypeLab({ root: repo, dir: 'example/prototypes', react: false, tailwind: false, ...options })
-        .flat()
-        .map(plugin => (plugin as { name?: string } | undefined)?.name ?? '')
-
-    expect(names({})).not.toContain('prototype-lab:branch-switch')
-    expect(names({ branchSwitch: false })).not.toContain('prototype-lab:branch-switch')
-    expect(names({ branchSwitch: true })).toContain('prototype-lab:branch-switch')
-    expect(names({ branchSwitch: { localOnlyFiles: ['pnpm-lock.yaml'] } })).toContain('prototype-lab:branch-switch')
-  })
 })
 
 /**
@@ -146,7 +125,7 @@ describe('the dev server', () => {
       configFile: false,
       logLevel: 'silent',
       server: { port: 0 },
-      plugins: [prototypeLab({ root: repo, dir: 'example/prototypes', tailwind: false, branchSwitch: true })],
+      plugins: [prototypeLab({ root: repo, dir: 'example/prototypes', tailwind: false })],
       // The package's own name, pointed at its source the way the repo's vite.config.ts does.
       resolve: {
         alias: [
@@ -188,59 +167,6 @@ describe('the dev server', () => {
     ]) {
       expect(code).toContain(`/example/prototypes/patient-booking/${file}`)
     }
-  })
-
-  it('tells the viewer to show the branch picker', async () => {
-    const result = await server.transformRequest(ENTRY_URL)
-
-    expect(result?.code).toContain('{"branches":true}')
-  })
-
-  describe('and the branch endpoints', () => {
-    const local = () => new URL(origin).host
-
-    // The branches a checkout has depend on how it was cloned (CI checks out one commit with no
-    // local branch), so this checks the answer's shape; branch-switch.test.ts lists real branches.
-    it('answers with the status of the repository the project sits in', async () => {
-      const response = await fetch(`${origin}${BRANCHES_ENDPOINT}`)
-      const status = (await response.json()) as BranchStatus
-
-      expect(response.status).toBe(200)
-      expect(status.head).toMatch(/^[0-9a-f]+$/)
-      expect(Array.isArray(status.branches)).toBe(true)
-      expect(Array.isArray(status.blockers)).toBe(true)
-    })
-
-    it('refuses a switch from another origin, or from a tool that sends none', async () => {
-      const attempts: Record<string, string>[] = [
-        { 'Content-Type': 'application/json', Origin: 'http://evil.test' },
-        { 'Content-Type': 'application/json' },
-      ]
-      for (const headers of attempts) {
-        const response = await fetch(`${origin}${BRANCHES_ENDPOINT}/switch`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ branch: 'main', confirm: true }),
-        })
-        expect(response.status).toBe(403)
-      }
-    })
-
-    it('refuses a name that is not a local branch', async () => {
-      const response = await fetch(`${origin}${BRANCHES_ENDPOINT}/switch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Origin: `http://${local()}` },
-        body: JSON.stringify({ branch: 'no-such-branch-here', confirm: true }),
-      })
-
-      expect(response.status).toBe(400)
-    })
-
-    it('answers nothing but the status to a GET', async () => {
-      const response = await fetch(`${origin}${BRANCHES_ENDPOINT}/switch`)
-
-      expect(response.status).not.toBe(200)
-    })
   })
 
   it('expands the entry to prototypes inside group folders', async () => {

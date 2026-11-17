@@ -24,7 +24,6 @@ import { useVisibleBox } from '../hooks/use-visible-box'
 import { type AnnotationEdit, annotationId } from '../lib/annotation-edit'
 import { annotationsForScreen } from '../lib/annotations'
 import { canEditAnnotations, nameElement, saveAnnotationEdit, saveCanvas } from '../lib/annotations-api'
-import { canSwitchBranches } from '../lib/branches-api'
 import { componentSelector, resolveComponentSelector } from '../lib/component-link'
 import { ancestorPaths, nearestNodePath } from '../lib/component-tree'
 import { DEFAULT_VARIANT, FRAME_HEIGHT, VIEWPORT_LABEL, VIEWPORT_WIDTH } from '../lib/constants'
@@ -63,8 +62,6 @@ export interface PrototypeLabAppProps {
   prototypes: Prototype[]
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
   storybook?: StorybookOptions | false
-  /** Shows the branch picker. The dev server sets it when the project turns `branchSwitch` on. */
-  branches?: boolean
   /**
    * Shows the Mobile / Tablet / Desktop switcher; `false` draws every screen in its own viewport,
    * unless a size is chosen in the device toolbar, which shows either way.
@@ -93,7 +90,6 @@ function rememberedAuthor(): string {
 export function PrototypeLabApp({
   prototypes: loaded,
   storybook: storybookOptions,
-  branches = false,
   viewportSwitcher = true,
 }: PrototypeLabAppProps) {
   const [prototypes, setPrototypes] = useState(loaded)
@@ -703,7 +699,6 @@ export function PrototypeLabApp({
             onZoom: zoom => setDevice(current => ({ ...current, zoom })),
           }}
           {...(canPresent ? { onPresent: () => setPresenting('frame') } : {})}
-          showBranches={branches && canSwitchBranches()}
           {...(versions === undefined ? {} : { versions })}
           {...(state.version === undefined ? {} : { version: state.version })}
           onVersionChange={session.pickVersion}

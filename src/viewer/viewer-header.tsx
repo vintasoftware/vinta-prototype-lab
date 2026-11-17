@@ -16,7 +16,6 @@ import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
 import { VIEWPORT_LABEL } from '../lib/constants'
 import type { Prototype, PrototypeVersion, ScreenViewport } from '../types'
 import { Badge, Button, SegmentedToggle } from '../ui'
-import { BranchPicker } from './branch-picker'
 import { DeviceToolbar, type DeviceToolbarProps } from './device-toolbar'
 import { PrototypePicker } from './prototype-picker'
 import { VersionPicker } from './version-picker'
@@ -53,8 +52,6 @@ export interface ViewerHeaderProps {
   device: DeviceToolbarProps
   /** Shows the screen alone, without the viewer; left out when there is no screen to show. */
   onPresent?: () => void
-  /** Shows the branch picker, which asks the dev server for the project's branches. */
-  showBranches?: boolean
   /** The open prototype's versions. The version picker shows only when there are some. */
   versions?: readonly PrototypeVersion[]
   /** The picked version's id. Left out for All. */
@@ -81,7 +78,6 @@ export function ViewerHeader({
   onRestart,
   device,
   onPresent,
-  showBranches = false,
   versions = [],
   version,
   onVersionChange = () => {},
@@ -106,7 +102,6 @@ export function ViewerHeader({
 
       <PrototypePicker prototypes={prototypes} slug={slug} onOpenPrototype={onOpenPrototype} />
       {versions.length > 0 && <VersionPicker versions={versions} selected={version} onSelect={onVersionChange} />}
-      {showBranches && <BranchPicker />}
 
       <div className='flex items-center gap-1'>
         <Button variant='outline' size='icon-sm' aria-label='Back' title='Back' onClick={onBack} disabled={!canGoBack}>
