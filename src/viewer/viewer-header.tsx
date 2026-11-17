@@ -13,19 +13,19 @@ import {
   SquareDashedMousePointer,
 } from 'lucide-react'
 import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
+import { VIEWPORT_LABEL } from '../lib/constants'
 import type { Prototype, PrototypeVersion, ScreenViewport } from '../types'
 import { Badge, Button, SegmentedToggle } from '../ui'
 import { BranchPicker } from './branch-picker'
 import { DeviceToolbar, type DeviceToolbarProps } from './device-toolbar'
 import { PrototypePicker } from './prototype-picker'
 import { VersionPicker } from './version-picker'
-import { VintaLogo } from './vinta-logo'
+import { VintaWordmark } from './vinta-wordmark'
 
-const VIEWPORT_OPTIONS = [
-  { value: 'mobile' as const, label: 'Mobile' },
-  { value: 'tablet' as const, label: 'Tablet' },
-  { value: 'desktop' as const, label: 'Desktop' },
-]
+const VIEWPORT_OPTIONS = (['mobile', 'tablet', 'desktop'] as const).map(value => ({
+  value,
+  label: VIEWPORT_LABEL[value],
+}))
 
 /** The toggles the header shows as named buttons, in the order they sit. */
 const MODES: readonly { name: ViewToggle; label: string; Icon: LucideIcon }[] = [
@@ -39,8 +39,9 @@ export interface ViewerHeaderProps {
   prototypes: readonly Prototype[]
   slug: string
   onOpenPrototype: (slug: string) => void
-  viewport: ScreenViewport
-  onViewportChange: (viewport: ScreenViewport) => void
+  /** The switcher shows only when both are given; a project that turns it off passes neither. */
+  viewport?: ScreenViewport
+  onViewportChange?: (viewport: ScreenViewport) => void
   toggles: ViewToggles
   onToggle: (name: ViewToggle) => void
   /** Shown on the Comments button, so the count is visible with the panel closed. */
@@ -48,9 +49,9 @@ export interface ViewerHeaderProps {
   canGoBack: boolean
   onBack: () => void
   onRestart: () => void
-  /** The device toolbar. Without it the header offers the three viewports instead. */
-  device?: DeviceToolbarProps
-  /** Shows the Present button, which gives the screen the whole window. */
+  /** The device list, size, rotate and zoom, beside the viewport switcher. */
+  device: DeviceToolbarProps
+  /** Shows the screen alone, without the viewer; left out when there is no screen to show. */
   onPresent?: () => void
   /** Shows the branch picker, which asks the dev server for the project's branches. */
   showBranches?: boolean
@@ -91,7 +92,7 @@ export function ViewerHeader({
     // where each drops are set so the row fits a 13-inch laptop with any prototype open.
     <header className='flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-border border-b bg-card px-4 py-2 *:shrink-0 max-[1200px]:gap-1! max-[1200px]:px-2!'>
       <span className='max-[1200px]:hidden! flex items-center gap-2'>
-        <VintaLogo />
+        <VintaWordmark className='h-[19px] w-auto shrink-0 text-primary' />
         <span className='font-semibold text-sm'>Prototype Lab</span>
       </span>
 
@@ -117,11 +118,11 @@ export function ViewerHeader({
       </div>
 
       <div className='ml-auto flex items-center gap-2'>
-        {device === undefined ? (
+        {viewport !== undefined && onViewportChange !== undefined && (
           <SegmentedToggle size='sm' options={VIEWPORT_OPTIONS} value={viewport} onValueChange={onViewportChange} />
-        ) : (
-          <DeviceToolbar {...device} />
         )}
+
+        <DeviceToolbar {...device} />
 
         {MODES.map(({ name, label, Icon }) => (
           <Button

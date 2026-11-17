@@ -126,6 +126,41 @@ export function looksLikeOurStorybook(entries: readonly StorybookEntry[], marker
   return entries.some(entry => entry.title.startsWith(`${marker}/`))
 }
 
+/** Whether a URL points at the machine it is opened on, where only its owner's Storybook can answer. */
+export function isLocalUrl(url: string): boolean {
+  let hostname: string
+  try {
+    hostname = new URL(url).hostname
+  } catch {
+    return false
+  }
+  return (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname === '[::1]' ||
+    hostname === '0.0.0.0' ||
+    /^127(?:\.\d{1,3}){3}$/.test(hostname)
+  )
+}
+
+/**
+ * Whether the viewer should look for Storybook at all.
+ *
+ * Under the dev server it always does, unless the config says `false`. A built copy is opened by
+ * people who have no Storybook on their `localhost`, and a public page reaching for one gets a
+ * browser prompt or a "nothing is serving" note. So a build links only to a Storybook the config
+ * names explicitly at an address everyone can reach — a deployed one.
+ */
+export function shouldReadStorybook(options: StorybookOptions | false, devServer: boolean): boolean {
+  if (options === false) {
+    return false
+  }
+  if (devServer) {
+    return true
+  }
+  return options.url !== undefined && !isLocalUrl(options.url)
+}
+
 /**
  * Where to look for Storybook: the URL in the viewer's own query string, one saved from an earlier
  * visit, or the configured one. The query string wins, so a person whose 6006 is taken can point the

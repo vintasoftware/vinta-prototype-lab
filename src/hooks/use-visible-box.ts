@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-/** The part of the page the person can see, in page pixels. */
+/** The part of the page the person can see, in page pixels from the top of the layout viewport. */
 export interface VisibleBox {
   top: number
   height: number
@@ -12,10 +12,10 @@ function readVisibleBox(): VisibleBox {
 }
 
 /**
- * The visible part of the page, kept up to date. On a tablet the browser bars and the on-screen
- * keyboard cover part of the window without resizing it, so the viewer sizes itself to this box.
- * While it is in use the page itself never scrolls or bounces: the screen's own scroller is the
- * only one.
+ * The part of the page the person can see. On a tablet the browser bars and the on-screen keyboard
+ * cover part of the window without resizing it, so `100vh` runs past what shows and the whole page
+ * scrolls along with the screen. The viewer sizes itself to this box instead, and while it is
+ * mounted the page itself never scrolls or bounces: the screen's own scroller is the only one.
  */
 export function useVisibleBox(): VisibleBox {
   const [box, setBox] = useState(readVisibleBox)
@@ -32,22 +32,19 @@ export function useVisibleBox(): VisibleBox {
     window.addEventListener('resize', update)
 
     const root = document.documentElement
-    const previous = {
-      rootOverflow: root.style.overflow,
-      bodyOverflow: document.body.style.overflow,
-      rootOverscroll: root.style.overscrollBehavior,
-    }
+    const body = document.body
+    const before = { root: root.style.overflow, body: body.style.overflow, overscroll: root.style.overscrollBehavior }
     root.style.overflow = 'hidden'
-    document.body.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
     root.style.overscrollBehavior = 'none'
 
     return () => {
       viewport?.removeEventListener('resize', update)
       viewport?.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
-      root.style.overflow = previous.rootOverflow
-      document.body.style.overflow = previous.bodyOverflow
-      root.style.overscrollBehavior = previous.rootOverscroll
+      root.style.overflow = before.root
+      body.style.overflow = before.body
+      root.style.overscrollBehavior = before.overscroll
     }
   }, [])
 

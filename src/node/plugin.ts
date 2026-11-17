@@ -37,6 +37,12 @@ export interface PrototypeLabOptions {
   css?: string | string[]
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
   storybook?: StorybookOptions | false
+  /**
+   * Shows the Mobile / Tablet / Desktop switcher in the header. Pass `false` for a project that
+   * targets one form factor: the switcher goes, and every screen draws in its own `viewport`
+   * unless a size is chosen in the device toolbar, which stays.
+   */
+  viewportSwitcher?: boolean
   /** The page title. Defaults to `Prototype Lab`. */
   title?: string
   /** Adds `@vitejs/plugin-react`. Pass `false` when the project's config already has it. */
@@ -76,6 +82,7 @@ export interface EntryOptions {
   storybook?: StorybookOptions | false
   /** Shows the branch picker. Set only while serving, so a built copy never offers it. */
   branches?: boolean
+  viewportSwitcher?: boolean
 }
 
 /**
@@ -85,7 +92,7 @@ export interface EntryOptions {
  * The viewer's stylesheet goes first so the project's stylesheets, loaded after it, win wherever
  * both set the same token.
  */
-export function entryCode({ root, prototypesDir, css, storybook, branches }: EntryOptions): string {
+export function entryCode({ root, prototypesDir, css, storybook, branches, viewportSwitcher }: EntryOptions): string {
   const base = `/${toPosix(path.relative(root, prototypesDir))}`
   const stylesheets =
     css.length === 0
@@ -94,6 +101,7 @@ export function entryCode({ root, prototypesDir, css, storybook, branches }: Ent
   const options = {
     ...(storybook === undefined ? {} : { storybook }),
     ...(branches === true ? { branches } : {}),
+    ...(viewportSwitcher === undefined ? {} : { viewportSwitcher }),
   }
 
   return [
@@ -186,6 +194,7 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
           css,
           ...(options.storybook === undefined ? {} : { storybook: options.storybook }),
           ...(serving && branchSwitchOn ? { branches: true } : {}),
+          ...(options.viewportSwitcher === undefined ? {} : { viewportSwitcher: options.viewportSwitcher }),
         })
       }
       if (id === htmlPath) {

@@ -1,76 +1,116 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ResizableFrame } from './resizable-frame'
 
 function renderFrame(scale = 1) {
   const onResize = vi.fn()
   const onReset = vi.fn()
-  render(
+  const view = render(
     <ResizableFrame
-      size={{ width: 400, height: 800 }}
+      size={{ width: 800, height: 600 }}
       scale={scale}
-      caption='400 × 800 · responsive · 100%'
+      caption='800 × 600 · responsive · 100%'
       onResize={onResize}
       onReset={onReset}
     >
       <p>The screen</p>
     </ResizableFrame>
   )
-  return { onResize, onReset }
+  return { ...view, onResize, onReset }
+}
+
+/** A pointer the browser reports to the window, as it does once the pointer leaves the handle. */
+function windowPointer(type: string, clientX: number, clientY: number) {
+  window.dispatchEvent(new PointerEvent(type, { clientX, clientY, bubbles: true }))
 }
 
 describe('ResizableFrame', () => {
-  it('shows the screen with its caption', () => {
+  it('draws the screen with the caption above it', () => {
     renderFrame()
 
     expect(screen.getByText('The screen')).toBeInTheDocument()
-    expect(screen.getByText('400 × 800 · responsive · 100%')).toBeInTheDocument()
+    expect(screen.getByText('800 × 600 · responsive · 100%')).toBeInTheDocument()
   })
 
-  it('takes the drawn size of the zoomed frame and scales the screen to it', () => {
-    renderFrame(0.5)
+  it('keeps room for the drawn size and scales the frame inside it', () => {
+    const { container } = renderFrame(0.5)
+    const sizer = container.firstElementChild as HTMLElement
+    const scaled = screen.getByText('The screen').parentElement as HTMLElement
 
-    const sizer = screen.getByText('The screen').parentElement?.parentElement
-    expect(sizer).toHaveStyle({ width: '200px', height: '400px' })
-    expect(screen.getByText('The screen').parentElement).toHaveStyle({ transform: 'scale(0.5)' })
+    expect(sizer.style.width).toBe('400px')
+    expect(sizer.style.height).toBe('300px')
+    expect(scaled.style.width).toBe('800px')
+    expect(scaled.style.transform).toBe('scale(0.5)')
   })
 
-  it('changes the width while the side handle is dragged, until the pointer is let go', () => {
+  it('offers a focusable handle for the width, the height and both, each saying its value', () => {
+    renderFrame()
+
+    expect(screen.getByRole('separator', { name: 'Frame width' })).toHaveAttribute('aria-valuenow', '800')
+    expect(screen.getByRole('separator', { name: 'Frame height' })).toHaveAttribute('aria-valuenow', '600')
+    expect(screen.getByRole('separator', { name: 'Frame size' })).toHaveAttribute('aria-valuetext', '800 × 600')
+    for (const handle of screen.getAllByRole('separator')) {
+      expect(handle).toHaveAttribute('tabindex', '0')
+    }
+  })
+
+  it('resizes while a handle is dragged, following the pointer on the window', async () => {
     const { onResize } = renderFrame()
-    const handle = screen.getByRole('separator', { name: 'Drag to change the width' })
 
-    fireEvent.pointerDown(handle, { clientX: 100, clientY: 100 })
-    fireEvent.pointerMove(window, { clientX: 150, clientY: 400 })
-    expect(onResize).toHaveBeenLastCalledWith({ width: 450, height: 800 })
+    await userEvent.pointer([
+      {
+        keys: '[MouseLeft>]',
+        target: screen.getByRole('separator', { name: 'Frame size' }),
+        coords: { x: 100, y: 100 },
+      },
+      { coords: { x: 150, y: 130 } },
+    ])
 
-    fireEvent.pointerUp(window)
-    fireEvent.pointerMove(window, { clientX: 300, clientY: 100 })
-    expect(onResize).toHaveBeenCalledTimes(1)
+    expect(onResize).toHaveBeenLastCalledWith({ width: 850, height: 630 })
   })
 
-  it('changes both sides on the corner handle, in frame pixels when zoomed out', () => {
-    const { onResize } = renderFrame(0.5)
-    const handle = screen.getByRole('separator', { name: 'Drag to change the size' })
+  it('stops following the pointer once it is let go', async () => {
+    const { onResize } = renderFrame()
 
-    fireEvent.pointerDown(handle, { clientX: 0, clientY: 0 })
-    fireEvent.pointerMove(window, { clientX: 25, clientY: 50 })
+    await userEvent.pointer([
+      { keys: '[MouseLeft]', target: screen.getByRole('separator', { name: 'Frame width' }), coords: { x: 0, y: 0 } },
+      { coords: { x: 300, y: 0 } },
+    ])
 
-    expect(onResize).toHaveBeenLastCalledWith({ width: 450, height: 900 })
+    expect(onResize).not.toHaveBeenCalled()
   })
 
-  it('resets on a double click on a handle', () => {
+  it('stops following the pointer when it goes away mid-drag', async () => {
+    const { onResize, unmount } = renderFrame()
+
+    await userEvent.pointer({
+      keys: '[MouseLeft>]',
+      target: screen.getByRole('separator', { name: 'Frame width' }),
+      coords: { x: 0, y: 0 },
+    })
+    unmount()
+    windowPointer('pointermove', 300, 0)
+
+    expect(onResize).not.toHaveBeenCalled()
+  })
+
+  it('resizes from the keyboard with a handle in focus', async () => {
+    const { onResize } = renderFrame()
+
+    screen.getByRole('separator', { name: 'Frame width' }).focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(onResize).toHaveBeenLastCalledWith({ width: 810, height: 600 })
+
+    await userEvent.keyboard('{Shift>}{ArrowLeft}{/Shift}')
+    expect(onResize).toHaveBeenLastCalledWith({ width: 750, height: 600 })
+  })
+
+  it('resets on a double click on any handle', async () => {
     const { onReset } = renderFrame()
 
-    fireEvent.doubleClick(screen.getByRole('separator', { name: 'Drag to change the height' }))
+    await userEvent.dblClick(screen.getByRole('separator', { name: 'Frame height' }))
 
-    expect(onReset).toHaveBeenCalled()
-  })
-
-  it('resizes from the keyboard on a focused handle', () => {
-    const { onResize } = renderFrame()
-
-    fireEvent.keyDown(screen.getByRole('separator', { name: 'Drag to change the width' }), { key: 'ArrowRight' })
-
-    expect(onResize).toHaveBeenLastCalledWith({ width: 410, height: 800 })
+    expect(onReset).toHaveBeenCalledOnce()
   })
 })

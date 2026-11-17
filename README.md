@@ -3,6 +3,8 @@
 [![npm](https://img.shields.io/npm/v/vinta-prototype-lab)](https://www.npmjs.com/package/vinta-prototype-lab)
 [![CI](https://github.com/vintasoftware/vinta-prototype-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/vintasoftware/vinta-prototype-lab/actions/workflows/ci.yml)
 
+**[vintasoftware.github.io/vinta-prototype-lab](https://vintasoftware.github.io/vinta-prototype-lab/)**
+
 Clickable prototypes designers hand to engineers: real screens built from your project's own
 components, the flow between them, the states each screen can be in, the document that explains the
 intent, and the designer's comments pinned to the elements they are about.
@@ -38,8 +40,13 @@ page is served from memory, so an `index.html` the project already has is left a
 | `prototype-lab install-skill` | Copies the [build-prototype](#the-build-prototype-agent-skill) skill in.       |
 
 `dev`, `build` and `preview` take `--dir`, `--css` (repeat it for several files), `--storybook <url>`,
-`--no-storybook`, `--port`, `--host`, `--open` and `--out-dir`. `prototype-lab --help` lists them all.
+`--no-storybook`, `--no-viewport-switcher`, `--port`, `--host`, `--open` and `--out-dir`. `prototype-lab --help` lists them all.
 Add `prototype-lab-dist/` to `.gitignore`.
+
+The copy from `build` can be deployed to any static host as it is. It keeps what only makes sense
+on your own machine out: it shows comments without offering to write them, offers no element names,
+and links to Storybook only when the config names a deployed one (see
+[Storybook links](#storybook-links)).
 
 ## Configuration
 
@@ -69,6 +76,7 @@ export default defineConfig({
 | `dir`       | `prototypes`     | Where the prototype folders live, from the root. The folder must be named `prototypes`.   |
 | `css`       | package default  | The project's stylesheets, loaded after the viewer's. See [Styles](#styles).              |
 | `storybook` | `{}`             | `url` of the project's Storybook and an optional `marker` section; `false` turns links off. |
+| `viewportSwitcher` | `true`    | Shows the Mobile / Tablet / Desktop switcher. `false` hides it for a single form factor, and every screen draws in its own `viewport`. |
 | `title`     | `Prototype Lab`  | The page title.                                                                           |
 | `root`      | current folder   | The project root the paths are relative to. Set it when the config sets Vite's `root`.   |
 | `react`     | `true`           | Adds `@vitejs/plugin-react`. Pass `false` when the config already adds it.                |
@@ -186,7 +194,7 @@ export const screen: Partial<ScreenMeta> = { title: 'Choose time', variantLabel:
 ```
 
 `viewport` is `mobile`, `tablet` or `desktop`; it sets the frame the screen opens in, and the viewer's
-switcher overrides it while you look.
+switcher or device toolbar overrides it while you look.
 
 Build screens out of the project's own components — the prototype should be wrong in the ways the
 design is wrong, not in the ways a mock is wrong. A screen may import a real feature module too;
@@ -391,6 +399,11 @@ With the project's Storybook running (the `storybook.url` option, `http://localh
 default), each component row carries a book icon that opens the page documenting it. The viewer
 reads Storybook's own index, so the links follow the stories as they change. A project without
 Storybook sets `storybook: false` (or passes `--no-storybook`), and the rows carry no links.
+
+**A built copy links only to a deployed Storybook.** The people opening it have no Storybook on
+their `localhost`, so a copy from `prototype-lab build` looks for one only when `storybook.url` (or
+`--storybook`) names an address everyone can reach, such as `https://storybook.example.com`. With the
+default, or any `localhost` URL, the rows carry no links and the panel says nothing about it.
 
 **Another project's Storybook may hold the port.** A stranger's index answers a fetch as happily as
 yours, so set `storybook.marker` to a root section your Storybook always has — `Design System`, say.
@@ -608,10 +621,17 @@ written.
 - **Deep links.** The URL carries the screen: `#/p/patient-booking/choose-time/no-slots`, and the
   picked component with it. Paste it into a ticket. In-prototype **Back** is the flow's own back, so
   the URL is replaced rather than pushed.
+- **Device toolbar.** Beside the viewport switcher: device presets, width and height, rotate, and
+  zoom. The browser remembers the choice.
+- **Resizing the frame.** Drag its edges, or use the arrow keys on a focused handle. A double click
+  resets it. `@media` queries still follow the browser window, not the frame.
+- **Presenting.** `p`, the header button, or `?present` in the URL shows only the screen, at the
+  size chosen in the viewer, scaled down if the window is smaller. `?present=fill` fills the window
+  instead: start the server with `--host` and open that on a phone or tablet. `Esc` exits.
 - **Keys.** `c` toggles comments, `h` toggles hotspots, `i` toggles inspect mode, `v` toggles the
   canvas, `a` its arrows, `f` opens it with the arrows on, `m` turns measuring on, `[` and `]` close
-  the panels either side,
-  `Esc` clears the open note and the picked component. The canvas has its own keys, listed under
+  the panels either side, `p` starts presenting, `Esc` clears the open note and the picked
+  component, or stops presenting. The canvas has its own keys, listed under
   [Moving around](#moving-around).
 
 ## Switching branches

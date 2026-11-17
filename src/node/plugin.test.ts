@@ -80,7 +80,13 @@ describe('entryCode', () => {
     const off = entryCode({ root: '/project', prototypesDir: '/project/prototypes', css: [] })
 
     expect(on).toContain('{"branches":true}')
-    expect(off).toContain('mountViewer({ docs, annotations, screens }, {})')
+    expect(off).toContain('mountViewer({ docs, annotations, screens, canvases }, {})')
+  })
+
+  it('passes a turned-off viewport switcher through', () => {
+    const code = entryCode({ root: '/project', prototypesDir: '/project/prototypes', css: [], viewportSwitcher: false })
+
+    expect(code).toContain('{"viewportSwitcher":false}')
   })
 })
 

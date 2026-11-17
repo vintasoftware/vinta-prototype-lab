@@ -24,6 +24,11 @@ describe('optionsFromFlags', () => {
   it('turns Storybook off', () => {
     expect(optionsFromFlags('/project', { noStorybook: true }).storybook).toBe(false)
   })
+
+  it('turns the viewport switcher off', () => {
+    expect(optionsFromFlags('/project', { noViewportSwitcher: true }).viewportSwitcher).toBe(false)
+    expect(optionsFromFlags('/project', {})).not.toHaveProperty('viewportSwitcher')
+  })
 })
 
 describe('config files', () => {

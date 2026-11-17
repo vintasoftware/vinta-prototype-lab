@@ -1,159 +1,226 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   clampFrameSide,
   DEVICE_SETTINGS_KEY,
   draggedSize,
   fitScale,
   frameCaption,
+  frameName,
   frameScale,
   nudgedSize,
+  presetOf,
   readDeviceSettings,
+  rotatedFrame,
   snapWidth,
   viewportOfWidth,
   writeDeviceSettings,
 } from './device-frame'
 
 describe('clampFrameSide', () => {
-  it('keeps a side between the smallest and largest the toolbar allows', () => {
-    expect(clampFrameSide(10)).toBe(240)
+  it('keeps a side between 240 and 2560 pixels, in whole pixels', () => {
+    expect(clampFrameSide(100)).toBe(240)
     expect(clampFrameSide(9000)).toBe(2560)
-    expect(clampFrameSide(500.6)).toBe(501)
+    expect(clampFrameSide(800.6)).toBe(801)
   })
 })
 
 describe('snapWidth', () => {
-  it('snaps a width close to a breakpoint onto it', () => {
-    expect(snapWidth(774)).toBe(768)
-    expect(snapWidth(1018)).toBe(1024)
+  it('lands on a breakpoint within 8 pixels of it', () => {
+    expect(snapWidth(762)).toBe(768)
+    expect(snapWidth(776)).toBe(768)
   })
 
-  it('leaves a width away from every breakpoint as it is', () => {
-    expect(snapWidth(700)).toBe(700)
+  it('leaves a width further from every breakpoint alone', () => {
+    expect(snapWidth(750)).toBe(750)
   })
 })
 
 describe('viewportOfWidth', () => {
-  it('names the viewport family of a width', () => {
+  it('names the viewport family a width belongs to', () => {
     expect(viewportOfWidth(390)).toBe('mobile')
-    expect(viewportOfWidth(834)).toBe('tablet')
+    expect(viewportOfWidth(820)).toBe('tablet')
     expect(viewportOfWidth(1280)).toBe('desktop')
   })
 })
 
 describe('draggedSize', () => {
-  const start = { width: 400, height: 800 }
+  const origin = { width: 800, height: 600 }
 
-  it('changes only the width on the side handle', () => {
-    expect(draggedSize({ axis: 'x', start, dx: 50, dy: 90, scale: 1, centered: false })).toEqual({
-      width: 450,
-      height: 800,
+  it('moves only the width for the right edge', () => {
+    expect(draggedSize({ origin, axis: 'x', dx: 50, dy: 90, scale: 1, centered: false })).toEqual({
+      width: 850,
+      height: 600,
     })
   })
 
-  it('changes only the height on the bottom handle', () => {
-    expect(draggedSize({ axis: 'y', start, dx: 50, dy: 90, scale: 1, centered: false })).toEqual({
-      width: 400,
-      height: 890,
+  it('moves only the height for the bottom edge', () => {
+    expect(draggedSize({ origin, axis: 'y', dx: 50, dy: 90, scale: 1, centered: false })).toEqual({
+      width: 800,
+      height: 690,
     })
   })
 
-  it('grows a centered frame twice the move, since it grows on both sides', () => {
-    expect(draggedSize({ axis: 'xy', start, dx: 50, dy: 10, scale: 1, centered: true })).toEqual({
-      width: 500,
-      height: 810,
+  it('doubles the move of a centred frame, so its edge follows the pointer', () => {
+    expect(draggedSize({ origin, axis: 'xy', dx: 50, dy: 10, scale: 1, centered: true })).toEqual({
+      width: 900,
+      height: 610,
     })
   })
 
-  it('turns a move on the page into frame pixels on a zoomed out frame', () => {
-    expect(draggedSize({ axis: 'xy', start, dx: 25, dy: 25, scale: 0.5, centered: false })).toEqual({
-      width: 450,
-      height: 850,
+  it('counts the move in frame pixels when the frame is zoomed out', () => {
+    expect(draggedSize({ origin, axis: 'xy', dx: 50, dy: 50, scale: 0.5, centered: false })).toEqual({
+      width: 900,
+      height: 700,
     })
   })
 
-  it('snaps the width to a breakpoint it passes close to', () => {
-    expect(draggedSize({ axis: 'x', start, dx: 245, dy: 0, scale: 1, centered: false }).width).toBe(640)
+  it('snaps the width to a breakpoint and keeps both sides in range', () => {
+    expect(draggedSize({ origin, axis: 'xy', dx: -36, dy: -2000, scale: 1, centered: false })).toEqual({
+      width: 768,
+      height: 240,
+    })
   })
 })
 
 describe('nudgedSize', () => {
-  const size = { width: 400, height: 800 }
+  const size = { width: 800, height: 600 }
 
-  it('moves the side the handle owns', () => {
-    expect(nudgedSize(size, 'x', 'ArrowRight', false)).toEqual({ width: 410, height: 800 })
-    expect(nudgedSize(size, 'y', 'ArrowUp', true)).toEqual({ width: 400, height: 750 })
-    expect(nudgedSize(size, 'xy', 'ArrowLeft', false)).toEqual({ width: 390, height: 800 })
+  it('moves the right edge with the left and right arrows, more with Shift', () => {
+    expect(nudgedSize(size, 'x', 'ArrowRight', false)).toEqual({ width: 810, height: 600 })
+    expect(nudgedSize(size, 'x', 'ArrowLeft', true)).toEqual({ width: 750, height: 600 })
   })
 
-  it('ignores keys the handle does not use', () => {
-    expect(nudgedSize(size, 'x', 'ArrowDown', false)).toBeUndefined()
-    expect(nudgedSize(size, 'y', 'ArrowLeft', false)).toBeUndefined()
+  it('moves the bottom edge with the up and down arrows', () => {
+    expect(nudgedSize(size, 'y', 'ArrowDown', false)).toEqual({ width: 800, height: 610 })
+  })
+
+  it('lets the corner take all four arrows', () => {
+    expect(nudgedSize(size, 'xy', 'ArrowUp', false)).toEqual({ width: 800, height: 590 })
+    expect(nudgedSize(size, 'xy', 'ArrowRight', false)).toEqual({ width: 810, height: 600 })
+  })
+
+  it('ignores a key the handle does not take', () => {
+    expect(nudgedSize(size, 'x', 'ArrowUp', false)).toBeUndefined()
     expect(nudgedSize(size, 'xy', 'Enter', false)).toBeUndefined()
   })
 })
 
 describe('fitScale', () => {
-  it('fits a frame larger than the stage', () => {
-    expect(fitScale({ width: 1840, height: 900 }, { width: 1000, height: 2000 })).toBe(0.5)
+  it("shrinks a frame to the stage's content box", () => {
+    expect(fitScale({ width: 800, height: 2000 }, { width: 1600, height: 800 })).toBe(0.5)
+    expect(fitScale({ width: 2000, height: 200 }, { width: 1600, height: 800 })).toBe(0.25)
   })
 
   it('never draws a frame larger than its own size', () => {
-    expect(fitScale({ width: 390, height: 844 }, { width: 2000, height: 2000 })).toBe(1)
+    expect(fitScale({ width: 4000, height: 4000 }, { width: 390, height: 844 })).toBe(1)
   })
 
-  it('ignores the height an on-screen keyboard covers', () => {
-    const frame = { width: 390, height: 912 }
-    expect(fitScale(frame, { width: 2000, height: 544 }, 456)).toBe(1)
+  it('keeps the scale while a keyboard covers part of the stage', () => {
+    const open = fitScale({ width: 2000, height: 400 }, { width: 800, height: 1600 }, 400)
+    expect(open).toBe(fitScale({ width: 2000, height: 800 }, { width: 800, height: 1600 }))
+    expect(open).toBe(0.5)
   })
 
-  it('draws at full size before the stage is measured', () => {
-    expect(fitScale({ width: 1280, height: 820 }, { width: 0, height: 0 })).toBe(1)
+  it('keeps the drawn frame inside a stage measured in fractions of a pixel', () => {
+    const scale = fitScale({ width: 785.4, height: 553.6 }, { width: 390, height: 844 })
+
+    expect(844 * scale).toBeLessThanOrEqual(553)
+    expect(scale).toBe(0.655)
+  })
+
+  it('draws at full size before the stage has been measured', () => {
+    expect(fitScale({ width: 0, height: 0 }, { width: 1600, height: 800 })).toBe(1)
   })
 })
 
 describe('frameScale', () => {
-  it('uses the fit for "fit" and the set scale otherwise, never below a tenth', () => {
+  it('uses the fit scale for Fit and the chosen scale otherwise', () => {
     expect(frameScale('fit', 0.42)).toBe(0.42)
     expect(frameScale(0.75, 0.42)).toBe(0.75)
+  })
+
+  it('never draws the frame smaller than a tenth', () => {
     expect(frameScale('fit', 0.01)).toBe(0.1)
   })
 })
 
-describe('frameCaption', () => {
-  it('names a device frame', () => {
-    expect(frameCaption({ width: 393, height: 852 }, { deviceId: 'iphone-15', width: 393, height: 852 }, 1)).toBe(
-      '393 × 852 · iPhone 15 · 100%'
-    )
+describe('presetOf', () => {
+  it('finds the device a frame came from', () => {
+    expect(presetOf({ deviceId: 'ipad-air', width: 820, height: 1180 })?.label).toBe('iPad Air')
   })
 
-  it('names the screen default and a free size', () => {
-    expect(frameCaption({ width: 1280, height: 820 }, undefined, 0.5)).toBe('1280 × 820 · screen default · 50%')
-    expect(frameCaption({ width: 700, height: 600 }, { width: 700, height: 600 }, 0.754)).toBe(
-      '700 × 600 · responsive · 75%'
-    )
+  it('finds none for a free size or an unknown id', () => {
+    expect(presetOf({ width: 820, height: 1180 })).toBeUndefined()
+    expect(presetOf({ deviceId: 'nokia-3310', width: 820, height: 1180 })).toBeUndefined()
+  })
+})
+
+describe('rotatedFrame', () => {
+  it('swaps the sides and keeps the device', () => {
+    expect(rotatedFrame({ deviceId: 'ipad-air', width: 820, height: 1180 })).toEqual({
+      deviceId: 'ipad-air',
+      width: 1180,
+      height: 820,
+    })
+  })
+})
+
+describe('frameName', () => {
+  it('names the default size, a device, and a free size', () => {
+    expect(frameName(undefined, 'Tablet default')).toBe('Tablet default')
+    expect(frameName({ deviceId: 'ipad-air', width: 820, height: 1180 }, 'Tablet default')).toBe('iPad Air')
+    expect(frameName({ width: 900, height: 700 }, 'Tablet default')).toBe('responsive')
+  })
+
+  it("says a turned device's orientation, so the name matches the size beside it", () => {
+    expect(frameName({ deviceId: 'ipad-air', width: 1180, height: 820 }, '')).toBe('iPad Air landscape')
+    expect(frameName({ deviceId: 'laptop', width: 800, height: 1280 }, '')).toBe('Laptop portrait')
+  })
+})
+
+describe('frameCaption', () => {
+  it('reads size, name and zoom', () => {
+    expect(frameCaption({ width: 820, height: 1180 }, 'iPad Air', 0.734)).toBe('820 × 1180 · iPad Air · 73%')
   })
 })
 
 describe('device settings', () => {
-  it('remembers the frame and zoom, each written on its own', () => {
-    writeDeviceSettings({ frame: { deviceId: 'pixel-7', width: 412, height: 915 } })
-    writeDeviceSettings({ zoom: 0.5 })
+  it('reads back what was written', () => {
+    writeDeviceSettings({ frame: { deviceId: 'ipad-air', width: 820, height: 1180 }, zoom: 0.5 })
 
-    expect(readDeviceSettings()).toEqual({ frame: { deviceId: 'pixel-7', width: 412, height: 915 }, zoom: 0.5 })
+    expect(readDeviceSettings()).toEqual({ frame: { deviceId: 'ipad-air', width: 820, height: 1180 }, zoom: 0.5 })
   })
 
-  it('forgets the frame when it goes back to the screen default', () => {
-    writeDeviceSettings({ frame: { width: 700, height: 600 }, zoom: 'fit' })
-    writeDeviceSettings({ frame: undefined })
+  it("reads the viewport's own size at Fit when nothing was saved", () => {
+    expect(readDeviceSettings()).toEqual({ zoom: 'fit' })
+
+    writeDeviceSettings({ frame: undefined, zoom: 'fit' })
+    expect(readDeviceSettings()).toEqual({ zoom: 'fit' })
+  })
+
+  it('reads nothing from storage that is not JSON', () => {
+    localStorage.setItem(DEVICE_SETTINGS_KEY, '{not json')
 
     expect(readDeviceSettings()).toEqual({ zoom: 'fit' })
   })
 
-  it('reads nothing from a value it cannot use', () => {
-    localStorage.setItem(DEVICE_SETTINGS_KEY, '{"frame":{"width":"wide"},"zoom":-1}')
-    expect(readDeviceSettings()).toEqual({})
+  it('drops what is not a frame or a zoom, and keeps sides in range', () => {
+    localStorage.setItem(
+      DEVICE_SETTINGS_KEY,
+      JSON.stringify({ frame: { width: 99999, height: 50, deviceId: 'unknown' }, zoom: 3 })
+    )
 
-    localStorage.setItem(DEVICE_SETTINGS_KEY, 'not json')
-    expect(readDeviceSettings()).toEqual({})
+    expect(readDeviceSettings()).toEqual({ frame: { width: 2560, height: 240 }, zoom: 'fit' })
+  })
+
+  it('reads nothing when storage is refused, and writing does not throw', () => {
+    const refuse = () => {
+      throw new Error('storage disabled')
+    }
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(refuse)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(refuse)
+
+    expect(readDeviceSettings()).toEqual({ zoom: 'fit' })
+    expect(() => writeDeviceSettings({ zoom: 0.5 })).not.toThrow()
   })
 })

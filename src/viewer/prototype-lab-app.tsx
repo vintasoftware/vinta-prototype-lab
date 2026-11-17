@@ -21,20 +21,19 @@ import { usePrototypeSession } from '../hooks/use-prototype-session'
 import { useStorybookLinks } from '../hooks/use-storybook-links'
 import { TOGGLE_KEYS, useViewToggles } from '../hooks/use-view-toggles'
 import { useVisibleBox } from '../hooks/use-visible-box'
-import { useWindowViewport } from '../hooks/use-window-viewport'
 import { type AnnotationEdit, annotationId } from '../lib/annotation-edit'
 import { annotationsForScreen } from '../lib/annotations'
 import { canEditAnnotations, nameElement, saveAnnotationEdit, saveCanvas } from '../lib/annotations-api'
 import { canSwitchBranches } from '../lib/branches-api'
 import { componentSelector, resolveComponentSelector } from '../lib/component-link'
 import { ancestorPaths, nearestNodePath } from '../lib/component-tree'
-import { DEFAULT_VARIANT, FRAME_HEIGHT, VIEWPORT_WIDTH } from '../lib/constants'
+import { DEFAULT_VARIANT, FRAME_HEIGHT, VIEWPORT_LABEL, VIEWPORT_WIDTH } from '../lib/constants'
 import {
   type DeviceFrame,
-  devicePreset,
-  type FrameZoom,
+  type DeviceSettings,
   fitScale,
   frameCaption,
+  frameName,
   frameScale,
   readDeviceSettings,
   viewportOfWidth,
@@ -43,8 +42,7 @@ import {
 import { distinctScreens, resolveScreen } from '../lib/discovery'
 import { type FlowNodeKey, flowNodeKey, type ScreenLinks } from '../lib/flow-graph'
 import { boxModel, measureBetween } from '../lib/measure'
-import { readPresenting, writePresenting } from '../lib/present-param'
-import { titleize } from '../lib/screen-id'
+import { type PresentMode, presentModeIn, writePresenting } from '../lib/present-param'
 import { SOURCE_ATTRIBUTE, suggestAnchorId } from '../lib/source-ref'
 import { findStorybookLink, type StorybookOptions } from '../lib/storybook-links'
 import { linkToastText, listedIn, outOfVersion, statesForVersion } from '../lib/version'
@@ -67,6 +65,11 @@ export interface PrototypeLabAppProps {
   storybook?: StorybookOptions | false
   /** Shows the branch picker. The dev server sets it when the project turns `branchSwitch` on. */
   branches?: boolean
+  /**
+   * Shows the Mobile / Tablet / Desktop switcher; `false` draws every screen in its own viewport,
+   * unless a size is chosen in the device toolbar, which shows either way.
+   */
+  viewportSwitcher?: boolean
 }
 
 const AUTHOR_KEY = 'prototype-lab.author'
@@ -91,6 +94,7 @@ export function PrototypeLabApp({
   prototypes: loaded,
   storybook: storybookOptions,
   branches = false,
+  viewportSwitcher = true,
 }: PrototypeLabAppProps) {
   const [prototypes, setPrototypes] = useState(loaded)
   const session = usePrototypeSession(prototypes)
@@ -146,27 +150,20 @@ export function PrototypeLabApp({
 
   const [viewportOverride, setViewportOverride] = useState<ScreenViewport | undefined>(undefined)
   // The device toolbar's frame and zoom, remembered between visits in this browser.
-  const [deviceFrame, setDeviceFrameState] = useState(() => readDeviceSettings().frame)
-  const [frameZoom, setFrameZoomState] = useState<FrameZoom>(() => readDeviceSettings().zoom ?? 'fit')
-  const setDeviceFrame = useCallback((frame: DeviceFrame | undefined) => {
-    setDeviceFrameState(frame)
-    writeDeviceSettings({ frame })
-  }, [])
-  const setFrameZoom = useCallback((zoom: FrameZoom) => {
-    setFrameZoomState(zoom)
-    writeDeviceSettings({ zoom })
-  }, [])
+  const [device, setDevice] = useState<DeviceSettings>(readDeviceSettings)
+  useEffect(() => writeDeviceSettings(device), [device])
+  const deviceFrame = device.frame
+  const setDeviceFrame = (frame: DeviceFrame | undefined) => setDevice(current => ({ ...current, frame }))
 
-  const [presenting, setPresentingState] = useState(readPresenting)
-  const setPresenting = useCallback((on: boolean) => {
-    setPresentingState(on)
-    writePresenting(on)
+  // `undefined` when not presenting. The viewer's own way in keeps the frame; `?present=fill` fills the window.
+  const [presenting, setPresentingState] = useState(() => presentModeIn(window.location.search))
+  const setPresenting = useCallback((mode: PresentMode | undefined) => {
+    setPresentingState(mode)
+    writePresenting(mode)
   }, [])
-  const stopPresenting = useCallback(() => setPresenting(false), [setPresenting])
-  const windowViewport = useWindowViewport(presenting)
+  const stopPresenting = useCallback(() => setPresenting(undefined), [setPresenting])
   const visibleBox = useVisibleBox()
-  const stageRef = useRef<HTMLElement>(null)
-  const stageSize = useElementSize(stageRef, prototype !== undefined && !presenting)
+  const [stageRef, stageSize] = useElementSize<HTMLElement>()
 
   const { toggles, toggle, setToggle } = useViewToggles()
   const [selectedNoteId, setSelectedNoteId] = useState<string | undefined>(undefined)
@@ -192,7 +189,8 @@ export function PrototypeLabApp({
   }, [])
   const inspectRef: RefObject<HTMLElement | null> = toggles.canvas ? canvasMountRef : frameRef
   // The stage leaves the DOM while the canvas is open, so what was measured on it has to go too.
-  const revision = `${state.slug}/${state.current.screenId}/${state.current.variant}/${toggles.canvas ? `canvas:${canvasMount}` : 'stage'}`
+  const stage = presenting !== undefined ? 'present' : toggles.canvas ? `canvas:${canvasMount}` : 'stage'
+  const revision = `${state.slug}/${state.current.screenId}/${state.current.variant}/${stage}`
   const probed = useFlowLinks(prototype, toggles.canvas, runtimeVersion)
   // A link to a state outside the version draws no arrow, rather than one to a missing card.
   const flow = useMemo(() => {
@@ -383,7 +381,13 @@ export function PrototypeLabApp({
     [tree]
   )
 
-  useInspectMode({ frameRef: inspectRef, enabled: toggles.inspect, onPick: pickComponent, onHover: hoverComponent })
+  // Presenting shows the screen as the app would: clicks navigate, nothing is picked.
+  useInspectMode({
+    frameRef: inspectRef,
+    enabled: toggles.inspect && presenting === undefined,
+    onPick: pickComponent,
+    onHover: hoverComponent,
+  })
 
   const applyEdit = useCallback(
     async (edit: AnnotationEdit) => {
@@ -530,11 +534,20 @@ export function PrototypeLabApp({
     setNamingError(undefined)
   }, [revision])
 
+  const canPresent = screen !== undefined
+  const presentingScreen = presenting !== undefined && canPresent
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       const typing = target !== null && target.closest('input, textarea, select, [contenteditable]') !== null
       if (event.metaKey || event.ctrlKey || typing) {
+        return
+      }
+      // Presenting takes only Esc, and not one the screen used to close its own dialog or menu.
+      if (presentingScreen) {
+        if (event.key === 'Escape' && !event.defaultPrevented) {
+          stopPresenting()
+        }
         return
       }
       const named = TOGGLE_KEYS[event.key]
@@ -547,8 +560,8 @@ export function PrototypeLabApp({
       if (event.key === 'f') {
         openFlow()
       }
-      if (event.key === 'p') {
-        setPresenting(true)
+      if (event.key === 'p' && canPresent) {
+        setPresenting('frame')
       }
       if (event.key === 'm') {
         setMeasureOn(on => !on)
@@ -560,21 +573,23 @@ export function PrototypeLabApp({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [clearComponent, toggle, setPresenting, openFlow])
+  }, [canPresent, clearComponent, openFlow, presentingScreen, setPresenting, stopPresenting, toggle])
 
   if (prototype === undefined || fullPrototype === undefined) {
     return <EmptyLab />
   }
 
-  const screenViewport = viewportOverride ?? screen?.viewport ?? 'desktop'
-  // A size set in the device toolbar decides the viewport family the screen sees.
-  const viewport = deviceFrame === undefined ? screenViewport : viewportOfWidth(deviceFrame.width)
-  const defaultFrameSize = { width: VIEWPORT_WIDTH[screenViewport], height: FRAME_HEIGHT[screenViewport] }
+  // The frame takes the default viewport's size (the switcher's pick, or the screen's own) until the
+  // device toolbar sets one; then the viewport is the one that size's width belongs to.
+  const defaultViewport = viewportOverride ?? screen?.viewport ?? 'desktop'
+  const chosenViewport = deviceFrame === undefined ? viewportOverride : viewportOfWidth(deviceFrame.width)
+  const viewport = chosenViewport ?? defaultViewport
+  const defaultFrameSize = { width: VIEWPORT_WIDTH[defaultViewport], height: FRAME_HEIGHT[defaultViewport] }
+  const defaultName = `${VIEWPORT_LABEL[defaultViewport]} default`
   const frameSize = deviceFrame ?? defaultFrameSize
-  // The keyboard covers the stage without changing the zoom, so typing never shrinks the screen.
+  // An on-screen keyboard covers the stage without changing the zoom, so typing never shrinks the screen.
   const keyboardInset = Math.max(0, window.innerHeight - visibleBox.height)
-  const scale = frameScale(frameZoom, fitScale(frameSize, stageSize, keyboardInset))
-  const frameDevice = devicePreset(deviceFrame?.deviceId)
+  const scale = frameScale(device.zoom, fitScale(stageSize, frameSize, keyboardInset))
 
   const navigation: ScreenNavigation = {
     screenId: state.current.screenId,
@@ -628,11 +643,11 @@ export function PrototypeLabApp({
     />
   )
 
-  if (presenting && screen !== undefined) {
+  if (presentingScreen) {
     return (
       <>
         <ViewerToast message={toast} onDismiss={dismissToast} />
-        <PresentingStage viewport={windowViewport} frameRef={frameRef} onExit={stopPresenting} box={visibleBox}>
+        <PresentingStage box={visibleBox} size={presenting === 'fill' ? undefined : frameSize} onExit={stopPresenting}>
           {screenMissing === undefined ? (
             <PrototypeRuntime value={{ ...navigation, showHotspots: false }}>
               <screen.Component />
@@ -664,8 +679,15 @@ export function PrototypeLabApp({
             setSelectedNoteId(undefined)
             session.openPrototype(slug)
           }}
-          viewport={viewport}
-          onViewportChange={setViewportOverride}
+          {...(viewportSwitcher
+            ? {
+                viewport,
+                onViewportChange: (next: ScreenViewport) => {
+                  setViewportOverride(next)
+                  setDeviceFrame(undefined)
+                },
+              }
+            : {})}
           toggles={toggles}
           onToggle={toggle}
           noteCount={notes.length}
@@ -676,11 +698,11 @@ export function PrototypeLabApp({
             frame: deviceFrame,
             onFrame: setDeviceFrame,
             defaultSize: defaultFrameSize,
-            defaultLabel: `${titleize(screenViewport)} ${defaultFrameSize.width} × ${defaultFrameSize.height}`,
-            zoom: frameZoom,
-            onZoom: setFrameZoom,
+            defaultName,
+            zoom: device.zoom,
+            onZoom: zoom => setDevice(current => ({ ...current, zoom })),
           }}
-          onPresent={() => setPresenting(true)}
+          {...(canPresent ? { onPresent: () => setPresenting('frame') } : {})}
           showBranches={branches && canSwitchBranches()}
           {...(versions === undefined ? {} : { versions })}
           {...(state.version === undefined ? {} : { version: state.version })}
@@ -725,8 +747,12 @@ export function PrototypeLabApp({
           <main
             ref={stageRef}
             className={cn(
-              'flex min-h-0 flex-1 justify-center',
-              toggles.canvas ? 'overflow-hidden' : 'overflow-auto overscroll-contain px-6 pt-8 pr-10 pb-10'
+              'flex min-h-0 flex-1',
+              // The frame centres itself with auto margins, which, unlike `justify-center`, leave a
+              // frame wider than the stage scrollable from its left edge.
+              toggles.canvas
+                ? 'justify-center overflow-hidden'
+                : 'overflow-auto overscroll-contain pt-8 pr-10 pb-10 pl-6'
             )}
           >
             {toggles.canvas ? (
@@ -772,22 +798,16 @@ export function PrototypeLabApp({
                 inspectOverlay={inspectOverlay}
               />
             ) : screen === undefined ? (
-              <p className='self-center text-muted-foreground text-sm'>
+              <p className='mx-auto self-center text-muted-foreground text-sm'>
                 This prototype has no screens yet. The Problems tab lists what is missing.
               </p>
             ) : (
               <ResizableFrame
                 size={frameSize}
                 scale={scale}
-                caption={frameCaption(frameSize, deviceFrame, scale)}
-                onResize={setDeviceFrame}
-                onReset={() =>
-                  setDeviceFrame(
-                    frameDevice === undefined
-                      ? undefined
-                      : { deviceId: frameDevice.id, width: frameDevice.width, height: frameDevice.height }
-                  )
-                }
+                caption={frameCaption(frameSize, frameName(deviceFrame, defaultName.toLowerCase()), scale)}
+                onResize={size => setDeviceFrame(size)}
+                onReset={() => setDeviceFrame(undefined)}
               >
                 <PrototypeFrame
                   viewport={viewport}

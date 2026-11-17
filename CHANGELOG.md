@@ -41,6 +41,10 @@ All notable changes to this package are recorded here. Versions follow
   `dom-accessibility-api`), the text contrast against its background with pass or fail for AA, and
   whether the keyboard reaches the element; under the dev server it also shows the element's JSX as
   written, children collapsed, with a copy button.
+- **Branch picker**: with `branchSwitch` in the config, the header lists the repository's local
+  branches under `prototype-lab dev` and switches the checkout from the viewer. Files listed in
+  `localOnlyFiles` are kept across the switch, uncommitted work stops it, and a changed lockfile
+  offers to run the install.
 - **Ready for dev**: mark a screen state ready from the canvas; the marks are saved in `canvas.json`.
 - **PNG**: save the picked frame's screen as an image.
 - New dependencies: `dom-accessibility-api` (MIT), and `html-to-image` (MIT), loaded only when a PNG
@@ -48,8 +52,6 @@ All notable changes to this package are recorded here. Versions follow
 - The canvas draws only the frames in view, a couple at a time, and holds new ones back while a pan
   is moving; below 20% a frame is a card with its title. A generated 60-state fixture,
   `example/prototypes/canvas-sixty`, measures it (`node scripts/generate-canvas-fixture.mjs` writes it).
-- Device presets, a resizable frame and a presenting mode on the stage (from the
-  `feature/device-toolbar` branch this one builds on).
 
 ### Changed
 
@@ -61,7 +63,6 @@ All notable changes to this package are recorded here. Versions follow
 - The header fits a 13-inch laptop: **Back** and **Restart** are icons with tooltips, the prototype
   picker is a little narrower, and the compact header starts below 1200px.
 - The prototype picker opens on the prototype that is open now, highlighted, and scrolled to it once when it is out of view.
-- The header shows Vinta's mark beside "Prototype Lab", on windows wide enough for the title.
 - The side panels slide in and out over 200ms on the stage, and the prototype picker grows out of its
   button. Both are instant with reduced motion, and the panels stay instant on the canvas.
 - Turning Inspect on opens the right panel on the Dev tab, unless a comment is being written, and
@@ -79,6 +80,52 @@ All notable changes to this package are recorded here. Versions follow
 ### Removed
 
 - The `FlowMap` export. `CanvasView` takes its place.
+
+## [0.3.2] - 2026-11-05
+
+### Added
+
+- A device toolbar beside the viewport switcher: device presets, width and height fields, rotate,
+  and zoom. The browser remembers the choice.
+- The frame resizes by dragging its edges or with the arrow keys, and a double click resets it.
+- Present mode (`p`, the header button or `?present`) shows only the screen, at the size chosen in
+  the viewer and scaled down to fit the window. `?present=fill` fills the window instead, for a
+  phone or tablet. `Esc` exits.
+
+### Fixed
+
+- On a tablet, the page no longer scrolls behind the viewer.
+- The landing page's folder tree and code blocks keep their colours in light mode.
+
+## [0.3.1] - 2026-11-04
+
+### Added
+
+- The viewer header carries the Vinta wordmark before the title.
+- A landing page at [vintasoftware.github.io/vinta-prototype-lab](https://vintasoftware.github.io/vinta-prototype-lab/),
+  deployed from `docs/` by GitHub Pages.
+
+### Fixed
+
+- The header's Flow / Inspect / Hotspots / Comments row wraps in a narrow window instead of widening
+  the page.
+
+## [0.3.0] - 2026-10-02
+
+### Added
+
+- A `viewportSwitcher` option (and a `--no-viewport-switcher` flag) hides the Mobile / Tablet /
+  Desktop switcher, for a project that targets one form factor. Every screen then draws in the
+  `viewport` its file sets, desktop by default.
+
+## [0.2.0] - 2026-10-01
+
+### Changed
+
+- A copy from `prototype-lab build` no longer looks for Storybook on `localhost`, so a deployed copy
+  shows no "Nothing is serving Storybook" note and makes no request to the visitor's machine. It
+  links to Storybook only when `storybook.url` names a deployed one. `prototype-lab dev` is
+  unchanged.
 
 ## [0.1.2] - 2026-09-23
 

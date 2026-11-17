@@ -1,49 +1,50 @@
 import { RotateCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DEVICE_PRESETS, type DevicePreset } from '../lib/constants'
-import { clampFrameSide, type DeviceFrame, type FrameSize, type FrameZoom } from '../lib/device-frame'
-import { Button, cn, NativeSelect, NativeSelectOptGroup, NativeSelectOption } from '../ui'
-
-const DEVICE_GROUPS: readonly DevicePreset['group'][] = ['Phones', 'Tablets', 'Desktops']
-
-const ZOOM_OPTIONS: readonly { value: string; label: string }[] = [
-  { value: 'fit', label: 'Fit' },
-  { value: '1', label: '100%' },
-  { value: '0.75', label: '75%' },
-  { value: '0.5', label: '50%' },
-]
-
-/** The device list's two entries that are not devices. */
-const SCREEN_DEFAULT = 'default'
-const RESPONSIVE = 'responsive'
+import {
+  clampFrameSide,
+  type DeviceFrame,
+  type FrameSize,
+  type FrameZoom,
+  rotatedFrame,
+  ZOOM_LEVELS,
+} from '../lib/device-frame'
+import { Button, NativeSelect, NativeSelectOptGroup, NativeSelectOption } from '../ui'
 
 export interface DeviceToolbarProps {
-  /** The size the person set, or `undefined` for the screen's own size. */
+  /** The size chosen here, or `undefined` for the viewport's own size. */
   frame: DeviceFrame | undefined
   onFrame: (frame: DeviceFrame | undefined) => void
-  /** The screen's own size, shown while no size is set. */
+  /** The viewport's own size, which the frame takes with nothing chosen. */
   defaultSize: FrameSize
-  /** Names the screen's own size in the device list's tooltip, e.g. `Mobile 390 × 844`. */
-  defaultLabel: string
+  /** What the list calls that size, e.g. `Tablet default`. */
+  defaultName: string
   zoom: FrameZoom
   onZoom: (zoom: FrameZoom) => void
 }
 
+const GROUPS: readonly DevicePreset['group'][] = ['Phones', 'Tablets', 'Desktops']
+
+const DEFAULT_OPTION = 'default'
+const RESPONSIVE_OPTION = 'responsive'
+
+/** The selects sit at the height of the header's small buttons. */
+const SELECT_CLASS = '[&_select]:h-8'
+
 /**
- * The device toolbar, as in Chrome's DevTools: a device list (or the screen's own size, or a free
- * size), the width and height, a rotate button, and the zoom. The size fields and rotate go away on
- * a narrow window; the device list and zoom stay.
+ * The device toolbar, as in Chrome's DevTools: a device list (or the viewport's own size, or a free
+ * size), the width and height, a rotate button, and the zoom.
  */
-export function DeviceToolbar({ frame, onFrame, defaultSize, defaultLabel, zoom, onZoom }: DeviceToolbarProps) {
+export function DeviceToolbar({ frame, onFrame, defaultSize, defaultName, zoom, onZoom }: DeviceToolbarProps) {
   const size = frame ?? defaultSize
-  const selected = frame === undefined ? SCREEN_DEFAULT : (frame.deviceId ?? RESPONSIVE)
+  const selected = frame === undefined ? DEFAULT_OPTION : (frame.deviceId ?? RESPONSIVE_OPTION)
 
   const chooseDevice = (value: string) => {
-    if (value === SCREEN_DEFAULT) {
+    if (value === DEFAULT_OPTION) {
       onFrame(undefined)
       return
     }
-    if (value === RESPONSIVE) {
+    if (value === RESPONSIVE_OPTION) {
       onFrame({ width: size.width, height: size.height })
       return
     }
@@ -54,20 +55,17 @@ export function DeviceToolbar({ frame, onFrame, defaultSize, defaultLabel, zoom,
   }
 
   return (
-    // The selects and fields are `h-8`, the height of the header's buttons; NativeSelect's own small
-    // size is `h-7`.
     <div className='flex items-center gap-1'>
       <NativeSelect
-        size='sm'
         aria-label='Device'
-        title={frame === undefined ? `Screen default: ${defaultLabel}` : undefined}
-        className='w-36 [&_select]:h-8!'
+        title={`${defaultName}: ${defaultSize.width} × ${defaultSize.height}`}
+        className={`w-40 ${SELECT_CLASS}`}
         value={selected}
         onChange={event => chooseDevice(event.target.value)}
       >
-        <NativeSelectOption value={SCREEN_DEFAULT}>Screen default</NativeSelectOption>
-        <NativeSelectOption value={RESPONSIVE}>Responsive</NativeSelectOption>
-        {DEVICE_GROUPS.map(group => (
+        <NativeSelectOption value={DEFAULT_OPTION}>{defaultName}</NativeSelectOption>
+        <NativeSelectOption value={RESPONSIVE_OPTION}>Responsive</NativeSelectOption>
+        {GROUPS.map(group => (
           <NativeSelectOptGroup key={group} label={group}>
             {DEVICE_PRESETS.filter(preset => preset.group === group).map(preset => (
               <NativeSelectOption key={preset.id} value={preset.id}>
@@ -78,38 +76,31 @@ export function DeviceToolbar({ frame, onFrame, defaultSize, defaultLabel, zoom,
         ))}
       </NativeSelect>
 
-      <div className='max-[1200px]:hidden! flex items-center gap-1'>
-        {/* A typed size is no longer the device's own, so it drops the device. */}
-        <SizeField label='Width' value={size.width} onCommit={width => onFrame({ width, height: size.height })} />
-        <span className='text-muted-foreground text-xs'>×</span>
-        <SizeField label='Height' value={size.height} onCommit={height => onFrame({ width: size.width, height })} />
-        <Button
-          variant='ghost'
-          size='icon-sm'
-          aria-label='Rotate'
-          title='Rotate'
-          onClick={() =>
-            onFrame({
-              ...(frame?.deviceId === undefined ? {} : { deviceId: frame.deviceId }),
-              width: size.height,
-              height: size.width,
-            })
-          }
-        >
-          <RotateCw />
-        </Button>
-      </div>
+      <SizeField label='Width' value={size.width} onCommit={width => onFrame({ width, height: size.height })} />
+      <span aria-hidden='true' className='text-muted-foreground text-xs'>
+        ×
+      </span>
+      <SizeField label='Height' value={size.height} onCommit={height => onFrame({ width: size.width, height })} />
+      <Button
+        variant='ghost'
+        size='icon-sm'
+        aria-label='Rotate'
+        title='Rotate'
+        onClick={() => onFrame(rotatedFrame(frame ?? size))}
+      >
+        <RotateCw />
+      </Button>
 
       <NativeSelect
-        size='sm'
         aria-label='Zoom'
-        className='w-20 [&_select]:h-8!'
+        className={`w-24 ${SELECT_CLASS}`}
         value={String(zoom)}
         onChange={event => onZoom(event.target.value === 'fit' ? 'fit' : Number(event.target.value))}
       >
-        {ZOOM_OPTIONS.map(option => (
-          <NativeSelectOption key={option.value} value={option.value}>
-            {option.label}
+        <NativeSelectOption value='fit'>Fit</NativeSelectOption>
+        {ZOOM_LEVELS.map(level => (
+          <NativeSelectOption key={level} value={String(level)}>
+            {Math.round(level * 100)}%
           </NativeSelectOption>
         ))}
       </NativeSelect>
@@ -123,16 +114,19 @@ interface SizeFieldProps {
   onCommit: (value: number) => void
 }
 
-/** One side of the frame, typed in. It applies on Enter or when the field loses focus; Esc undoes it. */
+/** One side of the frame, typed in. Enter or leaving the field applies it; Esc puts it back. */
 function SizeField({ label, value, onCommit }: SizeFieldProps) {
   const [draft, setDraft] = useState(String(value))
-
   useEffect(() => setDraft(String(value)), [value])
 
   const commit = () => {
     const number = Number.parseInt(draft, 10)
     if (Number.isFinite(number)) {
-      onCommit(clampFrameSide(number))
+      const side = clampFrameSide(number)
+      setDraft(String(side))
+      if (side !== value) {
+        onCommit(side)
+      }
     } else {
       setDraft(String(value))
     }
@@ -142,10 +136,7 @@ function SizeField({ label, value, onCommit }: SizeFieldProps) {
     <input
       aria-label={label}
       inputMode='numeric'
-      className={cn(
-        'h-8 w-14 rounded-md border border-input bg-card px-2 text-center text-sm tabular-nums outline-none',
-        'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
-      )}
+      className='h-8 w-16 rounded-md border border-input bg-card px-2 text-center text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
       value={draft}
       onChange={event => setDraft(event.target.value.replace(/[^0-9]/g, ''))}
       onBlur={commit}

@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest'
 import {
   buildStorybookLinks,
   findStorybookLink,
+  isLocalUrl,
   looksLikeOurStorybook,
   nameFamily,
   normalizeName,
   resolveStorybookUrl,
   type StorybookEntry,
+  shouldReadStorybook,
 } from './storybook-links'
 
 /**
@@ -178,5 +180,46 @@ describe('resolveStorybookUrl', () => {
   it('ignores anything that is not an http URL', () => {
     expect(resolveStorybookUrl('?storybook=javascript:alert(1)', null)).toBe('http://localhost:6006')
     expect(resolveStorybookUrl('?storybook=', null)).toBe('http://localhost:6006')
+  })
+})
+
+describe('isLocalUrl', () => {
+  it('knows the addresses that only reach the machine the page is opened on', () => {
+    expect(isLocalUrl('http://localhost:6006')).toBe(true)
+    expect(isLocalUrl('http://storybook.localhost:6006')).toBe(true)
+    expect(isLocalUrl('http://127.0.0.1:6006')).toBe(true)
+    expect(isLocalUrl('http://[::1]:6006')).toBe(true)
+    expect(isLocalUrl('http://0.0.0.0:6006')).toBe(true)
+  })
+
+  it('takes any other host as reachable by everyone', () => {
+    expect(isLocalUrl('https://storybook.example.com')).toBe(false)
+    expect(isLocalUrl('https://main--abc123.chromatic.com')).toBe(false)
+  })
+
+  it('does not call a malformed URL local', () => {
+    expect(isLocalUrl('not a url')).toBe(false)
+  })
+})
+
+describe('shouldReadStorybook', () => {
+  it('reads Storybook under the dev server, configured or not', () => {
+    expect(shouldReadStorybook({}, true)).toBe(true)
+    expect(shouldReadStorybook({ url: 'http://localhost:6010' }, true)).toBe(true)
+  })
+
+  it('never reads Storybook when the config turns it off', () => {
+    expect(shouldReadStorybook(false, true)).toBe(false)
+    expect(shouldReadStorybook(false, false)).toBe(false)
+  })
+
+  it('leaves a built copy unlinked when Storybook is only on localhost', () => {
+    expect(shouldReadStorybook({}, false)).toBe(false)
+    expect(shouldReadStorybook({ marker: 'Design System' }, false)).toBe(false)
+    expect(shouldReadStorybook({ url: 'http://localhost:6006' }, false)).toBe(false)
+  })
+
+  it('links a built copy to a deployed Storybook the config names', () => {
+    expect(shouldReadStorybook({ url: 'https://storybook.example.com' }, false)).toBe(true)
   })
 })

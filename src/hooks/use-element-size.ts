@@ -1,32 +1,31 @@
-import { type RefObject, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { FrameSize } from '../lib/device-frame'
 
-const UNMEASURED: FrameSize = { width: 0, height: 0 }
-
 /**
- * The inner size of an element, kept up to date as it resizes. Zero until it is measured, and while
- * `enabled` is off or the element is not in the page.
+ * The content box of an element, inside its padding, kept up to date as it resizes. The ref is a
+ * callback, so an element that leaves and comes back (the stage, around the flow map or
+ * presenting) is measured again.
  */
-export function useElementSize(ref: RefObject<HTMLElement | null>, enabled = true): FrameSize {
-  const [size, setSize] = useState(UNMEASURED)
+export function useElementSize<T extends HTMLElement>(): [(element: T | null) => void, FrameSize] {
+  const [element, setElement] = useState<T | null>(null)
+  const [size, setSize] = useState<FrameSize>({ width: 0, height: 0 })
+  const ref = useCallback((next: T | null) => setElement(next), [])
 
   useEffect(() => {
-    const element = ref.current
-    if (!enabled || element === null) {
+    if (element === null) {
       return
     }
-    // Only a real change updates the state, so a render that changes nothing does not loop.
-    const update = () =>
-      setSize(previous =>
-        previous.width === element.clientWidth && previous.height === element.clientHeight
-          ? previous
-          : { width: element.clientWidth, height: element.clientHeight }
-      )
-    update()
-    const observer = new ResizeObserver(update)
+    // The observer reports once as soon as it starts observing, and again on every resize.
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry === undefined) {
+        return
+      }
+      const { width, height } = entry.contentRect
+      setSize(previous => (previous.width === width && previous.height === height ? previous : { width, height }))
+    })
     observer.observe(element)
     return () => observer.disconnect()
-  }, [ref, enabled])
+  }, [element])
 
-  return size
+  return [ref, size]
 }
