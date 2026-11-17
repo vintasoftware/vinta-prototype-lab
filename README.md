@@ -245,37 +245,22 @@ version-v2: 'V2: Resolve denials'
 version-later: 'Later: Money in'
 ```
 
-The header then shows a version picker after the prototype picker, with each version and **All**
-(the default). The pick is in the URL (`#/p/billing/claims/work-queue?v=v1`) and stays as you change
-screens. A prototype with no `version-` lines shows no picker and works as before.
-
-Versions are cumulative: V2 shows V1 plus what V2 adds. Tag a screen state with the first version it
-exists in, or the last:
+The header then shows a version picker (default **All**), and the pick goes in the URL (`?v=v1`).
+Versions are cumulative: V2 shows V1 plus what V2 adds. Tag what changes between them:
 
 ```tsx
-export const screen: Partial<ScreenMeta> = { title: 'Claim detail', variantLabel: 'Denied', since: 'v2' }
-```
-
-`until: 'v1'` is for a state replaced after V1. Hide parts of a screen the same way:
-
-```tsx
-import { Since, useVersion } from 'vinta-prototype-lab'
+export const screen: Partial<ScreenMeta> = { title: 'Claim detail', since: 'v2' } // or until: 'v1'
 
 <Since version='v2'><MoneyFlowCard /></Since>
 <Since until='v1'><RecordLetterButton /></Since>
 
 const version = useVersion() // { id, label, isAll, atLeast(id), atMost(id), includes(since, until) }
-const rows = allRows.filter(row => version.includes(row.since, row.until))
 ```
 
-With a version picked, the screen list, its counters, the canvas, the arrows and the comments show
-only that version. **All** renders like the last version and lists every state and comment, with a
-chip ("V2", "Until V1") on those not in every version. A link to a state outside the version shows a
-toast instead of opening, and a URL to one opens a placeholder with buttons to switch. Nothing about
-the version is drawn on a screen or in a PNG export. A comment takes `since` and `until` in
-`annotations.json` like a state, and an id no `version-` line declares is a line in Problems.
-
-Outside the viewer (Storybook, a test), `useVersion()` acts as **All**.
+Comments in `annotations.json` take `since` and `until` too. With a version picked, the screen list,
+the canvas and the comments show only that version; **All** shows everything, with a chip on what is
+not in every version. An unknown id is listed in Problems. Outside the viewer, `useVersion()` acts
+as **All**. A prototype with no `version-` lines works as before.
 
 ## Comments pinned to the UI
 
@@ -433,214 +418,80 @@ as before.
 
 ## The canvas
 
-**Canvas** (`v`) replaces the stage with every screen state of the prototype as a frame on one large
-canvas, the way a design tool lays out its frames. Pan and zoom around it to review a whole
-prototype at once instead of flipping through the screen list one state at a time. Each frame is the
-real screen at its real size, built from the project's own components; the canvas never edits one.
+**Canvas** (`v`) shows every screen state as a frame on one canvas you can pan and zoom. Each screen
+is a section with its states side by side, laid out in the flow's columns. Frames are the real
+screens at full-page height, sized by the device toolbar, with their comment pins. Picking a frame
+opens that state in the viewer.
 
-- **A section per screen.** The states of one screen sit side by side under the screen's name, in
-  the order of the screen list. Sections are laid out in the flow's columns: the entry screen first,
-  then what it leads to, and so on.
-- **The frame's title** names the screen and state, with **Entry**, **Unreachable** and the open
-  comment count beside it.
-- **Comment pins.** With comments on (`c`), each frame carries its numbered pins, as on the stage.
-  Click one to open the comment in the Comments panel.
-- **One size for every frame.** The device toolbar sets the frame size; with "Screen default" each
-  screen keeps its own viewport.
-- **The whole page.** A frame is as wide as its device and as tall as its page, as a full-page
-  screenshot is, so content below the fold shows without scrolling. A page that keeps growing stops
-  at six device heights.
-- **One link everywhere.** Picking a frame opens that screen state in the viewer, so the URL names
-  it, and the screen list, the Doc and Comments panels and a copied link all follow the canvas.
+| Action               | Pointer                                | Keyboard           |
+| -------------------- | -------------------------------------- | ------------------ |
+| Pan                  | Drag, Space + drag, two-finger scroll  | Arrow keys         |
+| Zoom                 | Ctrl/Cmd + wheel, pinch                | `+` / `-`          |
+| Fit everything       | Toolbar                                | `Shift+1`          |
+| Zoom to picked frame | Toolbar                                | `Shift+2`          |
+| Open on the stage    | Double-click, or **Open**              | `Enter`            |
+| Make it live         | Double-click with **Live** on          | `L`, `Esc` to stop |
 
-It opens centred on the screen you came from, or fitted to everything when opened with `f`.
+The canvas toolbar also has:
 
-### Moving around
+- **Live**: a live frame clicks through on its own, without moving the viewer. One at a time.
+- **Viewports**: every state in two sizes side by side, desktop and tablet for example.
+- **Ready for dev**: marks the picked state as ready to build.
+- **PNG**: saves the picked frame as an image at twice its size.
+- **Reset layout**: puts the sections back in the flow's columns.
 
-| Action | Pointer | Keyboard |
-| --- | --- | --- |
-| Pan | Drag on empty canvas, Space and drag anywhere, two-finger scroll | Arrow keys, with the canvas focused and no frame |
-| Zoom | Ctrl or Cmd and the wheel, pinch | `+` and `-` |
-| Fit everything | Toolbar button | `Shift+1` |
-| Zoom to the picked frame | Toolbar button | `Shift+2` |
-| Pick a frame | Click | Tab through the frames in reading order; arrow keys move to the nearest frame that way |
-| Open it on the stage | Double-click (with **Live** off), or the toolbar's **Open** | `Enter` |
-| Make it live | Double-click with **Live** on | `L` |
-| Stop the live frame | Its X, or a press anywhere else | `Esc` |
-| Back to the canvas | The **Canvas** button | `v` |
+Under `prototype-lab dev`, drag a section by its name to move it. The layout, the viewports and the
+Ready for dev marks are saved to `canvas.json` beside `annotations.json`; a built copy shows them
+read-only.
 
-Zoom runs from 5% to 200%, holding still the point under the pointer, or the picked frame from the
-keyboard. Below 20% a frame is a card with its title only.
-
-### Live frames
-
-Frames are inert: nothing in them clicks, so a click picks the frame. To try one, make it **live**:
-focus it and press `L`, or turn **Live** on in the canvas toolbar and double-click it. A live frame
-clicks through inside itself, on a history of its own, without moving the screen the viewer has
-open. When it moves on, its title offers **Back to** the state it belongs to. `Esc`, the X on its
-title, or a press anywhere else on the canvas makes it inert again, back on its own state.
-
-One frame is live at a time. With **Live** off, a double click opens the frame on the stage instead.
-A live frame goes back to its device height and scrolls its own screen with the wheel, as the
-screen does on the stage; Ctrl or Cmd and the wheel still zoom the canvas.
-Dialogs, popovers and menus a live screen opens are drawn over the canvas, at the size of the page
-rather than of the frame.
-
-### Two viewports
-
-**Viewports** in the canvas toolbar draws every state in two sizes side by side, desktop and tablet
-for example, so a layout that breaks at one size shows without switching. The arrows and the rows
-belong to the first frame of each pair. "One size" goes back to a single frame per state, sized by
-the device toolbar or the screen's own viewport. The choice is saved in `canvas.json` under the dev
-server; a built copy keeps it for the page only.
-
-### Ready for dev, and PNG
-
-**Ready for dev** in the canvas toolbar marks the picked screen state as ready for an engineer to
-build; its frame says so on its title. The marks are saved in `canvas.json` next to the layout
-(`"ready": ["home/default"]`), so they are reviewed in the pull request too, and a mark for a state
-that no longer exists is dropped with a line in Problems. A built copy shows the marks.
-
-**PNG** saves the picked frame's screen as an image at twice its size, named after the prototype,
-screen and state. It works in a built copy too. The Dev tab has the same button, **Download PNG**,
-beside **Inspect**: it saves the screen on the stage, or the picked frame on the canvas.
-
-### Arranging it
-
-Under `prototype-lab dev` you can arrange the canvas your own way:
-
-- **Drag a section by its name** to move it, frames and all. Or focus the name (Tab) and move it with
-  the arrow keys: 40 px a press, 400 px with Shift.
-- **Reset layout** in the canvas toolbar puts every section back in the flow's columns.
-
-The arrangement is saved to `canvas.json` in the prototype's folder, beside `annotations.json`, and
-is reviewed in the pull request with the rest of the change. It is a view: it never changes a
-screen.
-
-```json
-{
-  "version": 1,
-  "sections": [
-    { "screen": "choose-time", "x": 0, "y": 0 },
-    { "screen": "review", "x": 2400, "y": 0 }
-  ],
-  "viewports": ["desktop"]
-}
-```
-
-A section for a screen that no longer exists is dropped, with a line in Problems saying so, and the
-next save writes the file without it. A new screen with no saved place is laid out by the canvas to
-the right of the rest. Editing the file by hand reloads the page, the way editing a screen does;
-saving from the canvas does not. A copy from `prototype-lab build` draws the saved arrangement and
-offers no way to change it.
+Only the frames in view are drawn, so a prototype with 60 states stays smooth. Media queries read the
+browser window, not the frame: use container queries (`@container`, `@md:`) for anything that must
+follow the frame's size.
 
 ### The arrows
 
-**Arrows** (`a`, on the canvas) draw where each control leads, from the control to the screen it
-opens. `f` opens the canvas with them on, fitted to the whole flow, and closes it again. They are
-found at run time, not declared. When the canvas opens, the viewer renders each screen out of sight
-inside a runtime whose `goToScreen` and `back` record instead of navigating, clicks every control,
-and notes what each click did. So a `Button` with its own `onClick`, a `ScreenLink` and a `Hotspot`
-all show up the same way, and a link the code no longer makes disappears on the next open.
+**Arrows** (`a`) draw where each control leads; `f` opens the canvas with them on. They are found at
+run time: the viewer renders each screen out of sight, clicks every control, and records where
+`goToScreen` and `back` go. There is one arrow per destination, dashed when it goes back, and
+controls that call `back()` are listed as `Previous screen`. **Entry** and **Unreachable** mark
+screens, and a red card stands in for a screen id no file defines (a typo in `goToScreen()`).
 
-What the arrows show:
-
-- **One arrow per destination.** Six slot buttons that all open the review screen are one arrow, and
-  every control that leads there is outlined. The rows under the frame list them:
-  `9:00 AM, 9:30 AM +4 → Review`.
-- **Dashed arrows go back** to a frame further left, like a "Back to home" link from the last screen.
-- **Controls that call `back()`** are listed on their frame as `Previous screen`, with no arrow,
-  since where they lead depends on where the person came from.
-- **Entry** marks the screen the prototype opens on; **Unreachable** marks a screen no control
-  leads to, a state a reviewer would never find by clicking through.
-- **A red card** in a section of its own stands in for a screen id that a control opens but no file
-  defines. That is a typo in a `goToScreen()` call, and the canvas is where it shows.
-
-Two things the arrows cannot see. A control that navigates later, from a timer or after an `await`,
-is read as leading nowhere, because only what happens during the click counts. And a `div` with an
-`onClick` is not clicked at all: the probe clicks what a person can reach (buttons, links, and
-elements with an interactive role), so a clickable `div` shows no arrow, which is also the
-accessibility bug it is.
-
-### Large prototypes
-
-Every frame is a real render of its screen, so the canvas draws only the frames in view, a couple at
-a time, and holds new ones back while a pan is moving. A frame out of view, or below 20%, is a card
-with its title. Animations and transitions inside a frame that is not live are switched off: the
-frame is a picture, and a running animation keeps the browser recompositing the whole canvas. With 60 desktop states the canvas is usable in about half a second and pans at the
-display's frame rate.
-
-### Screens on the canvas: media queries follow the window
-
-A frame changes a screen's width, but CSS media queries keep reading the browser window, on the
-canvas and on the stage alike. Container queries read the frame. For anything in a screen that must
-respond to the frame it is drawn in, prefer container queries (Tailwind's `@container` and `@md:`
-variants) over `md:` and other media query variants.
+The arrows miss navigation that happens later (a timer, after an `await`) and a `div` with an
+`onClick`, since only buttons, links and interactive roles are clicked.
 
 ## Dev tools
 
-The **Dev** tab of the right panel says how the picked element is built, on the stage and on the
-canvas. Turn on Inspect (`i`, the crosshair in the header, or the **Inspect** button in the Dev tab)
-and click an element, or pick its row in the component tree. Turning Inspect on opens the right
-panel on the Dev tab, unless a comment is being written; turning it off closes the panel again if
-it is still on the Dev tab. On
-the canvas, Inspect works in the picked frame: its screen takes the pointer while Inspect is on.
+Turn on Inspect (`i`) and click an element: the **Dev** tab shows how it is built, on the stage or
+on the canvas.
 
-- **Element**: the component's name and path, as the tree shows them, its semantic id, its
-  Storybook page, and where it was written, `screens/10-home.tsx:34`. **Open in editor** opens that
-  line through the dev server's own open-in-editor support. An element written inside a component
-  says so, with the line of the component in the screen.
-- **Styles as tokens**: background, text and border colour, padding, margin and gap, font size,
-  line height, weight and family, radius and shadow. Each is read back to the utility class that set
-  it (`bg-muted`), the token behind it (`--color-muted`, or `--muted` for a theme declared with
-  `@theme inline`), and the value the browser resolved. A spacing step reads `--spacing × 3`. A value
-  no utility set is matched against the page's tokens, and every token of that value is named;
-  a value no token produces is flagged **not a token**. A token is never guessed.
-- **Size** in the frame's own pixels, whatever the zoom.
-- **Snippet**: the element's JSX as written in the screen file, its tag and props with the children
-  collapsed, read through the dev server, with a copy button. An element inside a component shows the
-  component's JSX in the screen.
-- **Accessibility**: the role and accessible name, computed the way assistive technology computes
-  them (with `dom-accessibility-api`); the text's contrast against the background it sits on, with
-  pass or fail for WCAG AA (4.5:1, or 3:1 for large text); and whether the keyboard reaches it, or
-  why not: out of the Tab order, not focusable, inside an `inert` region, or hidden. Background images
-  and gradients are not read, and a colour in a form the viewer cannot read makes the contrast
-  "unknown" rather than a guess.
-- **Measure**: hold Alt and point at another element to see the distances to it, as design tools
-  draw them, in the frame's own pixels. With nothing picked, Alt shows an element's padding and
-  margin. From the keyboard, turn Measure on (`M`) and move through the component tree: each row in
-  focus is measured against the picked element. The tab lists the distances, and the picked element's
-  padding and margin by side.
+- **Element**: component, path, semantic id, Storybook page, and source line with **Open in editor**.
+- **Styles as tokens**: colours, spacing, type, radius and shadow, each read back to its utility
+  class and token. A value no token produces is flagged **not a token**.
+- **Size** in the frame's own pixels.
+- **Snippet**: the element's JSX from the screen file, with a copy button.
+- **Accessibility**: role, accessible name, WCAG AA contrast, and whether the keyboard reaches it.
+- **Measure** (`m`, or hold Alt): distances from the picked element to the one under the pointer.
+- **Download PNG**: saves the screen on the stage, or the picked frame on the canvas, at twice its
+  size.
 
-Under `prototype-lab build` the tab still reads components, tokens, sizes and accessibility; there
-is no source to open and no snippet, since the dev server is what records where each element was
-written.
+A built copy has all of it except Open in editor and the snippet, which need the dev server.
 
 ## Guided tours (the player)
 
 A tour plays a fixed path through the screens for someone who will not click around, such as a
-client reviewing the prototype on their own. A cursor moves to the element that matters and clicks
-it, the element gets a ring, and a panel beside the screen says what the screen is for and what it
-fixes. `prototype-lab player` builds the tours into one HTML file that opens with a double-click,
-offline, with no install:
+client: a cursor clicks through, and a panel beside the screen says what each step is for.
+`prototype-lab player` builds the tours into one HTML file that opens offline with a double-click:
 
 ```bash
 npx prototype-lab player     # writes prototype-lab-player/tours.html
 ```
 
-The file holds the screens, the project's stylesheet, fonts and images, and nothing else: no
-comments, no canvas and no free clicking. Its home page is in Vinta's look, with the tours as cards.
+Once the file exists, the viewer's header shows a **Tours** button that opens it, under `dev` and in
+a `build` copy. To write it elsewhere, set `player.outDir` rather than `--out-dir`, or the viewer will
+not find it.
 
-Once the file exists, the viewer's header shows a **Tours** button that opens it in a new tab.
-`prototype-lab dev` serves it beside the viewer, and `prototype-lab build` copies it into the static
-copy, so the button works in both. A project that never ran `prototype-lab player` sees no button.
-The viewer looks for the file where the player writes it: `player.outDir` and `player.fileName`
-below. Passing `--out-dir` to `prototype-lab player` writes somewhere the viewer does not look.
-
-### A tour is a JSON file
-
-Put it in `tours/` inside the prototype its steps start in, beside `screens/`. A tour that crosses
-prototypes can sit there too, or in `prototypes/tours/`, where every step names its prototype.
+A tour is a JSON file in `tours/` inside the prototype it starts in (or in `prototypes/tours/` when
+it crosses prototypes):
 
 ```json
 {
@@ -661,56 +512,20 @@ prototypes can sit there too, or in `prototypes/tours/`, where every step names 
 }
 ```
 
-| Field       | Meaning                                                                                        |
-| ----------- | ---------------------------------------------------------------------------------------------- |
-| `id`        | The file name without `.json`.                                                                 |
-| `order`     | Where the card sits on the home page, lowest first.                                            |
-| `prototype` | The step's prototype slug, such as `billing/refunds`. Defaults to the folder the file is in.   |
-| `screen`    | Screen id.                                                                                     |
-| `variant`   | State. Defaults to `default`.                                                                  |
-| `anchor`    | Optional `anchor()` id the step rings and points at.                                           |
-| `click`     | Optional `anchor()` id the cursor clicks to leave the step. It must open the next step's screen. |
-| `fixes`     | Optional. The pain the screen removes, in the client's words.                                   |
+A step can also take `prototype` (a slug, for tours that cross prototypes) and `variant` (defaults to
+`default`). `click` must open the next step's screen. See
+[example/prototypes/patient-booking/tours](example/prototypes/patient-booking/tours).
 
-[example/prototypes/patient-booking/tours](example/prototypes/patient-booking/tours) is a worked
-example.
+In the player, Space plays or pauses, the arrow keys move between steps and `Esc` goes home;
+`#/tour/<id>/<step>` links to a step. Open the file with `#/check` to check that every step and
+click still works.
 
-### Playing a tour
-
-- Each step stays up for about 2.5 seconds plus a quarter second per word, at least 4 seconds, at
-  1x. Speed goes to 1.5x and 2x. Hovering the caption holds the step.
-- The panel beside the screen lists every step, grouped by prototype; any step opens with a click.
-  **Tours home** in the header goes back to the cards.
-- Space plays or pauses, the arrow keys move between steps, Esc goes home.
-- `#/tour/<id>/<step>` opens a step, paused, so a link can point at one.
-- Clicks inside a screen are ignored while it plays. Buttons whose label starts with `Prototype:`
-  are hidden, so a screen can keep shortcuts meant for reviews.
-- With reduced motion the cursor jumps instead of gliding.
-
-### Checking the tours
-
-Open the file with `#/check` at the end of its address. It renders every step of every tour, clicks
-each `click` for real with the navigation captured, and lists what would stop a tour in front of a
-client: a screen or state that is gone, an anchor that is not drawn, a click that opens another
-screen than the next step's, or one that only changes the screen it is on. When it finishes,
-`<html data-tour-check="done">` is set and `window.__TOUR_CHECK__` holds the result, for a script.
-
-### The home page's words
+The home page's words come from the `player` option: `client`, `eyebrow`, `headline`, `accent`,
+`intro` and `footer`, plus `fileName` and `outDir` for where the file goes.
 
 ```ts
-prototypeLab({
-  player: {
-    client: 'Acme Health',
-    headline: 'The new Acme,',
-    accent: 'one flow at a time.',
-    fileName: 'acme-tours.html',
-  },
-})
+prototypeLab({ player: { client: 'Acme Health', fileName: 'acme-tours.html' } })
 ```
-
-`client`, `eyebrow`, `headline`, `accent` (the end of the headline, in blue), `intro` and `footer`
-replace the defaults; `fileName` names the file the build writes, and `outDir` the folder it goes in
-(default `prototype-lab-player`).
 
 ## Using the viewer
 
@@ -734,7 +549,7 @@ replace the defaults; `fileName` names the file the build writes, and `outDir` t
   canvas, `a` its arrows, `f` opens it with the arrows on, `m` turns measuring on, `[` and `]` close
   the panels either side, `p` starts presenting, `Esc` clears the open note and the picked
   component, or stops presenting. The canvas has its own keys, listed under
-  [Moving around](#moving-around).
+  [The canvas](#the-canvas).
 
 ## What this is not
 
