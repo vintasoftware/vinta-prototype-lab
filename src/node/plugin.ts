@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react'
 import type { Plugin, PluginOption } from 'vite'
 import { annotationsWriter } from '../dev/annotations-writer'
 import { ownBuildReload } from '../dev/own-build-reload'
+import { type ShareOptions, type ShareSetup, type ShareStatus, shareStatus, shareUploader } from '../dev/share-uploader'
 import { stampJsxSource } from '../dev/stamp-jsx-source'
 import type { StorybookOptions } from '../lib/storybook-links'
 import type { PlayerText } from '../player/player-text'
@@ -65,6 +66,13 @@ export interface PrototypeLabOptions {
    * `prototype-lab-player`). Once that file exists, the viewer's header links to it.
    */
   player?: PlayerOptions
+  /**
+   * The S3-compatible bucket the viewer's Share button uploads static copies of a view to. Only
+   * the non-secret parts belong here; the keys are read from the environment
+   * (`PROTOTYPE_LAB_S3_ACCESS_KEY_ID` and `PROTOTYPE_LAB_S3_SECRET_ACCESS_KEY`), and every field
+   * can be. Pass `false` to keep the upload out of the viewer. Downloading a copy works either way.
+   */
+  share?: ShareOptions | false
 }
 
 export type PlayerOptions = PlayerText & { fileName?: string; outDir?: string }
@@ -104,6 +112,8 @@ export interface EntryOptions {
   viewportSwitcher?: boolean
   /** The tour player's address, relative to the viewer's page. Given only when the player is built. */
   player?: string
+  /** Whether the dev server can upload shares, and if not, what it is missing. Left out of a build. */
+  share?: ShareStatus
 }
 
 /**
@@ -113,7 +123,15 @@ export interface EntryOptions {
  * The viewer's stylesheet goes first so the project's stylesheets, loaded after it, win wherever
  * both set the same token.
  */
-export function entryCode({ root, prototypesDir, css, storybook, viewportSwitcher, player }: EntryOptions): string {
+export function entryCode({
+  root,
+  prototypesDir,
+  css,
+  storybook,
+  viewportSwitcher,
+  player,
+  share,
+}: EntryOptions): string {
   const base = `/${toPosix(path.relative(root, prototypesDir))}`
   const stylesheets =
     css.length === 0
@@ -123,6 +141,7 @@ export function entryCode({ root, prototypesDir, css, storybook, viewportSwitche
     ...(storybook === undefined ? {} : { storybook }),
     ...(viewportSwitcher === undefined ? {} : { viewportSwitcher }),
     ...(player === undefined ? {} : { player }),
+    ...(share === undefined ? {} : { share }),
   }
 
   return [
@@ -252,7 +271,12 @@ export function indexHtml(title: string): string {
  * Serves the viewer's page and entry. The page is kept in memory and answered at `/` in dev, and
  * handed to the build as `index.html`, so the viewer runs from a project that has no page for it.
  */
-function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLabOptions): Plugin {
+function viewerPlugin(
+  root: string,
+  prototypesDir: string,
+  options: PrototypeLabOptions,
+  shareSetup: () => ShareSetup | undefined
+): Plugin {
   const htmlPath = path.join(root, 'index.html')
   const css = options.css === undefined ? [] : [options.css].flat()
   const title = options.title ?? 'Prototype Lab'
@@ -313,6 +337,7 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
         return playerEntryCode({ root, prototypesDir, css, text })
       }
       if (id === ENTRY_ID) {
+        const share = shareSetup()
         return entryCode({
           root,
           prototypesDir,
@@ -321,6 +346,8 @@ function viewerPlugin(root: string, prototypesDir: string, options: PrototypeLab
           ...(options.viewportSwitcher === undefined ? {} : { viewportSwitcher: options.viewportSwitcher }),
           // The viewer's page sits at the root of what is served or built, and the player beside it.
           ...(existsSync(tourPlayerPath) ? { player: tourPlayer.name } : {}),
+          // Known only to the dev server; a build has no server to upload through.
+          ...(share === undefined ? {} : { share: shareStatus(share) }),
         })
       }
       if (id === htmlPath) {
@@ -417,12 +444,19 @@ function playerSingleFile(options: PrototypeLabOptions): Plugin {
 export function prototypeLab(options: PrototypeLabOptions = {}): PluginOption[] {
   const root = path.resolve(options.root ?? process.cwd())
   const prototypesDir = resolvePrototypesDir(root, options.dir)
+  let setup: ShareSetup | undefined
 
   return [
-    viewerPlugin(root, prototypesDir, options),
+    viewerPlugin(root, prototypesDir, options, () => setup),
     playerSingleFile(options),
     stampJsxSource({ root }),
     annotationsWriter({ prototypesDir, root }),
+    shareUploader({
+      share: options.share,
+      onSetup: resolved => {
+        setup = resolved
+      },
+    }),
     // This file runs from the package's build folder, which the page imports the viewer from.
     ownBuildReload(path.dirname(fileURLToPath(import.meta.url))),
     ...(options.tailwind === false ? [] : [tailwindcss()]),

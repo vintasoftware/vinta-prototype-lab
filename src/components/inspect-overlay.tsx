@@ -1,5 +1,6 @@
 import { type AnchorRect, overlayBox, overlayRing } from '../lib/anchor-rect'
 import { OVERLAY_ATTRIBUTE } from '../lib/component-tree'
+import { SHARE_OMIT_ATTRIBUTE } from '../lib/static-snapshot'
 import { CopyLinkButton } from './copy-link-button'
 
 export interface InspectOverlayProps {
@@ -17,6 +18,7 @@ export function InspectOverlay({ selected, hovered, label }: InspectOverlayProps
     <div {...{ [OVERLAY_ATTRIBUTE]: '' }} className='pointer-events-none absolute inset-0 z-10'>
       {hovered !== undefined && (
         <div
+          {...{ [SHARE_OMIT_ATTRIBUTE]: '' }}
           className='absolute bg-cyan-400/15 ring-1 ring-cyan-500'
           style={{ top: hovered.top, height: hovered.height, ...overlayRing(hovered) }}
         />

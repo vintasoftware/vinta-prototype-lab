@@ -167,7 +167,7 @@ export function SidePanel({
   )
 }
 
-function PrototypeDocPanel({ prototype }: { prototype: Prototype }) {
+export function PrototypeDocPanel({ prototype }: { prototype: Prototype }) {
   const { doc } = prototype
 
   return (

@@ -3,6 +3,19 @@
 All notable changes to this package are recorded here. Versions follow
 [semver](https://semver.org/); each one is released from a `v`-prefixed tag such as `v0.1.0`.
 
+## [Unreleased]
+
+### Added
+
+- **Share**: a header button that turns the screen on the stage, or the whole canvas, into one static
+  HTML page with the comment pins, the comment list, the documentation and the picked component.
+  **Download HTML** saves it; **Upload and get a link** sends it through the dev server to an
+  S3-compatible bucket (AWS, R2, MinIO…) and answers with a public link whose Open Graph tags and
+  1200 × 630 preview image unfurl in Slack, ClickUp and Asana. Set the bucket with the `share` option
+  or `PROTOTYPE_LAB_S3_*` variables; the keys come only from the environment. The shared page's
+  header toggles the comments (pins and list) and the sidebar, and links back to the view on the
+  dev server it was shared from.
+
 ## [0.4.0] - 2026-11-17
 
 ### Added

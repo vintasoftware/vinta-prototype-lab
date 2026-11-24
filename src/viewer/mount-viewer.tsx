@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { buildPrototypes, type PrototypeSources } from '../lib/discovery'
 import type { StorybookOptions } from '../lib/storybook-links'
 import { PrototypeLabApp } from './prototype-lab-app'
+import type { ShareStatus } from './share'
 
 export interface ViewerOptions {
   /** Where the component tree finds Storybook pages to link to; `false` shows no links. */
@@ -14,6 +15,8 @@ export interface ViewerOptions {
   viewportSwitcher?: boolean
   /** The tour player's address. The plugin passes it once `prototype-lab player` has built it. */
   player?: string
+  /** Whether the dev server can upload shares. The plugin passes it under the dev server only. */
+  share?: ShareStatus
 }
 
 /**
@@ -36,6 +39,7 @@ export function mountViewer(
         {...(options.storybook === undefined ? {} : { storybook: options.storybook })}
         {...(options.viewportSwitcher === undefined ? {} : { viewportSwitcher: options.viewportSwitcher })}
         {...(options.player === undefined ? {} : { player: options.player })}
+        {...(options.share === undefined ? {} : { share: options.share })}
       />
     </StrictMode>
   )

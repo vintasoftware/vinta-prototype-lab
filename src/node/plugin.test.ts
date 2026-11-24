@@ -179,6 +179,7 @@ describe('prototypeLab', () => {
       'prototype-lab:player-single-file',
       'prototype-lab:stamp-jsx-source',
       'prototype-lab:annotations-writer',
+      'prototype-lab:share-uploader',
       'prototype-lab:own-build-reload',
     ])
   })
@@ -436,7 +437,7 @@ describe('the dev server and a built tour player', () => {
 
       await writeFile(path.join(outDir, 'acme.html'), '<title>Acme tours</title>', 'utf8')
       await vi.waitFor(
-        async () => expect((await server.transformRequest(ENTRY_URL))?.code).toContain('{"player":"acme.html"}'),
+        async () => expect((await server.transformRequest(ENTRY_URL))?.code).toContain('"player":"acme.html"'),
         { timeout: 10_000, interval: 200 }
       )
 

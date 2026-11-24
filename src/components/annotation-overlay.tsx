@@ -3,6 +3,7 @@ import { type AnchorRect, overlayBox, overlayRing } from '../lib/anchor-rect'
 import { ANNOTATION_KIND } from '../lib/annotation-kind'
 import { OVERLAY_ATTRIBUTE } from '../lib/component-tree'
 import { Markdown } from '../lib/markdown'
+import { SHARE_PINS_ATTRIBUTE } from '../lib/share-page'
 import type { Annotation } from '../types'
 import { Badge, cn } from '../ui'
 
@@ -35,7 +36,10 @@ const PIN_SIZE = 24
  */
 export function AnnotationOverlay({ notes, rects, selectedId, onSelect, steadyPins }: AnnotationOverlayProps) {
   return (
-    <div {...{ [OVERLAY_ATTRIBUTE]: '' }} className='pointer-events-none absolute inset-0 z-20'>
+    <div
+      {...{ [OVERLAY_ATTRIBUTE]: '', [SHARE_PINS_ATTRIBUTE]: '' }}
+      className='pointer-events-none absolute inset-0 z-20'
+    >
       {notes.map(note => {
         const rect = rects.get(note.target)
         if (rect === undefined) {
