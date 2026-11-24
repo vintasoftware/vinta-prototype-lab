@@ -16,6 +16,7 @@ import {
   memo,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -65,6 +66,7 @@ import {
   liveScreen,
   startLiveFrame,
 } from '../../lib/live-frame'
+import { nextPaint } from '../../lib/static-snapshot'
 import type { CanvasFile, Prototype, ScreenViewport } from '../../types'
 import { Button, cn, NativeSelect, NativeSelectOption } from '../../ui'
 import { CanvasFrame, FRAME_ATTRIBUTE, type LiveView } from './canvas-frame'
@@ -109,6 +111,19 @@ export interface CanvasViewProps {
    * to a state outside the picked version does.
    */
   canOpen?: (screenId: string, variant: string | undefined) => boolean
+  /** Given what the Share button needs: the part of the canvas in view, and a way to draw all of it. */
+  shareRef?: RefObject<CanvasShareHandle | null>
+}
+
+/** How the Share button reaches the canvas. */
+export interface CanvasShareHandle {
+  /** The canvas as it is on screen, for the link's preview image. */
+  viewport: () => HTMLElement | null
+  /**
+   * Draws every frame's screen, however far out the canvas is zoomed or panned, and hands back the
+   * element holding them all at their own size. `release` lets the frames out of view go again.
+   */
+  capture: () => Promise<{ element: HTMLElement; width: number; height: number; release: () => void }>
 }
 
 /**
@@ -201,6 +216,7 @@ export function CanvasView({
   onInspectRoot,
   inspectOverlay,
   canOpen,
+  shareRef,
 }: CanvasViewProps) {
   const viewportRef = useRef<HTMLElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -814,11 +830,49 @@ export function CanvasView({
     )
   }, [arrows, ready, graph, positions, layout, camera, cardSize])
 
+  // A share draws every frame, not only those in view, and the arrows between them all.
+  const [drawAll, setDrawAll] = useState(false)
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: the frames drawn and the zoom change what the arrows are measured from.
   useEffect(() => {
     const timer = setTimeout(draw, REDRAW_DELAY)
     return () => clearTimeout(timer)
-  }, [draw, drawn, zoom])
+  }, [draw, drawn, drawAll, zoom])
+
+  const latest = useRef({ draw, ready })
+  latest.current = { draw, ready }
+  useEffect(() => {
+    if (shareRef === undefined) {
+      return
+    }
+    shareRef.current = {
+      viewport: () => viewportRef.current,
+      capture: async () => {
+        if (!latest.current.ready) {
+          throw new Error('The canvas is still reading where every control leads. Try again in a moment.')
+        }
+        setDrawAll(true)
+        await nextPaint()
+        await nextPaint()
+        latest.current.draw()
+        await nextPaint()
+        const element = contentRef.current
+        if (element === null) {
+          setDrawAll(false)
+          throw new Error('The canvas is not on show.')
+        }
+        return {
+          element,
+          width: element.offsetWidth,
+          height: element.offsetHeight,
+          release: () => setDrawAll(false),
+        }
+      },
+    }
+    return () => {
+      shareRef.current = null
+    }
+  }, [shareRef])
 
   const frameRef = useCallback((key: FlowNodeKey, element: HTMLElement | null) => watch(key, element), [watch])
   const mountRef = useCallback((key: FlowNodeKey, element: HTMLDivElement | null) => {
@@ -1111,7 +1165,7 @@ export function CanvasView({
                       nodeByKey={nodeByKey}
                       selected={node.key === selectedKey}
                       dimmed={hovered !== undefined && hovered !== node.key && !touches(graph.edges, hovered, node.key)}
-                      mounted={readable && drawn.has(box.key)}
+                      mounted={drawAll || (readable && drawn.has(box.key))}
                       showHotspots={showHotspots}
                       notes={notes}
                       openComments={openComments}

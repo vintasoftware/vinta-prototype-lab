@@ -5,6 +5,8 @@ export const NAME_ELEMENT_ENDPOINT = '/__name-element'
 export const CANVAS_ENDPOINT = '/__canvas'
 /** Where the dev server answers with the JSX an element was written as, for the Dev tab's snippet. */
 export const SNIPPET_ENDPOINT = '/__source-snippet'
+/** Where the dev server takes a shared view and uploads it to the team's bucket. */
+export const SHARE_ENDPOINT = '/__share'
 
 /** DOM attribute carrying where in a screen file the element was written. */
 export const SOURCE_ATTRIBUTE = 'data-proto-src'

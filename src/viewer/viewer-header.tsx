@@ -13,6 +13,7 @@ import {
   RotateCcw,
   SquareDashedMousePointer,
 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { ViewToggle, ViewToggles } from '../hooks/use-view-toggles'
 import { VIEWPORT_LABEL } from '../lib/constants'
 import type { Prototype, PrototypeVersion, ScreenViewport } from '../types'
@@ -60,6 +61,8 @@ export interface ViewerHeaderProps {
   /** The guided tour player's address. The Tours link shows only when the project has built one. */
   playerHref?: string
   onVersionChange?: (version: string | undefined) => void
+  /** The Share button, beside Present. */
+  share?: ReactNode
 }
 
 /** A button's text, dropped on a window too narrow for it; the icon and tooltip stay. */
@@ -85,6 +88,7 @@ export function ViewerHeader({
   version,
   onVersionChange = () => {},
   playerHref,
+  share,
 }: ViewerHeaderProps) {
   return (
     // One row always: a narrower window drops the labels first, then the title and the size fields,
@@ -152,6 +156,8 @@ export function ViewerHeader({
             </a>
           </Button>
         )}
+
+        {share}
 
         {onPresent !== undefined && (
           <Button

@@ -44,15 +44,26 @@ import { type FlowNodeKey, flowNodeKey, type ScreenLinks } from '../lib/flow-gra
 import { boxModel, measureBetween } from '../lib/measure'
 import { type PresentMode, presentModeIn, writePresenting } from '../lib/present-param'
 import { SOURCE_ATTRIBUTE, suggestAnchorId } from '../lib/source-ref'
+import { nextPaint } from '../lib/static-snapshot'
 import { findStorybookLink, type StorybookOptions } from '../lib/storybook-links'
 import { linkToastText, listedIn, outOfVersion, statesForVersion } from '../lib/version'
 import type { Annotation, CanvasFile, Prototype, ScreenViewport } from '../types'
 import { cn } from '../ui'
-import { CanvasView } from './canvas/canvas-view'
+import { type CanvasShareHandle, CanvasView } from './canvas/canvas-view'
 import { type CommentDraft, chosenName } from './comment-composer'
 import { DevPanel } from './dev-panel'
 import { EmptyLab } from './empty-lab'
 import { PresentingStage } from './presenting-stage'
+import {
+  type CapturedShare,
+  type CommentGroup,
+  captureShare,
+  downloadShare,
+  type ShareStatus,
+  type ShareView,
+  uploadShare,
+} from './share'
+import { ShareButton } from './share-button'
 import { type PanelTab, SidePanel } from './side-panel'
 import { SlidePanel } from './slide-panel'
 import { VersionPlaceholder, ViewerToast } from './version-notices'
@@ -70,6 +81,8 @@ export interface PrototypeLabAppProps {
   viewportSwitcher?: boolean
   /** The guided tour player's address. The header links to it only when it is given. */
   player?: string
+  /** Whether the dev server can upload shares. Left out of a built copy, which can only download them. */
+  share?: ShareStatus
 }
 
 const AUTHOR_KEY = 'prototype-lab.author'
@@ -95,6 +108,7 @@ export function PrototypeLabApp({
   storybook: storybookOptions,
   viewportSwitcher = true,
   player,
+  share: shareStatus,
 }: PrototypeLabAppProps) {
   const [prototypes, setPrototypes] = useState(loaded)
   const session = usePrototypeSession(prototypes)
@@ -245,6 +259,21 @@ export function PrototypeLabApp({
       number: index + 1,
     }))
   }, [prototype, state.current.screenId])
+
+  // The canvas's comments, screen by screen, numbered as its pins are.
+  const canvasComments: CommentGroup[] = useMemo(() => {
+    if (prototype === undefined) {
+      return []
+    }
+    return distinctScreens(prototype).map(candidate => ({
+      title: candidate.title,
+      notes: annotationsForScreen(prototype.annotations, candidate.id).map((note, index) => ({
+        ...note,
+        number: index + 1,
+      })),
+    }))
+  }, [prototype])
+  const canvasShareRef = useRef<CanvasShareHandle | null>(null)
 
   const noteCountByScreen = useMemo(() => {
     const counts = new Map<string, number>()
@@ -624,6 +653,73 @@ export function PrototypeLabApp({
       )}
     </>
   )
+  // What the Share button captures: the screen on the stage, or every frame of the canvas.
+  // Named as the tree names it, "Button #book-follow-up", so the share says which button.
+  const pickedLabel =
+    selectedPath === undefined
+      ? undefined
+      : pickedNode === undefined
+        ? selectedPath
+        : `${pickedNode.label}${pickedNode.anchorId === undefined ? '' : ` #${pickedNode.anchorId}`}`
+  const shareView: ShareView | undefined = toggles.canvas
+    ? {
+        kind: 'canvas',
+        subject: 'Canvas',
+        ...(pickedLabel === undefined ? {} : { component: pickedLabel }),
+        comments: canvasComments,
+        previewElement: () => canvasShareRef.current?.viewport() ?? null,
+        capture: () => {
+          const canvas = canvasShareRef.current
+          if (canvas === null) {
+            return Promise.reject(new Error('The canvas is not on show.'))
+          }
+          return canvas.capture()
+        },
+      }
+    : screen === undefined || screenMissing !== undefined
+      ? undefined
+      : {
+          kind: 'screen',
+          subject: screen.variant === DEFAULT_VARIANT ? screen.title : `${screen.title} · ${screen.variantLabel}`,
+          ...(pickedLabel === undefined ? {} : { component: pickedLabel }),
+          comments: [{ notes }],
+          previewElement: () => frameRef.current,
+          capture: async () => {
+            const frame = frameRef.current
+            if (frame === null) {
+              throw new Error('There is no screen on show.')
+            }
+            return { element: frame, width: frame.offsetWidth, height: frame.offsetHeight }
+          },
+        }
+  // A share always carries its comments' pins, so they are drawn for it if they are hidden.
+  const captureView = async (view: ShareView): Promise<CapturedShare> => {
+    const showPins = !toggles.notes
+    if (showPins) {
+      setToggle('notes', true)
+      await nextPaint()
+      await nextPaint()
+    }
+    try {
+      return await captureShare(prototype, view)
+    } finally {
+      if (showPins) {
+        setToggle('notes', false)
+      }
+    }
+  }
+  const shareButton =
+    shareView === undefined ? undefined : (
+      <ShareButton
+        subject={shareView.subject}
+        {...(shareView.component === undefined ? {} : { component: shareView.component })}
+        commentCount={shareView.comments.reduce((count, group) => count + group.notes.length, 0)}
+        {...(shareStatus === undefined || !canEditAnnotations() ? {} : { status: shareStatus })}
+        onUpload={async () => uploadShare(prototype.slug, await captureView(shareView))}
+        onDownload={async () => downloadShare(prototype.slug, await captureView(shareView))}
+      />
+    )
+
   const pickedStory =
     pickedNode?.kind === 'component' ? findStorybookLink(storybook.links, pickedNode.label) : undefined
   const devPanel = (
@@ -714,6 +810,7 @@ export function PrototypeLabApp({
           {...(state.version === undefined ? {} : { version: state.version })}
           onVersionChange={session.pickVersion}
           {...(player === undefined ? {} : { playerHref: player })}
+          share={shareButton}
         />
 
         <div className='flex min-h-0 flex-1'>
@@ -803,6 +900,7 @@ export function PrototypeLabApp({
                 inspecting={toggles.inspect}
                 onInspectRoot={onInspectRoot}
                 inspectOverlay={inspectOverlay}
+                shareRef={canvasShareRef}
               />
             ) : screen === undefined ? (
               <p className='mx-auto self-center text-muted-foreground text-sm'>

@@ -83,6 +83,7 @@ export default defineConfig({
 | `react`     | `true`           | Adds `@vitejs/plugin-react`. Pass `false` when the config already adds it.                |
 | `tailwind`  | `true`           | Adds `@tailwindcss/vite`. Pass `false` when the config already adds it.                   |
 | `player`    | `{}`             | The [tour player](#guided-tours-the-player)'s home page text and file name.               |
+| `share`     | `{}`             | The bucket the [Share button](#sharing-a-static-copy) uploads to. `false` keeps uploads out of the viewer. |
 
 The plugin works in any Vite config, not only this file — `prototype-lab.config.ts` exists so the
 viewer stays out of the project's own app config.
@@ -526,6 +527,71 @@ The home page's words come from the `player` option: `client`, `eyebrow`, `headl
 ```ts
 prototypeLab({ player: { client: 'Acme Health', fileName: 'acme-tours.html' } })
 ```
+
+## Sharing a static copy
+
+**Share** in the header turns what is on show into one static HTML page that anyone can open without
+running Prototype Lab: the screen on the stage (or, with the canvas open, every frame of the canvas
+with its arrows), the comment pins and the comment list, the prototype's documentation, and the
+picked component outlined when one is picked. A canvas page pans and zooms like the canvas. The
+page's header has a **Comments** toggle, which hides the pins and the comment list, and a
+**Sidebar** toggle, which hides the documentation and comments panel. **Open in Prototype Lab**
+links to the view on the dev server it was shared from (a `localhost` address), so a teammate who
+runs the project can open it live.
+
+- **Download HTML** saves the page as one file, to send by hand. It works without any setup, in a
+  `build` copy too.
+- **Upload and get a link** sends the page to the team's S3-compatible bucket and answers with a
+  public link. The link unfurls in Slack, ClickUp, Asana and the like with a title, a description and
+  a 1200 × 630 preview image, from the page's Open Graph tags.
+
+Anyone with the link can open the page, so share prototypes with made-up data only, never real
+patient or customer records. Each share goes to a folder with a random, unguessable name, and the
+page asks search engines not to index it.
+
+### Setting up the bucket
+
+The upload goes through the dev server, which signs it with the keys on each person's machine; the
+keys never reach the page. Give everyone on the team a key pair limited to `s3:PutObject` on the
+shares prefix, and put it in `.env.local` beside the config (check that git ignores it):
+
+```sh
+# .env.local
+PROTOTYPE_LAB_S3_BUCKET=acme-prototype-shares
+PROTOTYPE_LAB_S3_ACCESS_KEY_ID=AKIA…
+PROTOTYPE_LAB_S3_SECRET_ACCESS_KEY=…
+```
+
+Restart `prototype-lab dev` after changing it. Without these, Share offers the download only and says
+what is missing. The standard `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` and
+`AWS_REGION` work too.
+
+The bucket's name and the rest can also go in the config, which is committed; the keys cannot. The
+environment wins where both are set.
+
+| Option           | Variable                            | Default            | Meaning                                                                |
+| ---------------- | ----------------------------------- | ------------------ | ---------------------------------------------------------------------- |
+| `bucket`         | `PROTOTYPE_LAB_S3_BUCKET`           | —                  | The bucket.                                                            |
+| `region`         | `PROTOTYPE_LAB_S3_REGION`           | `us-east-1`        | Its region. Cloudflare R2 takes `auto`.                                |
+| `endpoint`       | `PROTOTYPE_LAB_S3_ENDPOINT`         | AWS                | An S3-compatible service's address, e.g. `https://<account>.r2.cloudflarestorage.com`. |
+| `publicUrl`      | `PROTOTYPE_LAB_S3_PUBLIC_URL`       | the bucket's own   | Where the public reads shares: a CDN, or an R2 public domain.          |
+| `prefix`         | `PROTOTYPE_LAB_S3_PREFIX`           | `prototype-lab`    | The folder in the bucket shares go in.                                 |
+| `forcePathStyle` | `PROTOTYPE_LAB_S3_FORCE_PATH_STYLE` | on with `endpoint` | `https://host/bucket/key` rather than `https://bucket.host/key`.       |
+| `acl`            | `PROTOTYPE_LAB_S3_ACL`              | none               | A canned ACL for each object, such as `public-read`.                   |
+
+```ts
+prototypeLab({ share: { bucket: 'acme-prototype-shares', region: 'sa-east-1' } })
+```
+
+The pages have to be readable by the public. On AWS, either turn off "Block public access" for the
+bucket and add a policy that allows `s3:GetObject` on `arn:aws:s3:::<bucket>/prototype-lab/*` only,
+or serve the prefix through CloudFront and set `publicUrl`. Keep the bucket for shares alone, so
+nothing else in it becomes public. Ask your project lead before making a bucket public on a project
+with compliance requirements.
+
+What a static copy cannot carry: anything that needs the dev server (writing comments, naming
+elements), live clicks between screens, and images or fonts from another origin that refuses to be
+read. Images and fonts served by the dev server are embedded in the page.
 
 ## Using the viewer
 

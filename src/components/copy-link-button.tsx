@@ -1,5 +1,6 @@
 import { Check, Link2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { SHARE_OMIT_ATTRIBUTE } from '../lib/static-snapshot'
 import { cn } from '../ui'
 
 export interface CopyLinkButtonProps {
@@ -28,6 +29,7 @@ export function CopyLinkButton({ picked, className }: CopyLinkButtonProps) {
   return (
     <button
       type='button'
+      {...{ [SHARE_OMIT_ATTRIBUTE]: '' }}
       aria-label={`Copy a link to ${picked}`}
       title={copied ? 'Link copied' : `Copy a link to ${picked}`}
       onClick={() => {
